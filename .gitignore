@@ -1,3 +1,6 @@
+# keep you privates safe
+*.private
+
 # Logs
 logs
 *.log
