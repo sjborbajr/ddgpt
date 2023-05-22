@@ -1,1 +1,1 @@
-# ddgpt
+# RPG game using OpenAI
