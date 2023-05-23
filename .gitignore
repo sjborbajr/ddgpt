@@ -1,5 +1,9 @@
 # keep you privates safe
 *.private
+package.json
+package-lock.json
+gameStatePrivate.json
+gameStatePublic.json
 
 # Logs
 logs
