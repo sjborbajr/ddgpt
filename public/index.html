@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>DDGPT</title>
+</head>
+<body>
+  <h1>DDGPT</h1>
+  <form id="name-form">
+    <label for="player-name">Enter your name:</label>
+    <input type="text" id="player-name" />
+    <button type="submit">Submit</button>
+  </form>
+  <canvas id="canvas" width="600" height="310">></canvas>
+  <div id="scores">Player Score: 0 | Dealer Score: 0</div>
+  <div class="item">
+    <button id="hit" disabled>Hit</button>
+    <button id="stand" disabled>Stand</button>
+    <button id="deal" disabled>Deal</button>
+    <button id="show_deck" disabled>Show Deck</button>
+    <input type="checkbox" id="playing" checked>Playing?</input>
+  </div> 
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/client.js"></script>
+</body>
+</html>
