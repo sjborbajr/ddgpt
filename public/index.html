@@ -9,11 +9,66 @@
     <label for="player-name">Enter your name:</label>
     <input type="text" id="player-name" />
     <button type="submit">Submit</button>
-  </form>
-  <canvas id="canvas" width="600" height="310">></canvas>
-  <div id="scores">Player Score: 0 | Dealer Score: 0</div>
+  </form><br/>
   <div class="item">
-    <button id="hit" disabled>Hit</button>
+    <input type="checkbox" id="system-message0-ck" checked />
+    <label for="system-message0">system-message0:</label>
+    <textarea id="system-message0" oninput="autoResize(this)" cols="80"></textarea>
+  </div> 
+  <div class="item">
+    <input type="checkbox" id="system-message1-ck" checked />
+    <label for="system-message1">system-message1:</label>
+    <textarea id="system-message1" oninput="autoResize(this)" cols="80"></textarea>
+  </div> 
+  <div class="item">
+    <input type="checkbox" id="system-message2-ck" checked />
+    <label for="system-message2">system-message2:</label>
+    <textarea id="system-message2" oninput="autoResize(this)" cols="80"></textarea>
+  </div> 
+  <div class="item">
+    <input type="checkbox" id="system-message3-ck" checked />
+    <label for="system-message3">system-message3:</label>
+    <textarea id="system-message3" oninput="autoResize(this)" cols="80"></textarea>
+  </div> 
+  <div class="item">
+    <input type="checkbox" id="system-message4-ck" checked />
+    <label for="system-message4">system-message4:</label>
+    <textarea id="system-message4" oninput="autoResize(this)" cols="80"></textarea>
+  </div> 
+  <div class="item">
+    <input type="checkbox" id="system-message5-ck" checked />
+    <label for="system-message5">system-message5:</label>
+    <textarea id="system-message5" oninput="autoResize(this)" cols="80"></textarea>
+  </div><br/>
+
+  <div class="item">
+    <label for="history">history:</label>
+    <textarea id="history" oninput="autoResize(this)" cols="80"></textarea>
+  </div><br/>
+
+  <div class="item">
+    <input type="radio" name="message1-radio" value="user">User</input>
+    <input type="radio" name="message1-radio" value="assistant">Assistant</input>
+    <textarea id="message1" oninput="autoResize(this)" cols="80"></textarea>
+  </div> 
+  <div class="item">
+    <input type="radio" name="message2-radio" value="user">User</input>
+    <input type="radio" name="message2-radio" value="assistant">Assistant</input>
+    <textarea id="message2" oninput="autoResize(this)" cols="80"></textarea>
+  </div> 
+  <div class="item">
+    <input type="radio" name="message3-radio" value="user">User</input>
+    <input type="radio" name="message3-radio" value="assistant">Assistant</input>
+    <textarea id="message3" oninput="autoResize(this)" cols="80"></textarea>
+  </div> 
+  <div class="item">
+    <input type="radio" name="message4-radio" value="user">User</input>
+    <input type="radio" name="message4-radio" value="assistant">Assistant</input>
+    <textarea id="message4" oninput="autoResize(this)" cols="80"></textarea>
+  </div><br/>
+
+  <div class="item">
+    <button id="save" >Save</button>
     <button id="stand" disabled>Stand</button>
     <button id="deal" disabled>Deal</button>
     <button id="show_deck" disabled>Show Deck</button>
