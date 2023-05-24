@@ -30,54 +30,63 @@ for (let playerID in gameStatePublic.players) {
 
 io.on('connection', (socket) => {
   // Get the user id from handshake
-  const userId = socket.handshake.auth.playerName;
-  console.log('User connected: '+userId);
-  if ( !(gameStatePublic.players[userId])) {
-    addPlayer(userId);
+  const playerName = socket.handshake.auth.playerName;
+  console.log('User connected: '+playerName);
+  if ( !(gameStatePublic.players[playerName])) {
+    addPlayer(playerName);
   }
-  gameStatePublic.players[userId].connected = true;
+  gameStatePublic.players[playerName].connected = true;
   // Send current game state to the player
-  sendState(socket)
-  gameStatePublic.players[userId].turnTimeout = setTimeout(() => { handleInactivity(socket,userId); }, ( 30 * 1000 ));
+  sendState(socket,playerName)
+  //gameStatePublic.players[playerName].turnTimeout = setTimeout(() => { handleInactivity(socket,playerName); }, ( 30 * 1000 ));
 
   // Log all recieved events/data
   socket.onAny((event, ...args) => {
     console.log(event, args);
   });
   
-  socket.on('hit', () => {
-    console.log('Player disconnected:', userId);
+  socket.on('save', data => {
+    console.log('Player '+playerName+' saved');
+    gameStatePublic.systemmessages = data;
+    io.emit('gameState', gameStatePublic)
+    saveState();
   });
+  socket.on("saveplaying", data => {
+    console.log("saveplaying for user:",playerName)
+    gameStatePublic.players[playerName].playing = data;
+    saveState();
+  })
   socket.on('disconnect', () => {
-    console.log('Player disconnected:', userId);
-    gameStatePublic.players[userId].connected = false;
+    console.log('Player disconnected:', playerName);
+    gameStatePublic.players[playerName].connected = false;
   });
 });
 function saveState() {
   fs.writeFileSync('gameStatePrivate.private', JSON.stringify(gameStatePrivate, null, 2));
   fs.writeFileSync('gameStatePublic.private', JSON.stringify(gameStatePublic, null, 2));
 }
-function sendState(socket) {
+function sendState(socket,playerName) {
   //send game state to everyone
+  console.log('send state to: '+playerName);
   socket.emit('gameState', gameStatePublic);
 }
-function handleInactivity(socket,userId) {
+function handleInactivity(socket,playerName) {
   clearTimeout(turnTimeout);
   turnTimeout = null;
   if (Object.values(gameStatePublic.players).filter((player) => player.connected).length > 1) {
-    console.log("Slap "+userId);
+    console.log("Slap "+playerName);
     
-    if (gameStatePublic.players[userId].connected){
-      socket.emit("slap",userId);
+    if (gameStatePublic.players[playerName].connected){
+      socket.emit("slap",playerName);
     }
     
     sendState(socket);
   }
 
 }
-function addPlayer(userId) {
-  console.log('adding user: '+userId)
-  gameStatePublic.players[userId] = {
+function addPlayer(playerName) {
+  console.log('adding user: '+playerName)
+  gameStatePublic.players[playerName] = {
     hand: [],
     score: 0,
     join_order: joincount++,
