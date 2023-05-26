@@ -85,11 +85,12 @@ if(1 == 1){
     }
   };
   console.log("systemMessage",systemMessage)
-  let assistantMessages = ["Let's Start the adventure."];
+  let assistantMessages = ["Let's Start the adventure.",'As you all gather at the local tavern, a hooded figure approaches your group. "I have a task for brave adventurers such as yourselves," the figure says, sliding a map towards the center of the table. "There have been reports of a goblin raiding party in the nearby woods. They have stolen a valuable artifact from our village and we need it back. Will you help us?"\nLarry examines the map and notices a few potential traps set around the goblin camp. "I can use my arcane focus to detect any magical traps," he offers.\nTrueBlade nods in agreement. "I can lead the charge with my sword and crossbow," he says confidently.\nBlu grins mischievously. "And I can make sure the goblins dont see us coming," she adds, twirling her short sword.\nEvan grunts in approval. "I will be ready to smash any goblin in sight," he declares, gripping his great axe tightly.\nDonny nods solemnly. "And I will be praying for our success," he says, holding his mace and holy symbol.\nSteve raises his tankard of grog. "To victory!" he exclaims, taking a swig.\nThe group sets off towards the woods, prepared for battle.'];
   //let systemMessage = 'You are a helpful assistant.';
   //let assistantMessages = ['What is the weather today?', 'Tell me a joke.'];
+  let UserMessage = 'Steve says: "Can I bring some grog?"';
 
-  openaiCall(systemMessage, assistantMessages)
+  openaiCall(systemMessage, assistantMessages,UserMessage)
   .then(response => {
     console.log('Generated response:', response);
     fs.writeFileSync('response.private', JSON.stringify(response, null, 2));
@@ -179,8 +180,8 @@ function addPlayer(playerName) {
   };
 }
 function CreateCharTable(){
-  let table = 'Name      ', attributes = ["Race","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
-  let attributesLen = [10,3,3,3,3,3,3,3,2,2,24,17,9,1,1], spaces = '                   ';
+  let table = 'Name      ', attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
+  let attributesLen = [10,6,3,3,3,3,3,3,3,2,2,24,17,9,1,1], spaces = '                   ';
   for (let i = 0 ; i < attributes.length; i++){
     table+='|'+attributes[i];
     if (attributes[i].length < attributesLen[i]){
@@ -211,13 +212,14 @@ function ServerEvery1Second() {
     //console.log("player count: "+PlayerCount);
   }
 }
-async function openaiCall(systemMessage, assistantMessages) {
+async function openaiCall(systemMessage, assistantMessages,UserMessage) {
   try {
     const response = await openai.createChatCompletion({
       model: gameStatePublic.settings.model,
       messages: [
         { role: 'system', content: systemMessage },
-        ...assistantMessages.map(message => ({ role: 'assistant', content: message }))
+        ...assistantMessages.map(message => ({ role: 'assistant', content: message })),
+        { role: 'user', content: UserMessage}
       ],
       temperature: gameStatePublic.settings.temperature,
       max_tokens: gameStatePublic.settings.maxTokens
