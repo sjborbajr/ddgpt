@@ -1,8 +1,48 @@
 // Import required modules
-const express = require('express'), http = require('http'), socketIO = require('socket.io'), fs = require('fs'), path = require('path');
-//RateLimit = require('express-rate-limit'), 
+import { Configuration, OpenAIApi } from "openai";
+//const express = require('express'), http = require('http'), socketIO = require('socket.io'), fs = require('fs'), path = require('path'), openai = require('openai');
+import express from 'express';
+import http from 'http';
+import { Server as SocketIO } from 'socket.io';
+import fs from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+import { MongoClient } from 'mongodb';
+
+//import { createRequire } from 'module';
+//const require = createRequire(import.meta.url);
+
+
+//RateLimit = require('express-rate-limit'),
 // Set up the server
-const app = express(), server = http.createServer(app), io = socketIO(server);
+const app = express(), server = http.createServer(app);
+const io = new SocketIO(server);
+
+const mongoUri = "mongodb://localhost/test?retryWrites=true";
+const client = new MongoClient(mongoUri);
+//try {
+  await client.connect();
+  console.log('Connected to MongoDB');
+
+  const database = client.db('ddgpt');
+  const gameStatePrivateCollection = database.collection('gameStatePrivate');
+  const gameStatePublicCollection = database.collection('gameStatePublic');
+  const responseCollection = database.collection('responses');
+
+  // Load game state from the collections
+  //const gameStatePrivate = await gameStatePrivateCollection.findOne();
+  //const gameStatePublic = await gameStatePublicCollection.findOne();
+
+  // ...
+
+//} catch (e) {
+//  console.error(e);
+//}
+
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 let joincount = 0, turnTimeout = null;//, limiter = RateLimit({windowMs: 500,max: 25});
 
 // Start the server
@@ -14,11 +54,11 @@ server.listen(port, () => {
 // apply rate limiter to all requests
 //app.use(limiter);
 //serv from the public folder
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(join(__dirname, 'public')));
 //client.js is in root dir with server.js
-app.get('/client.js', (req, res) => { res.set('Content-Type', 'text/javascript'); res.sendFile(path.join(__dirname, 'client.js')); });
+app.get('/client.js', (req, res) => { res.set('Content-Type', 'text/javascript'); res.sendFile(join(__dirname, 'client.js')); });
 //send public/index.html if no specific file is requested
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/', (req, res) => res.sendFile(join(__dirname, 'index.html')));
 
 const gameStatePrivate = JSON.parse(fs.readFileSync('gameStatePrivate.private'));
 const gameStatePublic = JSON.parse(fs.readFileSync('gameStatePublic.private'));
@@ -26,6 +66,37 @@ setInterval(ServerEvery1Second, (1*1000));
 
 for (let playerID in gameStatePublic.players) {
   gameStatePublic.players[playerID].connected = false;
+}
+
+//const configuration = {organization: gameStatePrivate.organization,apiKey: gameStatePrivate.apiKey};
+const configuration = new Configuration({
+  apiKey: gameStatePrivate.apiKey,
+});
+const openai = new OpenAIApi(configuration);
+
+gameStatePublic.systemmessages[2].value = CreateCharTable();
+
+if(1 == 1){
+  let systemMessage = ""
+  for (let i = 0 ; i < gameStatePublic.systemmessages.length; i++){
+    console.log(i,gameStatePublic.systemmessages[i].checked);
+    if (gameStatePublic.systemmessages[i].checked){
+      systemMessage+=gameStatePublic.systemmessages[i].value+'\n'
+    }
+  };
+  console.log("systemMessage",systemMessage)
+  let assistantMessages = ["Let's Start the adventure."];
+  //let systemMessage = 'You are a helpful assistant.';
+  //let assistantMessages = ['What is the weather today?', 'Tell me a joke.'];
+
+  openaiCall(systemMessage, assistantMessages)
+  .then(response => {
+    console.log('Generated response:', response);
+    // Do something with the generated response
+  })
+  .catch(error => {
+    // Handle error
+  });
 }
 
 io.on('connection', (socket) => {
@@ -61,9 +132,19 @@ io.on('connection', (socket) => {
     gameStatePublic.players[playerName].connected = false;
   });
 });
-function saveState() {
+async function saveState() {
   fs.writeFileSync('gameStatePrivate.private', JSON.stringify(gameStatePrivate, null, 2));
   fs.writeFileSync('gameStatePublic.private', JSON.stringify(gameStatePublic, null, 2));
+  try {
+    // Update the game state documents in the collections
+    await gameStatePrivateCollection.updateOne({}, { $set: gameStatePrivate });
+    await gameStatePublicCollection.updateOne({}, { $set: gameStatePublic });
+
+    console.log('Game state saved to MongoDB');
+
+  } catch (error) {
+    console.error('Error saving game state to MongoDB:', error);
+  }
 }
 function sendState(socket,playerName) {
   //send game state to everyone
@@ -96,11 +177,63 @@ function addPlayer(playerName) {
     winner: null,
   };
 }
+function CreateCharTable(){
+  let table = 'Name      ', attributes = ["Race","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
+  let attributesLen = [10,3,3,3,3,3,3,3,2,2,24,17,9,1,1], spaces = '                   ';
+  for (let i = 0 ; i < attributes.length; i++){
+    table+='|'+attributes[i];
+    if (attributes[i].length < attributesLen[i]){
+      table+=spaces.substring(0,attributesLen[i]-attributes[i].length);
+    };
+  };
+  table+=' or Abilities'
+  for (let name in gameStatePublic.players) {
+    let CharData = gameStatePublic.players[name];
+    table+='\n'+name;
+    if (name.length < 10){
+      table+=spaces.substring(0,10-name.length);
+    }
+    for (let i = 0 ; i < attributes.length; i++){
+      table+='|'+CharData[attributes[i]];
+      if ((''+CharData[attributes[i]]).length < attributesLen[i]){
+        table+=spaces.substring(0,attributesLen[i]-(''+CharData[attributes[i]]).length)
+      }
+    };
+  };
+  return table;
+}
 function ServerEvery1Second() {
   if (!gameStatePublic.gameover) {
     //let CurrentPlayer = getCurrentPlayer();
     //console.log("current player: "+CurrentPlayer);
     //let PlayerCount = Object.values(gameStatePublic.players).filter((player) => player.playing).length;
     //console.log("player count: "+PlayerCount);
+  }
+}
+async function openaiCall(systemMessage, assistantMessages) {
+  try {
+    const response = await openai.createChatCompletion({
+      model: gameStatePublic.settings.model,
+      messages: [
+        { role: 'system', content: systemMessage },
+        ...assistantMessages.map(message => ({ role: 'assistant', content: message }))
+      ],
+      temperature: gameStatePublic.settings.temperature,
+      max_tokens: gameStatePublic.settings.maxTokens
+    });
+    fs.writeFileSync('response.private', JSON.stringify(response, null, 2));
+    try {
+      await responseCollection.insertOne({}, response);
+    } catch (error) {
+      console.error('Error saving response to MongoDB:', error);
+    }
+    // Extract the generated response from the API
+    //console.log("original response",response);
+    const generatedResponse = response.data;
+
+    return generatedResponse;
+  } catch (error) {
+    console.error('Error generating response from OpenAI:', error);
+    throw error;
   }
 }
