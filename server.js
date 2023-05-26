@@ -136,13 +136,13 @@ io.on('connection', (socket) => {
 async function saveState() {
   fs.writeFileSync('gameStatePrivate.private', JSON.stringify(gameStatePrivate, null, 2));
   fs.writeFileSync('gameStatePublic.private', JSON.stringify(gameStatePublic, null, 2));
+  
   try {
     // Update the game state documents in the collections
-    await gameStatePrivateCollection.updateOne({}, { $set: gameStatePrivate });
-    await gameStatePublicCollection.updateOne({}, { $set: gameStatePublic });
+    await gameStatePrivateCollection.updateOne({}, { $set: gameStatePrivate }, { upsert: true });
+    await gameStatePublicCollection.updateOne({}, { $set: gameStatePublic }, { upsert: true });
 
     console.log('Game state saved to MongoDB');
-
   } catch (error) {
     console.error('Error saving game state to MongoDB:', error);
   }
