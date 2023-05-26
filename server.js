@@ -8,7 +8,7 @@ import fs from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient } from 'mongodb';
-
+import { inspect } from 'util';
 //import { createRequire } from 'module';
 //const require = createRequire(import.meta.url);
 
@@ -92,6 +92,7 @@ if(1 == 1){
   openaiCall(systemMessage, assistantMessages)
   .then(response => {
     console.log('Generated response:', response);
+    fs.writeFileSync('response.private', JSON.stringify(response, null, 2));
     // Do something with the generated response
   })
   .catch(error => {
@@ -221,9 +222,10 @@ async function openaiCall(systemMessage, assistantMessages) {
       temperature: gameStatePublic.settings.temperature,
       max_tokens: gameStatePublic.settings.maxTokens
     });
-    fs.writeFileSync('response.private', JSON.stringify(response, null, 2));
+    const safeResponse = inspect(response, {depth: 5})
+    fs.writeFileSync('response2.private', safeResponse);
     try {
-      await responseCollection.insertOne({}, response);
+      await responseCollection.insertOne({}, safeResponse);
     } catch (error) {
       console.error('Error saving response to MongoDB:', error);
     }
