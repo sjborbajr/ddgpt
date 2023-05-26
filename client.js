@@ -33,22 +33,24 @@ socket.on('gameState', data => {
   console.log('got game state');
   systemmessage0.value = data.systemmessages[0].value;
   systemmessage0ck.checked = data.systemmessages[0].checked;
-  autoResize(systemmessage0)
+  autoResize(systemmessage0);
   systemmessage1.value = data.systemmessages[1].value;
   systemmessage1ck.checked = data.systemmessages[1].checked;
-  autoResize(systemmessage1)
+  autoResize(systemmessage1);
   systemmessage2.value = data.systemmessages[2].value;
+  systemmessage2.disabled = true;
   systemmessage2ck.checked = data.systemmessages[2].checked;
-  autoResize(systemmessage2)
+  systemmessage2ck.disabled = true;
+  autoResize(systemmessage2);
   systemmessage3.value = data.systemmessages[3].value;
   systemmessage3ck.checked = data.systemmessages[3].checked;
-  autoResize(systemmessage3)
+  autoResize(systemmessage3);
   systemmessage4.value = data.systemmessages[4].value;
   systemmessage4ck.checked = data.systemmessages[4].checked;
-  autoResize(systemmessage4)
+  autoResize(systemmessage4);
   systemmessage5.value = data.systemmessages[5].value;
   systemmessage5ck.checked = data.systemmessages[5].checked;
-  autoResize(systemmessage5)
+  autoResize(systemmessage5);
   playing.checked = data.players[playerName].playing;
 });
 socket.onAny((event, ...args) => {
@@ -79,5 +81,5 @@ function save() {
 }
 function saveplaying(){
   console.log('saveplaying');
-  socket.emit("saveplaying",playing.checked)
+  socket.emit("saveplaying",playing.checked);
 }
