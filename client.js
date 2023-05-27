@@ -52,6 +52,10 @@ socket.on('gameState', data => {
   systemmessage5ck.checked = data.systemmessages[5].checked;
   autoResize(systemmessage5);
   playing.checked = data.players[playerName].playing;
+
+  document.getElementById('temperature').value = data.settings.temperature;
+  document.getElementById('maxTokens').value = data.settings.maxTokens;
+  document.getElementById('model').value = data.settings.model;
 });
 socket.onAny((event, ...args) => {
   console.log(event, args);
@@ -71,13 +75,20 @@ function autoResize(textarea) {
 }
 function save() {
   console.log('save');
-  socket.emit("save",[{"value":systemmessage0.value,"checked":systemmessage0ck.checked},
-                      {"value":systemmessage1.value,"checked":systemmessage1ck.checked},
-                      {"value":systemmessage2.value,"checked":systemmessage2ck.checked},
-                      {"value":systemmessage3.value,"checked":systemmessage3ck.checked},
-                      {"value":systemmessage4.value,"checked":systemmessage4ck.checked},
-                      {"value":systemmessage5.value,"checked":systemmessage5ck.checked}
-                    ])
+  socket.emit("save",{"systemmessages":[
+                        {"value":systemmessage0.value,"checked":systemmessage0ck.checked},
+                        {"value":systemmessage1.value,"checked":systemmessage1ck.checked},
+                        {"value":systemmessage2.value,"checked":systemmessage2ck.checked},
+                        {"value":systemmessage3.value,"checked":systemmessage3ck.checked},
+                        {"value":systemmessage4.value,"checked":systemmessage4ck.checked},
+                        {"value":systemmessage5.value,"checked":systemmessage5ck.checked}
+                      ],"settings":{
+                        "temperature":document.getElementById('temperature').value,
+                        "maxTokens":document.getElementById('maxTokens').value,
+                        "model":document.getElementById('model').value
+                      }
+                     }
+              )
 }
 function saveplaying(){
   console.log('saveplaying');

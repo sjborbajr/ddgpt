@@ -1,7 +1,7 @@
 // Import required modules
 import { Configuration, OpenAIApi } from "openai";
 //const express = require('express'), http = require('http'), socketIO = require('socket.io'), fs = require('fs'), path = require('path'), openai = require('openai');
-import express from 'express';
+import express, { json } from 'express';
 import http from 'http';
 import { Server as SocketIO } from 'socket.io';
 import fs from 'fs';
@@ -9,16 +9,15 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient } from 'mongodb';
 import { inspect } from 'util';
+
 //import { createRequire } from 'module';
 //const require = createRequire(import.meta.url);
 
-
-//RateLimit = require('express-rate-limit'),
 // Set up the server
 const app = express(), server = http.createServer(app);
 const io = new SocketIO(server);
 
-const mongoUri = "mongodb://localhost/test?retryWrites=true";
+const mongoUri = "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri);
 //try {
   await client.connect();
@@ -31,8 +30,8 @@ const client = new MongoClient(mongoUri);
 
   // Load game state from the collections
   //const gameStatePrivate = await gameStatePrivateCollection.findOne();
-  //const gameStatePublic = await gameStatePublicCollection.findOne();
-
+  const gameStatePublic2 = await gameStatePublicCollection.findOne();
+  console.log("temperature",gameStatePublic2.settings.temperature);
   // ...
 
 //} catch (e) {
@@ -51,8 +50,6 @@ server.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
 
-// apply rate limiter to all requests
-//app.use(limiter);
 //serv from the public folder
 app.use(express.static(join(__dirname, 'public')));
 //client.js is in root dir with server.js
@@ -76,7 +73,24 @@ const openai = new OpenAIApi(configuration);
 
 gameStatePublic.systemmessages[2].value = CreateCharTable();
 
-if(1 == 1){
+if(1 == 2){
+  let response1 = JSON.parse(fs.readFileSync('202305250359.response2.private'));
+  let response2 = JSON.parse(fs.readFileSync('response2.private'));
+
+  console.log(response2.status);
+  try {
+    await responseCollection.insertOne(response1);
+  } catch (error) {
+    console.error('Error saving response to MongoDB:', error);
+  }
+  try {
+    await responseCollection.insertOne(response2);
+  } catch (error) {
+    console.error('Error saving response to MongoDB:', error);
+  }
+}
+
+if(1 == 2){
   let systemMessage = ""
   for (let i = 0 ; i < gameStatePublic.systemmessages.length; i++){
     console.log(i,gameStatePublic.systemmessages[i].checked);
@@ -115,12 +129,15 @@ io.on('connection', (socket) => {
 
   // Log all recieved events/data
   socket.onAny((event, ...args) => {
-    console.log(event, args);
+    if (event != 'save'){
+      console.log(event, args);
+    }
   });
   
   socket.on('save', data => {
     console.log('Player '+playerName+' saved');
-    gameStatePublic.systemmessages = data;
+    gameStatePublic.systemmessages = data.systemmessages;
+    gameStatePublic.settings = data.settings;
     io.emit('gameState', gameStatePublic)
     saveState();
   });
@@ -212,6 +229,28 @@ function ServerEvery1Second() {
     //console.log("player count: "+PlayerCount);
   }
 }
+function saveResponse(responseRaw){
+  let response = {
+                  status: responseRaw.status,
+                  statusText: responseRaw.statusText,
+                  headers: {
+                    date:responseRaw.headers.date,
+                    openaimodel:responseRaw.headers.openai-model,
+                    openaiprocessingms:responseRaw.headers.openai-processing-ms,
+                    openaiversion:responseRaw.headers.openai-version,
+                    xrequestid:responseRaw.headers.x-request-id,
+                  },
+                  request:responseRaw.config.data,
+                  url:responseRaw.config.url,
+                  data:responseRaw.data
+                 };
+  fs.writeFileSync('response3.private', response);
+  try {
+    responseCollection.insertOne(response);
+  } catch (error) {
+    console.error('Error saving response to MongoDB:', error);
+  }
+}
 async function openaiCall(systemMessage, assistantMessages,UserMessage) {
   try {
     const response = await openai.createChatCompletion({
@@ -224,8 +263,10 @@ async function openaiCall(systemMessage, assistantMessages,UserMessage) {
       temperature: gameStatePublic.settings.temperature,
       max_tokens: gameStatePublic.settings.maxTokens
     });
+
     const safeResponse = inspect(response, {depth: 5})
     fs.writeFileSync('response2.private', safeResponse);
+    saveResponse();
     try {
       await responseCollection.insertOne({}, safeResponse);
     } catch (error) {
@@ -240,4 +281,7 @@ async function openaiCall(systemMessage, assistantMessages,UserMessage) {
     console.error('Error generating response from OpenAI:', error);
     throw error;
   }
+}
+function getConfig(collection){
+
 }

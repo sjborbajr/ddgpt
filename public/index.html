@@ -5,6 +5,24 @@
 </head>
 <body>
   <h1>DDGPT</h1>
+  <div class="item">
+    <label for="temperature">Temperature:</label>
+    <input id="temperature"></input>
+    <label for="maxTokens">Max Tokens:</label>
+    <input id="maxTokens"></input>
+
+    <label for="model">Model:</label>
+    <select name="model" id="model">
+      <option value="gpt-4-32k">gpt-4-32k</option>
+      <option value="gpt-4">gpt-4</option>
+      <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+      <option value="text-davinci-003">text-davinci-003</option>
+      <option value="text-curie-001">text-curie-001</option>
+      <option value="text-babbage-001">text-babbage-001</option>
+      <option value="text-ada-001">text-ada-001</option>
+      <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
+    </select>
+  </div> 
   <form id="name-form">
     <label for="player-name">Enter your name:</label>
     <input type="text" id="player-name" />
@@ -45,7 +63,7 @@
     <label for="history">history:</label>
     <textarea id="history" oninput="autoResize(this)" cols="80"></textarea>
   </div><br/>
-
+  <!--
   <div class="item">
     <input type="radio" name="message1-radio" value="user">User</input>
     <input type="radio" name="message1-radio" value="assistant">Assistant</input>
@@ -66,7 +84,8 @@
     <input type="radio" name="message4-radio" value="assistant">Assistant</input>
     <textarea id="message4" oninput="autoResize(this)" cols="80"></textarea>
   </div><br/>
-
+  -->
+  
   <div class="item">
     <button id="save" >Save</button>
     <button id="stand" disabled>Stand</button>
