@@ -1,7 +1,6 @@
 // Import required modules
 import { Configuration, OpenAIApi } from "openai";
-//const express = require('express'), http = require('http'), socketIO = require('socket.io'), fs = require('fs'), path = require('path'), openai = require('openai');
-import express, { json } from 'express';
+import express, { response } from 'express';
 import http from 'http';
 import { Server as SocketIO } from 'socket.io';
 import fs from 'fs';
@@ -9,46 +8,39 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient } from 'mongodb';
 import { inspect } from 'util';
+import crypto from 'crypto';
+import { type } from "os";
 
 //import { createRequire } from 'module';
 //const require = createRequire(import.meta.url);
 
-// Set up the server
-const app = express(), server = http.createServer(app);
-const io = new SocketIO(server);
-
 const mongoUri = "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri);
-//try {
-  await client.connect();
-  console.log('Connected to MongoDB');
+await client.connect();
+console.log('Connected to MongoDB');
+const database = client.db('ddgpt');
+const gameStatePrivateCollection = database.collection('gameStatePrivate');
+const gameStatePublicCollection = database.collection('gameStatePublic');
+const responseCollection = database.collection('allResponses');
+const oldresponseCollection = database.collection('responses');
+// Load game state from the collections
+const gameStatePrivate = await gameStatePrivateCollection.findOne();
+const gameStatePublic = await gameStatePublicCollection.findOne();
 
-  const database = client.db('ddgpt');
-  const gameStatePrivateCollection = database.collection('gameStatePrivate');
-  const gameStatePublicCollection = database.collection('gameStatePublic');
-  const responseCollection = database.collection('responses');
+if (1 == 1){
+  let allraw = oldresponseCollection.find({});
+  for await (const responseRaw of allraw){
+    saveResponse(responseRaw);
+  }
+  process.exit();
+}
 
-  // Load game state from the collections
-  //const gameStatePrivate = await gameStatePrivateCollection.findOne();
-  const gameStatePublic2 = await gameStatePublicCollection.findOne();
-  console.log("temperature",gameStatePublic2.settings.temperature);
-  // ...
-
-//} catch (e) {
-//  console.error(e);
-//}
-
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-let joincount = 0, turnTimeout = null;//, limiter = RateLimit({windowMs: 500,max: 25});
+// Set up the server
+const app = express(), server = http.createServer(app), io = new SocketIO(server);
+const __filename = fileURLToPath(import.meta.url), __dirname = dirname(__filename);
 
 // Start the server
-const port = 9000;
-server.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
+server.listen(process.env.PORT || 9000);
 
 //serv from the public folder
 app.use(express.static(join(__dirname, 'public')));
@@ -57,8 +49,8 @@ app.get('/client.js', (req, res) => { res.set('Content-Type', 'text/javascript')
 //send public/index.html if no specific file is requested
 app.get('/', (req, res) => res.sendFile(join(__dirname, 'index.html')));
 
-const gameStatePrivate = JSON.parse(fs.readFileSync('gameStatePrivate.private'));
-const gameStatePublic = JSON.parse(fs.readFileSync('gameStatePublic.private'));
+//const gameStatePrivate = JSON.parse(fs.readFileSync('gameStatePrivate.private'));
+//const gameStatePublic = JSON.parse(fs.readFileSync('gameStatePublic.private'));
 setInterval(ServerEvery1Second, (1*1000));
 
 for (let playerID in gameStatePublic.players) {
@@ -116,9 +108,10 @@ if(1 == 2){
 }
 
 io.on('connection', (socket) => {
+  let clientip = req.headers['x-forwarded-for']  || req.socket.remoteAddress;
   // Get the user id from handshake
   const playerName = socket.handshake.auth.playerName;
-  console.log('User connected: '+playerName);
+  console.log('User connected: '+playerName+'\nFrom: '+clientip);
   if ( !(gameStatePublic.players[playerName])) {
     addPlayer(playerName);
   }
@@ -185,7 +178,9 @@ function handleInactivity(socket,playerName) {
 
 }
 function addPlayer(playerName) {
-  console.log('adding user: '+playerName)
+  console.log('adding user: '+playerName);
+  let nonce = crypto.randomBytes(64).toString('base64');
+
   gameStatePublic.players[playerName] = {
     hand: [],
     score: 0,
@@ -229,28 +224,33 @@ function ServerEvery1Second() {
     //console.log("player count: "+PlayerCount);
   }
 }
-function saveResponse(responseRaw){
+async function saveResponse(responseRaw){
   let response = {
-                  status: responseRaw.status,
-                  statusText: responseRaw.statusText,
-                  headers: {
-                    date:responseRaw.headers.date,
-                    openaimodel:responseRaw.headers.openai-model,
-                    openaiprocessingms:responseRaw.headers.openai-processing-ms,
-                    openaiversion:responseRaw.headers.openai-version,
-                    xrequestid:responseRaw.headers.x-request-id,
-                  },
-                  request:responseRaw.config.data,
-                  url:responseRaw.config.url,
-                  data:responseRaw.data
-                 };
-  fs.writeFileSync('response3.private', response);
+    "status": responseRaw.status,
+    "statusText": responseRaw.statusText,
+    "date":responseRaw.headers.date,
+    "duration":responseRaw['headers']['openai-processing-ms'],
+    "openaiversion":responseRaw.headers['openai-version'],
+    "xrequestid":responseRaw.headers['x-request-id'],
+    "request":responseRaw.config.data,
+    "url":responseRaw.config.url,
+    "notid":responseRaw.data.id,
+    "type":responseRaw.data.object,
+    "created":responseRaw.data.created,
+    "model":responseRaw.data.model,
+    "prompt_tokens":responseRaw.data.usage.prompt_tokens,
+    "completion_tokens":responseRaw.data.usage.completion_tokens,
+    "tokens":responseRaw.data.usage.total_tokens,
+    "response":responseRaw.data.choices[0].message.content,
+    "finish_reason":responseRaw.data.choices[0].finish_reason
+  };
+  //console.log(response);
   try {
-    responseCollection.insertOne(response);
+    await responseCollection.insertOne(response);
   } catch (error) {
     console.error('Error saving response to MongoDB:', error);
   }
-}
+};
 async function openaiCall(systemMessage, assistantMessages,UserMessage) {
   try {
     const response = await openai.createChatCompletion({
@@ -265,15 +265,10 @@ async function openaiCall(systemMessage, assistantMessages,UserMessage) {
     });
 
     const safeResponse = inspect(response, {depth: 5})
-    fs.writeFileSync('response2.private', safeResponse);
-    saveResponse();
-    try {
-      await responseCollection.insertOne({}, safeResponse);
-    } catch (error) {
-      console.error('Error saving response to MongoDB:', error);
-    }
+    fs.writeFileSync('response.'+safeResponse.data.created+'.private', safeResponse);
+    saveResponse(response);
+
     // Extract the generated response from the API
-    //console.log("original response",response);
     const generatedResponse = response.data;
 
     return generatedResponse;
