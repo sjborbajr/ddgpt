@@ -15,13 +15,9 @@ const client = new MongoClient(mongoUri,{ forceServerObjectId: true });
 await client.connect();
 console.log('Connected to MongoDB');
 const database = client.db('ddgpt');
-const gameStatePrivateCollection = database.collection('gameStatePrivate');
-const gameStatePublicCollection = database.collection('gameStatePublic');
+const settingsCollection = database.collection('settings');
 const gameDataCollection = database.collection('gameData');
 const responseCollection = database.collection('allResponses');
-// Load game state from the collections
-const gameStatePrivate = await gameStatePrivateCollection.findOne();
-const gameStatePublic = await gameStatePublicCollection.findOne();
 
 // Set up the server
 const app = express(), server = http.createServer(app), io = new SocketIO(server);
@@ -37,33 +33,48 @@ app.get('/client.js', (req, res) => { res.set('Content-Type', 'text/javascript')
 //send public/index.html if no specific file is requested
 app.get('/', (req, res) => res.sendFile(join(__dirname, 'index.html')));
 
-for (let playerID in gameStatePublic.players) {
-  gameStatePublic.players[playerID].connected = false;
-}
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
+//update all players to disconnected
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
 
-const configuration = new Configuration({
-  apiKey: gameStatePrivate.apiKey,
-});
-const openai = new OpenAIApi(configuration);
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
+//const openai = new OpenAIApi(new Configuration({apiKey: gameStatePrivate.apiKey}));
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   // Get the user id, auth token and IP from handshake
-  const playerName = socket.handshake.auth.playerName, clientip = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address, authnonce = socket.handshake.auth.nonce;
-  console.log('User connected: '+playerName+'\nFrom: '+clientip);
+  const playerName = socket.handshake.auth.playerName || '', clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address, authNonce = socket.handshake.auth.authNonce || '';
+  console.log('User connected: '+playerName+'\nFrom: '+clientIp);
 
-  let playerData = fetchPlayerData(playerName) 
-  if ( playerData.name == playerName && playerData.authnonce == authnonce) {
-    console.log('player had his nonce');
-    //addPlayer(playerName);
-  } else if (playerData.authnonce != authnonce && playerData.ipList.includes(clientip)) {
-    console.log('give '+playerName+' his nonce')
+  let playerData = await fetchPlayerData(playerName) 
+  if ( playerData ) {
+    //Valid Player, let make sure it is really them
+    if (playerData.name == playerName && playerData.authNonce == authNonce && authNonce != '') {
+      console.log('player had his nonce');
+      //update database of new logon, should I add IP? - what if mobile or at friend?
+    } else if (playerData.authNonce != authNonce && playerData.name == playerName && playerData.ipList.includes(clientIp)) {
+      console.log('give '+playerName+' his nonce');
+      socket.emit('nonce',playerData.authNonce);
+    } else {
+      // not you, disconnect
+      socket.emit("error","user not authenticated");
+      socket.disconnect();
+      console.log('player '+playerName+' did not have his nonce and did not have his IP - Kicked');
+    }
   } else {
     console.log("add player "+playerName);
+    addPlayer(playerName,socket,clientIp);
   }
-  console.log(playerData);
-  gameStatePublic.players[playerName].connected = true;
+
+  //gameStatePublic.players[playerName].connected = true;
+
   // Send current game state to the player
-  sendState(socket,playerName)
+  //sendState(socket,playerName)
+
+  //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
+  // what do I do for a connected player?
+
+
   //gameStatePublic.players[playerName].turnTimeout = setTimeout(() => { handleInactivity(socket,playerName); }, ( 30 * 1000 ));
   
   // Log all recieved events/data
@@ -72,54 +83,34 @@ io.on('connection', (socket) => {
       console.log(event, args);
     }
   });
-  
   socket.on('save', data => {
     console.log('Player '+playerName+' saved');
-    gameStatePublic.systemmessages = data.systemmessages;
-    gameStatePublic.settings = data.settings;
-    io.emit('gameState', gameStatePublic)
+    //gameStatePublic.systemmessages = data.systemmessages;
+    //gameStatePublic.settings = data.settings;
+    //io.emit('gameState', gameStatePublic)
     saveState();
   });
   socket.on("saveplaying", data => {
     console.log("saveplaying for user:",playerName)
-    gameStatePublic.players[playerName].playing = data;
+    //gameStatePublic.players[playerName].playing = data;
     saveState();
   })
   socket.on('disconnect', () => {
     console.log('Player disconnected:', playerName);
-    gameStatePublic.players[playerName].connected = false;
+    //gameStatePublic.players[playerName].connected = false;
   });
 });
-async function saveState() {
-  fs.writeFileSync('gameStatePrivate.private', JSON.stringify(gameStatePrivate, null, 2));
-  fs.writeFileSync('gameStatePublic.private', JSON.stringify(gameStatePublic, null, 2));
-  
-  try {
-    // Update the game state documents in the collections
-    await gameStatePrivateCollection.updateOne({}, { $set: gameStatePrivate }, { upsert: true });
-    await gameStatePublicCollection.updateOne({}, { $set: gameStatePublic }, { upsert: true });
-
-    console.log('Game state saved to MongoDB');
-  } catch (error) {
-    console.error('Error saving game state to MongoDB:', error);
-  }
-}
 async function fetchPlayerData(playerName) {
   let findFilter = {name:playerName,type:'player'}, playerData = ''
   try {
-    playerData = await gameDataCollection.find(findFilter).toArray();
+    playerData = await gameDataCollection.findOne(findFilter);
     return playerData;
   } catch (error) {
     console.error(error);
     throw error;
   }
 }
-function sendState(socket,playerName) {
-  //send game state to everyone
-  console.log('send state to: '+playerName);
-  socket.emit('gameState', gameStatePublic);
-}
-function handleInactivity(socket,playerName) {
+async function handleInactivity(socket,playerName) {
   clearTimeout(turnTimeout);
   turnTimeout = null;
   if (Object.values(gameStatePublic.players).filter((player) => player.connected).length > 1) {
@@ -133,19 +124,20 @@ function handleInactivity(socket,playerName) {
   }
 
 }
-function addPlayer(playerName) {
+async function saveState(){
+  //something
+}
+async function addPlayer(playerName,socket,clientIp) {
   console.log('adding user: '+playerName);
   let nonce = crypto.randomBytes(64).toString('base64');
-
-  gameStatePublic.players[playerName] = {
-    hand: [],
-    score: 0,
-    join_order: joincount++,
-    playing: false,
-    played: false,
-    turn: false,
-    winner: null,
-  };
+  socket.emit('nonce',nonce)
+  let playerDoc = {
+    name: playerName,
+    type: 'player',
+    ipList: [ clientIp ],
+    authNonce: nonce
+  }
+  await gameDataCollection.insertOne(playerDoc,{safe: true});
 }
 function CreateCharTable(){
   let table = 'Name      ', attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
@@ -157,6 +149,7 @@ function CreateCharTable(){
     };
   };
   table+=' or Abilities'
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
   for (let name in gameStatePublic.players) {
     let CharData = gameStatePublic.players[name];
     table+='\n'+name;
@@ -209,6 +202,7 @@ async function saveResponse(responseRaw){
 };
 async function openaiCall(systemMessage, assistantMessages,UserMessage) {
   try {
+//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
     const response = await openai.createChatCompletion({
       model: gameStatePublic.settings.model,
       messages: [
@@ -233,6 +227,6 @@ async function openaiCall(systemMessage, assistantMessages,UserMessage) {
     throw error;
   }
 }
-function getConfig(collection){
-
+async function getSetting(settings){
+  //get setting from database
 }

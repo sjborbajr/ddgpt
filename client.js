@@ -10,9 +10,10 @@ document.getElementById('save').addEventListener('click', save);
 playing.addEventListener('click', saveplaying);
 
 let playerName = localStorage.getItem('playerName'); // get playerName from local storage
+let authNonce = localStorage.getItem('authNonce'); // get authNonce from local storage
 if (playerName) {
   nameForm.style.display = 'none';
-  socket.auth = { playerName };
+  socket.auth = { playerName, authNonce };
   socket.connect();
 };
 // Attach event listeners to the buttons
@@ -65,6 +66,9 @@ socket.on('connect', () => {
 });
 socket.on('slap', (playerName) => {
   // are you alive message?
+});
+socket.on('nonce', (nonce) => {
+  localStorage.setItem('authNonce', nonce);
 });
 socket.on('disconnect', () => {
   console.log('Disconnected from server');
