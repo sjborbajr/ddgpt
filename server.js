@@ -1,39 +1,27 @@
 // Import required modules
 import { Configuration, OpenAIApi } from "openai";
-import express, { response } from 'express';
+import express from 'express';
 import http from 'http';
 import { Server as SocketIO } from 'socket.io';
 import fs from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient } from 'mongodb';
-import { inspect } from 'util';
+import inspect from 'util';
 import crypto from 'crypto';
-import { type } from "os";
-
-//import { createRequire } from 'module';
-//const require = createRequire(import.meta.url);
 
 const mongoUri = "mongodb://localhost/?retryWrites=true";
-const client = new MongoClient(mongoUri);
+const client = new MongoClient(mongoUri,{ forceServerObjectId: true });
 await client.connect();
 console.log('Connected to MongoDB');
 const database = client.db('ddgpt');
 const gameStatePrivateCollection = database.collection('gameStatePrivate');
 const gameStatePublicCollection = database.collection('gameStatePublic');
+const gameDataCollection = database.collection('gameData');
 const responseCollection = database.collection('allResponses');
-const oldresponseCollection = database.collection('responses');
 // Load game state from the collections
 const gameStatePrivate = await gameStatePrivateCollection.findOne();
 const gameStatePublic = await gameStatePublicCollection.findOne();
-
-if (1 == 1){
-  let allraw = oldresponseCollection.find({});
-  for await (const responseRaw of allraw){
-    saveResponse(responseRaw);
-  }
-  process.exit();
-}
 
 // Set up the server
 const app = express(), server = http.createServer(app), io = new SocketIO(server);
@@ -49,77 +37,35 @@ app.get('/client.js', (req, res) => { res.set('Content-Type', 'text/javascript')
 //send public/index.html if no specific file is requested
 app.get('/', (req, res) => res.sendFile(join(__dirname, 'index.html')));
 
-//const gameStatePrivate = JSON.parse(fs.readFileSync('gameStatePrivate.private'));
-//const gameStatePublic = JSON.parse(fs.readFileSync('gameStatePublic.private'));
-setInterval(ServerEvery1Second, (1*1000));
-
 for (let playerID in gameStatePublic.players) {
   gameStatePublic.players[playerID].connected = false;
 }
 
-//const configuration = {organization: gameStatePrivate.organization,apiKey: gameStatePrivate.apiKey};
 const configuration = new Configuration({
   apiKey: gameStatePrivate.apiKey,
 });
 const openai = new OpenAIApi(configuration);
 
-gameStatePublic.systemmessages[2].value = CreateCharTable();
-
-if(1 == 2){
-  let response1 = JSON.parse(fs.readFileSync('202305250359.response2.private'));
-  let response2 = JSON.parse(fs.readFileSync('response2.private'));
-
-  console.log(response2.status);
-  try {
-    await responseCollection.insertOne(response1);
-  } catch (error) {
-    console.error('Error saving response to MongoDB:', error);
-  }
-  try {
-    await responseCollection.insertOne(response2);
-  } catch (error) {
-    console.error('Error saving response to MongoDB:', error);
-  }
-}
-
-if(1 == 2){
-  let systemMessage = ""
-  for (let i = 0 ; i < gameStatePublic.systemmessages.length; i++){
-    console.log(i,gameStatePublic.systemmessages[i].checked);
-    if (gameStatePublic.systemmessages[i].checked){
-      systemMessage+=gameStatePublic.systemmessages[i].value+'\n'
-    }
-  };
-  console.log("systemMessage",systemMessage)
-  let assistantMessages = ["Let's Start the adventure.",'As you all gather at the local tavern, a hooded figure approaches your group. "I have a task for brave adventurers such as yourselves," the figure says, sliding a map towards the center of the table. "There have been reports of a goblin raiding party in the nearby woods. They have stolen a valuable artifact from our village and we need it back. Will you help us?"\nLarry examines the map and notices a few potential traps set around the goblin camp. "I can use my arcane focus to detect any magical traps," he offers.\nTrueBlade nods in agreement. "I can lead the charge with my sword and crossbow," he says confidently.\nBlu grins mischievously. "And I can make sure the goblins dont see us coming," she adds, twirling her short sword.\nEvan grunts in approval. "I will be ready to smash any goblin in sight," he declares, gripping his great axe tightly.\nDonny nods solemnly. "And I will be praying for our success," he says, holding his mace and holy symbol.\nSteve raises his tankard of grog. "To victory!" he exclaims, taking a swig.\nThe group sets off towards the woods, prepared for battle.'];
-  //let systemMessage = 'You are a helpful assistant.';
-  //let assistantMessages = ['What is the weather today?', 'Tell me a joke.'];
-  let UserMessage = 'Steve says: "Can I bring some grog?"';
-
-  openaiCall(systemMessage, assistantMessages,UserMessage)
-  .then(response => {
-    console.log('Generated response:', response);
-    fs.writeFileSync('response.private', JSON.stringify(response, null, 2));
-    // Do something with the generated response
-  })
-  .catch(error => {
-    // Handle error
-  });
-}
-
 io.on('connection', (socket) => {
-  let clientip = req.headers['x-forwarded-for']  || req.socket.remoteAddress;
-  // Get the user id from handshake
-  const playerName = socket.handshake.auth.playerName;
+  // Get the user id, auth token and IP from handshake
+  const playerName = socket.handshake.auth.playerName, clientip = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address, authnonce = socket.handshake.auth.nonce;
   console.log('User connected: '+playerName+'\nFrom: '+clientip);
-  if ( !(gameStatePublic.players[playerName])) {
-    addPlayer(playerName);
+
+  let playerData = fetchPlayerData(playerName) 
+  if ( playerData.name == playerName && playerData.authnonce == authnonce) {
+    console.log('player had his nonce');
+    //addPlayer(playerName);
+  } else if (playerData.authnonce != authnonce && playerData.ipList.includes(clientip)) {
+    console.log('give '+playerName+' his nonce')
+  } else {
+    console.log("add player "+playerName);
   }
+  console.log(playerData);
   gameStatePublic.players[playerName].connected = true;
   // Send current game state to the player
   sendState(socket,playerName)
   //gameStatePublic.players[playerName].turnTimeout = setTimeout(() => { handleInactivity(socket,playerName); }, ( 30 * 1000 ));
-
+  
   // Log all recieved events/data
   socket.onAny((event, ...args) => {
     if (event != 'save'){
@@ -156,6 +102,16 @@ async function saveState() {
     console.log('Game state saved to MongoDB');
   } catch (error) {
     console.error('Error saving game state to MongoDB:', error);
+  }
+}
+async function fetchPlayerData(playerName) {
+  let findFilter = {name:playerName,type:'player'}, playerData = ''
+  try {
+    playerData = await gameDataCollection.find(findFilter).toArray();
+    return playerData;
+  } catch (error) {
+    console.error(error);
+    throw error;
   }
 }
 function sendState(socket,playerName) {
@@ -226,27 +182,27 @@ function ServerEvery1Second() {
 }
 async function saveResponse(responseRaw){
   let response = {
-    "status": responseRaw.status,
-    "statusText": responseRaw.statusText,
-    "date":responseRaw.headers.date,
-    "duration":responseRaw['headers']['openai-processing-ms'],
-    "openaiversion":responseRaw.headers['openai-version'],
-    "xrequestid":responseRaw.headers['x-request-id'],
-    "request":responseRaw.config.data,
-    "url":responseRaw.config.url,
-    "notid":responseRaw.data.id,
-    "type":responseRaw.data.object,
-    "created":responseRaw.data.created,
-    "model":responseRaw.data.model,
-    "prompt_tokens":responseRaw.data.usage.prompt_tokens,
-    "completion_tokens":responseRaw.data.usage.completion_tokens,
-    "tokens":responseRaw.data.usage.total_tokens,
-    "response":responseRaw.data.choices[0].message.content,
-    "finish_reason":responseRaw.data.choices[0].finish_reason
+    status: responseRaw.status,
+    statusText: responseRaw.statusText,
+    date:responseRaw.headers.date,
+    duration:responseRaw['headers']['openai-processing-ms'],
+    openaiversion:responseRaw.headers['openai-version'],
+    xrequestid:responseRaw.headers['x-request-id'],
+    request:responseRaw.config.data,
+    url:responseRaw.config.url,
+    id:responseRaw.data.id,
+    type:responseRaw.data.object,
+    created:responseRaw.data.created,
+    model:responseRaw.data.model,
+    prompt_tokens:responseRaw.data.usage.prompt_tokens,
+    completion_tokens:responseRaw.data.usage.completion_tokens,
+    tokens:responseRaw.data.usage.total_tokens,
+    response:responseRaw.data.choices[0].message.content,
+    finish_reason:responseRaw.data.choices[0].finish_reason
   };
-  //console.log(response);
+  console.log(response);
   try {
-    await responseCollection.insertOne(response);
+    await responseCollection.insertOne(response,{safe: true});
   } catch (error) {
     console.error('Error saving response to MongoDB:', error);
   }
