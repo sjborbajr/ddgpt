@@ -139,7 +139,7 @@ async function addPlayer(playerName,socket,clientIp) {
   }
   await gameDataCollection.insertOne(playerDoc,{safe: true});
 }
-function CreateCharTable(){
+async function CreateCharTable(){
   let table = 'Name      ', attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
   let attributesLen = [10,6,3,3,3,3,3,3,3,2,2,24,17,9,1,1], spaces = '                   ';
   for (let i = 0 ; i < attributes.length; i++){
@@ -165,7 +165,7 @@ function CreateCharTable(){
   };
   return table;
 }
-function ServerEvery1Second() {
+async function ServerEvery1Second() {
   if (!gameStatePublic.gameover) {
     //let CurrentPlayer = getCurrentPlayer();
     //console.log("current player: "+CurrentPlayer);

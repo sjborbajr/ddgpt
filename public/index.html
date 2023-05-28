@@ -5,6 +5,11 @@
 </head>
 <body>
   <h1>DDGPT</h1>
+  <form id="name-form">
+    <label for="player-name">Enter your name:</label>
+    <input type="text" id="player-name" />
+    <button type="submit">Submit</button>
+  </form><br/>
   <div class="item">
     <label for="temperature">Temperature:</label>
     <input id="temperature"></input>
@@ -23,11 +28,6 @@
       <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
     </select>
   </div> 
-  <form id="name-form">
-    <label for="player-name">Enter your name:</label>
-    <input type="text" id="player-name" />
-    <button type="submit">Submit</button>
-  </form><br/>
   <div class="item">
     <input type="checkbox" id="system-message0-ck" checked />
     <label for="system-message0">system-message0:</label>
@@ -59,11 +59,11 @@
     <textarea id="system-message5" oninput="autoResize(this)" cols="80"></textarea>
   </div><br/>
 
+  <!--
   <div class="item">
     <label for="history">history:</label>
     <textarea id="history" oninput="autoResize(this)" cols="80"></textarea>
   </div><br/>
-  <!--
   <div class="item">
     <input type="radio" name="message1-radio" value="user">User</input>
     <input type="radio" name="message1-radio" value="assistant">Assistant</input>
