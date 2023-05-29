@@ -9,10 +9,11 @@ document.getElementById("defaultOpen").click();
 let win = 0, loose = 0, play = 0;
 
 document.getElementById('save').addEventListener('click', save);
+document.getElementById('connectButton').addEventListener('click', connectButton);
 playing.addEventListener('click', saveplaying);
 
 let playerName = localStorage.getItem('playerName'); // get playerName from local storage
-let authNonce = localStorage.getItem('authNonce'); // get authNonce from local storage
+let authNonce = localStorage.getItem('authNonce') || ''; // get authNonce from local storage
 if (playerName) {
   //nameForm.style.display = 'none';
   document.getElementById('player-name').value = playerName
@@ -24,10 +25,9 @@ nameForm.addEventListener('submit', (e) => {
   e.preventDefault();
   if (!(document.getElementById('player-name').value == '<dealer>')) {
     playerName = document.getElementById('player-name').value;
-    socket.auth = { playerName };
-    socket.connect();
-    //nameForm.style.display = 'none';
     localStorage.setItem('playerName', playerName);
+    socket.auth = { playerName, authNonce };
+    socket.connect();
   }
 });
 window.onload = function() {
@@ -74,6 +74,8 @@ socket.on('error', data => {
 });
 socket.on('connect', () => {
   console.log('Connected to server');
+  nameForm.style.display = 'none';
+  document.getElementById('connectButton').innerText = 'Disconnect';
 });
 socket.on('slap', (playerName) => {
   // are you alive message?
@@ -84,6 +86,7 @@ socket.on('nonce', (nonce) => {
 socket.on('disconnect', () => {
   console.log('Disconnected from server');
   nameForm.style.display = 'inline';
+  document.getElementById('connectButton').innerText = 'Connect';
 });
 function autoResize(textarea) {
   textarea.style.height = 'auto';
@@ -105,6 +108,16 @@ function save() {
                       }
                      }
               )
+}
+function connectButton() {
+  if (document.getElementById('connectButton').value == 'Connect'){
+    let playerName = localStorage.getItem('playerName'); // get playerName from local storage
+    let authNonce = localStorage.getItem('authNonce') || ''; // get authNonce from local storage
+    socket.auth = { playerName, authNonce };
+    socket.connect();
+  } else {
+    socket.disconnect();
+  }
 }
 function saveplaying(){
   console.log('saveplaying');
