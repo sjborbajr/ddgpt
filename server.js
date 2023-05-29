@@ -12,34 +12,33 @@ import crypto from 'crypto';
 
 const mongoUri = "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri,{ forceServerObjectId: true });
-await client.connect();
-console.log('Connected to MongoDB');
+try {
+  await client.connect();
+} catch (error) {
+  console.error('Error connecting to MongoDB:', error);
+}
 const database = client.db('ddgpt');
-const settingsCollection = database.collection('settings');
-const gameDataCollection = database.collection('gameData');
-const responseCollection = database.collection('allResponses');
+const settingsCollection = database.collection('settings'), gameDataCollection = database.collection('gameData'), responseCollection = database.collection('allResponses');
 
-// Set up the server
+const timers = {};
+
+// Set up the web/io server
 const app = express(), server = http.createServer(app), io = new SocketIO(server);
 const __filename = fileURLToPath(import.meta.url), __dirname = dirname(__filename);
 
-// Start the server
+// Start the web server
 server.listen(process.env.PORT || 9000);
 
-//serv from the public folder
+//configure the web server, serv from the public folder
 app.use(express.static(join(__dirname, 'public')));
 //client.js is in root dir with server.js
 app.get('/client.js', (req, res) => { res.set('Content-Type', 'text/javascript'); res.sendFile(join(__dirname, 'client.js')); });
 //send public/index.html if no specific file is requested
 app.get('/', (req, res) => res.sendFile(join(__dirname, 'index.html')));
 
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
-//update all players to disconnected
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
+gameDataCollection.updateMany({type:'player'},{$set:{connected:false}});
 
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
-//const openai = new OpenAIApi(new Configuration({apiKey: gameStatePrivate.apiKey}));
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
+const openai = new OpenAIApi(new Configuration({apiKey: getSetting('apiKey')}));
 
 io.on('connection', async (socket) => {
   // Get the user id, auth token and IP from handshake
@@ -66,16 +65,9 @@ io.on('connection', async (socket) => {
     addPlayer(playerName,socket,clientIp);
   }
 
-  //gameStatePublic.players[playerName].connected = true;
+  gameDataCollection.updateMany({type:'player',name:playerName},{$set:{connected:true}});
 
-  // Send current game state to the player
-  //sendState(socket,playerName)
-
-  //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
-  // what do I do for a connected player?
-
-
-  //gameStatePublic.players[playerName].turnTimeout = setTimeout(() => { handleInactivity(socket,playerName); }, ( 30 * 1000 ));
+  //timers[("player_"+playerName)] = { activityTimer:(setTimeout(() => { handleInactivity(socket,playerName); }, ( 30 * 1000 )))};
   
   // Log all recieved events/data
   socket.onAny((event, ...args) => {
@@ -227,6 +219,10 @@ async function openaiCall(systemMessage, assistantMessages,UserMessage) {
     throw error;
   }
 }
-async function getSetting(settings){
+async function getSetting(setting){
   //get setting from database
+  let dbsetting = await settingsCollection.findOne({});
+  if (setting.length > 0) {
+    dbsetting = dbsetting[setting];
+  };
 }
