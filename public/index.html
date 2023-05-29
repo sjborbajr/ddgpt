@@ -46,12 +46,10 @@
   <button class="tablink" onclick="openPage('System', this, 'red')">System</button>
   <button class="tablink" onclick="openPage('About', this, 'orange')">About</button>
   <div id="Home" class="tabcontent">
-    <form id="name-form">
-      <label for="player-name">Enter your name:</label>
-      <input type="text" id="player-name" />
-      <button type="submit">Submit</button>
-    </form>
+    <label for="player-name">Player Name:</label>
+    <input type="text" id="player-name" />
     <button type="button" id="connectButton">Connect</button>
+    <button type="button" id="disconnectButton" disabled>Disconnect</button>
   </div>
   <div id="Characters" class="tabcontent">
     <p>Do this</p>
@@ -110,7 +108,7 @@
       <button id="stand" disabled>Stand</button>
       <button id="deal" disabled>Deal</button>
       <button id="show_deck" disabled>Show Deck</button>
-      <input type="checkbox" id="playing" checked>Playing?</input>
+      <input type="checkbox" id="playing" checked disabled>Playing?</input>
     </div> 
   </div>
   <div id="About" class="tabcontent">

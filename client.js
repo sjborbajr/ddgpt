@@ -1,6 +1,6 @@
 const socket = io({autoConnect: false}), canvas = document.getElementById('canvas'), canvas2 = document.getElementById('canvas2');
 
-const nameForm = document.getElementById('name-form'), playing = document.getElementById('playing');
+const nameForm = document.getElementById('name-form');
 const systemmessage0 = document.getElementById('system-message0'), systemmessage1 = document.getElementById('system-message1'), systemmessage2 = document.getElementById('system-message2'), systemmessage3 = document.getElementById('system-message3'), systemmessage4 = document.getElementById('system-message4'), systemmessage5 = document.getElementById('system-message5');
 const systemmessage0ck = document.getElementById('system-message0-ck'), systemmessage1ck = document.getElementById('system-message1-ck'), systemmessage2ck = document.getElementById('system-message2-ck'), systemmessage3ck = document.getElementById('system-message3-ck'), systemmessage4ck = document.getElementById('system-message4-ck'), systemmessage5ck = document.getElementById('system-message5-ck');
 // Get the element with id="defaultOpen" and click on it
@@ -10,26 +10,14 @@ let win = 0, loose = 0, play = 0;
 
 document.getElementById('save').addEventListener('click', save);
 document.getElementById('connectButton').addEventListener('click', connectButton);
-playing.addEventListener('click', saveplaying);
+document.getElementById('disconnectButton').addEventListener('click', disconnectButton);
 
 let playerName = localStorage.getItem('playerName'); // get playerName from local storage
-let authNonce = localStorage.getItem('authNonce') || ''; // get authNonce from local storage
 if (playerName) {
-  //nameForm.style.display = 'none';
   document.getElementById('player-name').value = playerName
-  socket.auth = { playerName, authNonce };
-  socket.connect();
+  connectButton();
 };
 // Attach event listeners to the buttons
-nameForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  if (!(document.getElementById('player-name').value == '<dealer>')) {
-    playerName = document.getElementById('player-name').value;
-    localStorage.setItem('playerName', playerName);
-    socket.auth = { playerName, authNonce };
-    socket.connect();
-  }
-});
 window.onload = function() {
   //do something?
 };
@@ -55,7 +43,6 @@ socket.on('gameState', data => {
   systemmessage5.value = data.systemmessages[5].value;
   systemmessage5ck.checked = data.systemmessages[5].checked;
   autoResize(systemmessage5);
-  playing.checked = data.players[playerName].playing;
 
   document.getElementById('temperature').value = data.settings.temperature;
   document.getElementById('maxTokens').value = data.settings.maxTokens;
@@ -74,19 +61,30 @@ socket.on('error', data => {
 });
 socket.on('connect', () => {
   console.log('Connected to server');
-  nameForm.style.display = 'none';
-  document.getElementById('connectButton').innerText = 'Disconnect';
+  //nameForm.style.display = 'none';
+  document.getElementById('player-name').disabled = true;
+  document.getElementById('disconnectButton').disabled = false;
+  document.getElementById('connectButton').innerText = 'Change';
 });
 socket.on('slap', (playerName) => {
   // are you alive message?
+});
+socket.on('nameChanged', (name) => {
+  localStorage.setItem('playerName', name);
+  playerName = name
+  document.getElementById('player-name').disabled = true;
+  document.getElementById('player-name').value = name;
+  document.getElementById('connectButton').innerText = 'Change';
 });
 socket.on('nonce', (nonce) => {
   localStorage.setItem('authNonce', nonce);
 });
 socket.on('disconnect', () => {
   console.log('Disconnected from server');
-  nameForm.style.display = 'inline';
+  document.getElementById('connectButton').disabled = false;
   document.getElementById('connectButton').innerText = 'Connect';
+  document.getElementById('disconnectButton').disabled = true;
+  document.getElementById('player-name').disabled = false;
 });
 function autoResize(textarea) {
   textarea.style.height = 'auto';
@@ -110,14 +108,27 @@ function save() {
               )
 }
 function connectButton() {
-  if (document.getElementById('connectButton').value == 'Connect'){
-    let playerName = localStorage.getItem('playerName'); // get playerName from local storage
+  let temp = document.getElementById('player-name').value
+  document.getElementById('player-name').value = temp.trim().replace(/[^a-zA-Z0-9]/g,'');
+  if (document.getElementById('player-name').value.length == 0) {
+    alert('name must not be empty')
+  } else if (document.getElementById('connectButton').innerText == 'Connect' && document.getElementById('player-name').value.length > 0){
+    let playerName = document.getElementById('player-name').value; // get playerName from local storage
     let authNonce = localStorage.getItem('authNonce') || ''; // get authNonce from local storage
     socket.auth = { playerName, authNonce };
     socket.connect();
+    console.log('connect attempt')
+  } else if (document.getElementById('player-name').disabled && document.getElementById('connectButton').innerText == 'Change') {
+    console.log('enabling change name feature')
+    document.getElementById('player-name').disabled = false;
+    document.getElementById('connectButton').innerText = 'Submit';
   } else {
-    socket.disconnect();
+    console.log('requesting name change')
+    socket.emit("changeName",document.getElementById('player-name').value);
   }
+}
+function disconnectButton() {
+  socket.disconnect();
 }
 function saveplaying(){
   console.log('saveplaying');

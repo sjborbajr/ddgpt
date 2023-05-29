@@ -42,10 +42,11 @@ const openai = new OpenAIApi(new Configuration({apiKey: getSetting('apiKey')}));
 
 io.on('connection', async (socket) => {
   // Get the user id, auth token and IP from handshake
-  const playerName = socket.handshake.auth.playerName || '', clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address, authNonce = socket.handshake.auth.authNonce || '';
+  let playerName = socket.handshake.auth.playerName || '', clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address, authNonce = socket.handshake.auth.authNonce || '';
+  playerName = playerName.trim().replace(/[^a-zA-Z0-9]/g,'');
   console.log('User connected: '+playerName+'\nFrom: '+clientIp);
 
-  let playerData = await fetchPlayerData(playerName) 
+  let playerData = await fetchPlayerData(playerName)
   if ( playerData ) {
     //Valid Player, let make sure it is really them
     if (playerData.name == playerName && playerData.authNonce == authNonce && authNonce != '') {
@@ -62,7 +63,11 @@ io.on('connection', async (socket) => {
     }
   } else {
     console.log("add player "+playerName);
-    addPlayer(playerName,socket,clientIp);
+    playerData = await addPlayer(playerName,socket,clientIp);
+    if (!playerData) {
+      socket.emit("error",'Could not add user with name "'+playerName+'"');
+      socket.disconnect();
+    }
   }
 
   gameDataCollection.updateOne({type:'player',name:playerName},{$set:{connected:true}});
@@ -90,6 +95,22 @@ io.on('connection', async (socket) => {
   socket.on('disconnect', () => {
     console.log('Player disconnected:', playerName);
     //gameStatePublic.players[playerName].connected = false;
+  });
+  socket.on('changeName', async newName => {
+    console.log('Player changing name from '+playerName+' to '+newName);
+    let test = await fetchPlayerData(newName)
+    console.log(test)
+    if (test) {
+      socket.emit("error","player name already taken");
+    } else {
+      let rc = await updatePlayer(playerName,{$set:{name:newName}})
+      if (rc == 'success') {
+        socket.emit("nameChanged",newName);
+        playerName = newName;
+      } else {
+        socket.emit("error","error changing name");
+      }
+    }
   });
 });
 async function fetchPlayerData(playerName) {
@@ -120,16 +141,31 @@ async function saveState(){
   //something
 }
 async function addPlayer(playerName,socket,clientIp) {
-  console.log('adding user: '+playerName);
-  let nonce = crypto.randomBytes(64).toString('base64');
-  socket.emit('nonce',nonce)
-  let playerDoc = {
-    name: playerName,
-    type: 'player',
-    ipList: [ clientIp ],
-    authNonce: nonce
+  if (playerName.length > 0){
+    console.log('adding user: '+playerName);
+    let nonce = crypto.randomBytes(64).toString('base64');
+    socket.emit('nonce',nonce)
+    let playerDoc = {
+      name: playerName,
+      type: 'player',
+      ipList: [ clientIp ],
+      authNonce: nonce
+    }
+    try {
+      await gameDataCollection.insertOne(playerDoc,{safe: true});
+      return playerDoc
+    } catch (error){
+      console.error('Error saving response to MongoDB:', error);
+    }
   }
-  await gameDataCollection.insertOne(playerDoc,{safe: true});
+}
+async function updatePlayer(playerName,update) {
+  try {
+    await gameDataCollection.updateOne({type:'player',name:playerName},update);
+    return 'success'
+  } catch (error){
+    console.error('Error saving response to MongoDB:', error);
+  }
 }
 async function CreateCharTable(){
   let table = 'Name      ', attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
