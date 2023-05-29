@@ -3,6 +3,8 @@ const socket = io({autoConnect: false}), canvas = document.getElementById('canva
 const nameForm = document.getElementById('name-form'), playing = document.getElementById('playing');
 const systemmessage0 = document.getElementById('system-message0'), systemmessage1 = document.getElementById('system-message1'), systemmessage2 = document.getElementById('system-message2'), systemmessage3 = document.getElementById('system-message3'), systemmessage4 = document.getElementById('system-message4'), systemmessage5 = document.getElementById('system-message5');
 const systemmessage0ck = document.getElementById('system-message0-ck'), systemmessage1ck = document.getElementById('system-message1-ck'), systemmessage2ck = document.getElementById('system-message2-ck'), systemmessage3ck = document.getElementById('system-message3-ck'), systemmessage4ck = document.getElementById('system-message4-ck'), systemmessage5ck = document.getElementById('system-message5-ck');
+// Get the element with id="defaultOpen" and click on it
+document.getElementById("defaultOpen").click();
 
 let win = 0, loose = 0, play = 0;
 
@@ -12,7 +14,8 @@ playing.addEventListener('click', saveplaying);
 let playerName = localStorage.getItem('playerName'); // get playerName from local storage
 let authNonce = localStorage.getItem('authNonce'); // get authNonce from local storage
 if (playerName) {
-  nameForm.style.display = 'none';
+  //nameForm.style.display = 'none';
+  document.getElementById('player-name').value = playerName
   socket.auth = { playerName, authNonce };
   socket.connect();
 };
@@ -23,7 +26,7 @@ nameForm.addEventListener('submit', (e) => {
     playerName = document.getElementById('player-name').value;
     socket.auth = { playerName };
     socket.connect();
-    nameForm.style.display = 'none';
+    //nameForm.style.display = 'none';
     localStorage.setItem('playerName', playerName);
   }
 });
@@ -61,6 +64,14 @@ socket.on('gameState', data => {
 socket.onAny((event, ...args) => {
   console.log(event, args);
 });
+socket.on('error', data => {
+  alert (data);
+  if (data == 'user not authenticated'){
+    document.getElementById('player-name').value = ''
+    localStorage.removeItem('playerName');
+    localStorage.removeItem('authNonce');
+  }
+});
 socket.on('connect', () => {
   console.log('Connected to server');
 });
@@ -72,6 +83,7 @@ socket.on('nonce', (nonce) => {
 });
 socket.on('disconnect', () => {
   console.log('Disconnected from server');
+  nameForm.style.display = 'inline';
 });
 function autoResize(textarea) {
   textarea.style.height = 'auto';
@@ -97,4 +109,17 @@ function save() {
 function saveplaying(){
   console.log('saveplaying');
   socket.emit("saveplaying",playing.checked);
+}
+function openPage(pageName,elmnt,color) {
+  var i, tabcontent, tablinks;
+  tabcontent = document.getElementsByClassName("tabcontent");
+  for (i = 0; i < tabcontent.length; i++) {
+    tabcontent[i].style.display = "none";
+  }
+  tablinks = document.getElementsByClassName("tablink");
+  for (i = 0; i < tablinks.length; i++) {
+    tablinks[i].style.backgroundColor = "";
+  }
+  document.getElementById(pageName).style.display = "block";
+  elmnt.style.backgroundColor = color;
 }

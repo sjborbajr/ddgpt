@@ -2,97 +2,120 @@
 <html>
 <head>
   <title>DDGPT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * {box-sizing: border-box}
+    
+    /* Set height of body and the document to 100% */
+    body, html {
+      height: 100%;
+      margin: 0;
+      font-family: Arial;
+    }
+    
+    /* Style tab links */
+    .tablink {
+      background-color: #555;
+      color: white;
+      float: left;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 14px 16px;
+      font-size: 17px;
+      width: 25%;
+    }
+    
+    .tablink:hover {
+      background-color: #777;
+    }
+    
+    /* Style the tab content (and add height:100% for full page content) */
+    .tabcontent {
+      color: black;
+      display: none;
+      padding: 100px 20px;
+      height: 100%;
+    }
+    
+  </style>
 </head>
 <body>
-  <h1>DDGPT</h1>
-  <form id="name-form">
-    <label for="player-name">Enter your name:</label>
-    <input type="text" id="player-name" />
-    <button type="submit">Submit</button>
-  </form><br/>
-  <div class="item">
-    <label for="temperature">Temperature:</label>
-    <input id="temperature"></input>
-    <label for="maxTokens">Max Tokens:</label>
-    <input id="maxTokens"></input>
-
-    <label for="model">Model:</label>
-    <select name="model" id="model">
-      <option value="gpt-4-32k">gpt-4-32k</option>
-      <option value="gpt-4">gpt-4</option>
-      <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-      <option value="text-davinci-003">text-davinci-003</option>
-      <option value="text-curie-001">text-curie-001</option>
-      <option value="text-babbage-001">text-babbage-001</option>
-      <option value="text-ada-001">text-ada-001</option>
-      <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
-    </select>
-  </div> 
-  <div class="item">
-    <input type="checkbox" id="system-message0-ck" checked />
-    <label for="system-message0">system-message0:</label>
-    <textarea id="system-message0" oninput="autoResize(this)" cols="80"></textarea>
-  </div> 
-  <div class="item">
-    <input type="checkbox" id="system-message1-ck" checked />
-    <label for="system-message1">system-message1:</label>
-    <textarea id="system-message1" oninput="autoResize(this)" cols="80"></textarea>
-  </div> 
-  <div class="item">
-    <input type="checkbox" id="system-message2-ck" checked />
-    <label for="system-message2">system-message2:</label>
-    <textarea id="system-message2" oninput="autoResize(this)" cols="80"></textarea>
-  </div> 
-  <div class="item">
-    <input type="checkbox" id="system-message3-ck" checked />
-    <label for="system-message3">system-message3:</label>
-    <textarea id="system-message3" oninput="autoResize(this)" cols="80"></textarea>
-  </div> 
-  <div class="item">
-    <input type="checkbox" id="system-message4-ck" checked />
-    <label for="system-message4">system-message4:</label>
-    <textarea id="system-message4" oninput="autoResize(this)" cols="80"></textarea>
-  </div> 
-  <div class="item">
-    <input type="checkbox" id="system-message5-ck" checked />
-    <label for="system-message5">system-message5:</label>
-    <textarea id="system-message5" oninput="autoResize(this)" cols="80"></textarea>
-  </div><br/>
-
-  <!--
-  <div class="item">
-    <label for="history">history:</label>
-    <textarea id="history" oninput="autoResize(this)" cols="80"></textarea>
-  </div><br/>
-  <div class="item">
-    <input type="radio" name="message1-radio" value="user">User</input>
-    <input type="radio" name="message1-radio" value="assistant">Assistant</input>
-    <textarea id="message1" oninput="autoResize(this)" cols="80"></textarea>
-  </div> 
-  <div class="item">
-    <input type="radio" name="message2-radio" value="user">User</input>
-    <input type="radio" name="message2-radio" value="assistant">Assistant</input>
-    <textarea id="message2" oninput="autoResize(this)" cols="80"></textarea>
-  </div> 
-  <div class="item">
-    <input type="radio" name="message3-radio" value="user">User</input>
-    <input type="radio" name="message3-radio" value="assistant">Assistant</input>
-    <textarea id="message3" oninput="autoResize(this)" cols="80"></textarea>
-  </div> 
-  <div class="item">
-    <input type="radio" name="message4-radio" value="user">User</input>
-    <input type="radio" name="message4-radio" value="assistant">Assistant</input>
-    <textarea id="message4" oninput="autoResize(this)" cols="80"></textarea>
-  </div><br/>
-  -->
+  <button class="tablink" onclick="openPage('Home', this, 'green')" id="defaultOpen">Home</button>
+  <button class="tablink" onclick="openPage('Characters', this, 'blue')">Characters</button>
+  <button class="tablink" onclick="openPage('System', this, 'red')">System</button>
+  <button class="tablink" onclick="openPage('About', this, 'orange')">About</button>
+  <div id="Home" class="tabcontent">
+    <form id="name-form">
+      <label for="player-name">Enter your name:</label>
+      <input type="text" id="player-name" />
+      <button type="submit">Submit</button>
+    </form>
+  </div>
+  <div id="Characters" class="tabcontent">
+    <p>Do this</p>
+  </div>
+  <div id="System" class="tabcontent">
+    <div class="item">
+      <label for="temperature">Temperature:</label>
+      <input id="temperature"></input>
+      <label for="maxTokens">Max Tokens:</label>
+      <input id="maxTokens"></input>
   
-  <div class="item">
-    <button id="save" >Save</button>
-    <button id="stand" disabled>Stand</button>
-    <button id="deal" disabled>Deal</button>
-    <button id="show_deck" disabled>Show Deck</button>
-    <input type="checkbox" id="playing" checked>Playing?</input>
-  </div> 
+      <label for="model">Model:</label>
+      <select name="model" id="model">
+        <option value="gpt-4-32k">gpt-4-32k</option>
+        <option value="gpt-4">gpt-4</option>
+        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+        <option value="text-davinci-003">text-davinci-003</option>
+        <option value="text-curie-001">text-curie-001</option>
+        <option value="text-babbage-001">text-babbage-001</option>
+        <option value="text-ada-001">text-ada-001</option>
+        <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
+      </select>
+    </div> 
+    <div class="item">
+      <input type="checkbox" id="system-message0-ck" checked />
+      <label for="system-message0">system-message0:</label>
+      <textarea id="system-message0" oninput="autoResize(this)" cols="80"></textarea>
+    </div> 
+    <div class="item">
+      <input type="checkbox" id="system-message1-ck" checked />
+      <label for="system-message1">system-message1:</label>
+      <textarea id="system-message1" oninput="autoResize(this)" cols="80"></textarea>
+    </div> 
+    <div class="item">
+      <input type="checkbox" id="system-message2-ck" checked />
+      <label for="system-message2">system-message2:</label>
+      <textarea id="system-message2" oninput="autoResize(this)" cols="80"></textarea>
+    </div> 
+    <div class="item">
+      <input type="checkbox" id="system-message3-ck" checked />
+      <label for="system-message3">system-message3:</label>
+      <textarea id="system-message3" oninput="autoResize(this)" cols="80"></textarea>
+    </div> 
+    <div class="item">
+      <input type="checkbox" id="system-message4-ck" checked />
+      <label for="system-message4">system-message4:</label>
+      <textarea id="system-message4" oninput="autoResize(this)" cols="80"></textarea>
+    </div> 
+    <div class="item">
+      <input type="checkbox" id="system-message5-ck" checked />
+      <label for="system-message5">system-message5:</label>
+      <textarea id="system-message5" oninput="autoResize(this)" cols="80"></textarea>
+    </div><br/>
+    <div class="item">
+      <button id="save" >Save</button>
+      <button id="stand" disabled>Stand</button>
+      <button id="deal" disabled>Deal</button>
+      <button id="show_deck" disabled>Show Deck</button>
+      <input type="checkbox" id="playing" checked>Playing?</input>
+    </div> 
+  </div>
+  <div id="About" class="tabcontent">
+    <h3>About</h3>
+    <p>Who we are and what we do.</p>
+  </div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/client.js"></script>
 </body>

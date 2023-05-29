@@ -65,7 +65,7 @@ io.on('connection', async (socket) => {
     addPlayer(playerName,socket,clientIp);
   }
 
-  gameDataCollection.updateMany({type:'player',name:playerName},{$set:{connected:true}});
+  gameDataCollection.updateOne({type:'player',name:playerName},{$set:{connected:true}});
 
   //timers[("player_"+playerName)] = { activityTimer:(setTimeout(() => { handleInactivity(socket,playerName); }, ( 30 * 1000 )))};
   
