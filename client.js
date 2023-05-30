@@ -9,6 +9,7 @@ if(document.getElementById(currentTab+'Btn')){
   document.getElementById("HomeBtn").click();
 }
 
+document.getElementById('alertMsg').style.display = 'none';
 document.getElementById('SystemBtn').style.display = 'none';
 document.getElementById('character1').style.display = 'none';
 document.getElementById('character2').style.display = 'none';
@@ -59,6 +60,10 @@ socket.onAny((event, ...args) => {
 socket.on('serverRole', role => {
   if (role == 'admin') {
     document.getElementById('SystemBtn').style.display = 'inline';
+    document.getElementById('HomeBtn').style.width = '25%'
+    document.getElementById('CharactersBtn').style.width = '25%'
+    document.getElementById('AdventuresBtn').style.width = '25%'
+    document.getElementById('SystemBtn').style.width = '25%'
   };
 });
 socket.on('error', data => {
@@ -69,6 +74,12 @@ socket.on('error', data => {
     localStorage.removeItem('authNonce');
   }
 });
+socket.on('alertMsg',data => {
+  document.getElementById('alertMsg').style.color = data.color;
+  document.getElementById('alertMsg').innerText = data.message;
+  document.getElementById('alertMsg').style.display = 'inline';
+  setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',data.timeout);
+});
 socket.on('connect', () => {
   console.log('Connected to server');
   document.getElementById('player-name').disabled = true;
@@ -76,6 +87,10 @@ socket.on('connect', () => {
   document.getElementById('connectButton').innerText = 'Change';
   localStorage.setItem('playerName', playerName);
   socket.emit('tab',currentTab);
+  document.getElementById('alertMsg').style.color = "#4CAF50";
+  document.getElementById('alertMsg').innerText = "Connected to server";
+  document.getElementById('alertMsg').style.display = 'inline';
+  setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',1500);
 });
 socket.on('slap', (playerName) => {
   // are you alive message?
@@ -171,6 +186,10 @@ socket.on('disconnect', () => {
   document.getElementById('connectButton').innerText = 'Connect';
   document.getElementById('disconnectButton').disabled = true;
   document.getElementById('player-name').disabled = false;
+  document.getElementById('alertMsg').style.color = "red";
+  document.getElementById('alertMsg').innerText = "Disconnected from server";
+  document.getElementById('alertMsg').style.display = 'inline';
+
 });
 function autoResize(textarea) {
   textarea.style.height = 'auto';

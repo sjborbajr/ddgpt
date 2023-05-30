@@ -23,7 +23,7 @@
       cursor: pointer;
       padding: 14px 16px;
       font-size: 17px;
-      width: 25%;
+      width: 33.3%;
     }
     
     .tablink:hover {
@@ -40,6 +40,18 @@
     .button {
       background-color: #4CAF50;
       color: white;
+    }
+    .alertMsg {
+      border: none;
+      padding: 0px;
+      color: #4CAF50;
+      text-align: center;
+      width: 100% !important;
+      height: fit-content;
+      left:0px;
+      right:0px;
+      top:0px;
+      position: absolute;
     }
 
     table {
@@ -62,10 +74,11 @@
   </style>
 </head>
 <body>
+  <div class="alertMsg" role="alert" id="alertMsg"></div>
   <button class="tablink" onclick="openPage('Home',       this, 'green')"   id="HomeBtn"      >Home</button>
   <button class="tablink" onclick="openPage('Characters', this, 'blue')"    id="CharactersBtn">Characters</button>
-  <button class="tablink" onclick="openPage('System',     this, 'red')"     id="SystemBtn"    >System</button>
   <button class="tablink" onclick="openPage('Adventures',  this, 'orange')" id="AdventuresBtn">Adventures</button>
+  <button class="tablink" onclick="openPage('System',     this, 'red')"     id="SystemBtn"    >System</button>
   <div id="Home" class="tabcontent">
     <label for="player-name">Player Name:</label>
     <input type="text" id="player-name" />
@@ -154,7 +167,6 @@
     </div> 
   </div>
   <div id="Adventures" class="tabcontent">
-
   </div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/client.js"></script>

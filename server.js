@@ -89,11 +89,18 @@ io.on('connection', async (socket) => {
     socket.to('System').emit('settings', data)
     saveSettings(data);
   });
-  socket.on('saveChar', data => {
+  socket.on('saveChar', async data => {
     console.log('Player '+playerName+' saving char'+data.data.name);
     //socket.to('System').emit('settings', data)
     data.data.owner_id = new ObjectId(data.owner_id);
-    gameDataCollection.updateOne({_id:new ObjectId(data._id)},{$set:data.data});
+    try {
+      gameDataCollection.updateOne({_id:new ObjectId(data._id)},{$set:data.data});
+      let message = {message:'Character '+data.data.name+' saved.',color:'green',timeout:1500}
+      socket.emit('alertMsg',message);
+    } catch(error) {
+      let message = {message:'Character '+data.data.name+' not saved!',color:'red',timeout:2500}
+      socket.emit('alertMsg',message);
+    }
   });
   socket.on('showCharacters', data =>{
     //sets the variable for this socket to show all charaters or current living ones
