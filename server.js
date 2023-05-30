@@ -43,6 +43,7 @@ const openai = new OpenAIApi(new Configuration({apiKey: getSetting('apiKey')}));
 io.on('connection', async (socket) => {
   // Get the user id, auth token and IP from handshake
   let playerName = socket.handshake.auth.playerName || '', clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address, authNonce = socket.handshake.auth.authNonce || '';
+  let showCharacters = 'Own';
   playerName = playerName.trim().replace(/[^a-zA-Z0-9]/g,'');
   console.log('User connected: '+playerName+'\nFrom: '+clientIp);
 
@@ -71,27 +72,33 @@ io.on('connection', async (socket) => {
   }
 
   gameDataCollection.updateOne({type:'player',name:playerName},{$set:{connected:true}});
+  if (playerData.admin){
+    socket.emit('serverRole','admin')
+  }
 
   //timers[("player_"+playerName)] = { activityTimer:(setTimeout(() => { handleInactivity(socket,playerName); }, ( 30 * 1000 )))};
   
   // Log all recieved events/data
   socket.onAny((event, ...args) => {
     if (event != 'save'){
-      console.log(event, args);
+      console.log('['+new Date().toUTCString()+'] playerName('+playerName+'), socket('+event+')', args);
     }
   });
   socket.on('save', data => {
     console.log('Player '+playerName+' saved');
     //gameStatePublic.systemmessages = data.systemmessages;
     //gameStatePublic.settings = data.settings;
-    //io.emit('gameState', gameStatePublic)
-    saveState();
+    socket.to('System').emit('settings', data)
+    saveSettings(data);
+  });
+  socket.on('showCharacters', data =>{
+    showCharacters = data;
   });
   socket.on("saveplaying", data => {
     console.log("saveplaying for user:",playerName)
     //gameStatePublic.players[playerName].playing = data;
     saveState();
-  })
+  });
   socket.on('disconnect', () => {
     console.log('Player disconnected:', playerName);
     //gameStatePublic.players[playerName].connected = false;
@@ -111,6 +118,31 @@ io.on('connection', async (socket) => {
         socket.emit("error","error changing name");
       }
     }
+  });
+  socket.on('tab',async tabName =>{
+    playerData = await fetchPlayerData(playerName);
+    //remove player from old tab channel
+    if (tabName == 'System') {
+      if (playerData.admin) {
+        socket.join(tabName);
+        let allSettings = await getSetting('');
+        socket.emit('settings',allSettings);
+      } else {
+        socket.emit('error','you are not admin')
+      }
+    } else {
+      socket.join(tabName);
+      if (tabName == 'Characters') {
+        let characterNames = ''
+        if (showCharacters == 'All'){
+          characterNames = await gameDataCollection.find({type:'character'},{name:1,_id:0}).toArray();
+        } else {
+          characterNames = await gameDataCollection.find({type:'character',owner_id:playerData._id},{name:1,_id:0}).toArray();
+        }
+        socket.emit('charList',characterNames);
+      }
+    }
+    updatePlayer(playerName,{$set:{tabName:tabName}});
   });
 });
 async function fetchPlayerData(playerName) {
@@ -137,8 +169,13 @@ async function handleInactivity(socket,playerName) {
   }
 
 }
-async function saveState(){
-  //something
+async function saveSettings(data){
+  try {
+    await settingsCollection.updateOne({}, { $set: data }, { upsert: true });
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    socket.emit('error',error)
+  }
 }
 async function addPlayer(playerName,socket,clientIp) {
   if (playerName.length > 0){
@@ -261,4 +298,5 @@ async function getSetting(setting){
   if (setting.length > 0) {
     dbsetting = dbsetting[setting];
   };
+  return dbsetting
 }

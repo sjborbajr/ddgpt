@@ -37,14 +37,31 @@
       padding: 100px 20px;
       height: 100%;
     }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      padding: 8px;
+      text-align: left;
+    }
     
+    th {
+      text-align: right;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      resize: vertical;
+    }
   </style>
 </head>
 <body>
-  <button class="tablink" onclick="openPage('Home', this, 'green')" id="defaultOpen">Home</button>
-  <button class="tablink" onclick="openPage('Characters', this, 'blue')">Characters</button>
-  <button class="tablink" onclick="openPage('System', this, 'red')">System</button>
-  <button class="tablink" onclick="openPage('About', this, 'orange')">About</button>
+  <button class="tablink" onclick="openPage('Home',       this, 'green')"   id="HomeBtn"      >Home</button>
+  <button class="tablink" onclick="openPage('Characters', this, 'blue')"    id="CharactersBtn">Characters</button>
+  <button class="tablink" onclick="openPage('System',     this, 'red')"     id="SystemBtn"    >System</button>
+  <button class="tablink" onclick="openPage('About',      this, 'orange')"  id="AboutBtn"     >About</button>
   <div id="Home" class="tabcontent">
     <label for="player-name">Player Name:</label>
     <input type="text" id="player-name" />
@@ -52,7 +69,28 @@
     <button type="button" id="disconnectButton" disabled>Disconnect</button>
   </div>
   <div id="Characters" class="tabcontent">
-    <p>Do this</p>
+    <div>
+      <label for="characters_list">Characters:</label>
+      <select name="model" id="characters_list" onChange="showChar(this.value)"></select>
+      <input type="checkbox" id="all_characters" onclick="showChars()">Show All</input>
+    </div>
+    <table id="character1">
+      <tr><th>Name:</th><td><input type="text" id="character_name"></td><th>Level:</th><td><input type="number" id="character_Lvl"></td><th>Gender:</th><td><input type="text" id="character_Gender"></td></tr>
+      <tr><th>Race:</th><td><input type="text" id="character_Race"></td><th>Class:</th><td><input type="text" id="character_Class"></td></tr>
+      <tr><th>STR:</th><td><input type="number" id="character_STR" min=1 max=30></td><th>DEX:</th><td><input type="number" id="character_DEX" min=1 max=30></td></tr>
+      <tr><th>CON:</th><td><input type="number" id="character_CON" min=1 max=30></td><th>INT:</th><td><input type="number" id="character_INT" min=1 max=30></td></tr>
+      <tr><th>WIS:</th><td><input type="number" id="character_WIS" min=1 max=30></td><th>CHA:</th><td><input type="number" id="character_CHA" min=1 max=30></td></tr>
+      <tr><th>HP:</th><td><input  type="number" id="character_HP"  min=1 max=1000></td><th>AC:</th> <td><input type="number" id="character_AC" min=1 max=49></td></tr>
+    </table>
+    <table id="character2" >
+      <tr><th>Weapon:</th><td width="94%"><textarea id="character_Weapon"></textarea></td></tr>
+      <tr><th>Armor:</th><td><textarea id="character_Armor"></textarea></td></tr>
+      <tr><th>Inventory:</th><td><textarea id="character_Inventory"></textarea></td></tr>
+      <tr><th>Backstory:</th><td><textarea id="character_Backstory"></textarea></td></tr>
+    </table>
+    <div class="item" id="character3">
+      <button id="saveChar" >Save</button>
+    </div> 
   </div>
   <div id="System" class="tabcontent">
     <div class="item">
@@ -112,8 +150,7 @@
     </div> 
   </div>
   <div id="About" class="tabcontent">
-    <h3>About</h3>
-    <p>Who we are and what we do.</p>
+
   </div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/client.js"></script>
