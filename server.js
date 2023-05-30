@@ -87,10 +87,10 @@ io.on('connection', async (socket) => {
   socket.on('save', data => {
     console.log('Player '+playerName+' saved');
     socket.to('System').emit('settings', data)
-    saveSettings(data);
+    saveSettings(data,socket);
   });
   socket.on('saveChar', async data => {
-    console.log('Player '+playerName+' saving char'+data.data.name);
+    console.log('Player '+playerName+' saving char '+data.data.name);
     //socket.to('System').emit('settings', data)
     data.data.owner_id = new ObjectId(data.owner_id);
     try {
@@ -203,10 +203,12 @@ async function handleInactivity(socket,playerName) {
   }
 
 }
-async function saveSettings(data){
+async function saveSettings(data,socket){
   try {
     await settingsCollection.updateOne({}, { $set: data }, { upsert: true });
-  } catch (error) {
+    let message = {message:'Settings saved.',color:'green',timeout:1500}
+    socket.emit('alertMsg',message);
+} catch (error) {
     console.error('Error updating settings:', error);
     socket.emit('error',error)
   }
