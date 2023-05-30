@@ -6,7 +6,7 @@ import { Server as SocketIO } from 'socket.io';
 import fs from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import inspect from 'util';
 import crypto from 'crypto';
 
@@ -86,13 +86,22 @@ io.on('connection', async (socket) => {
   });
   socket.on('save', data => {
     console.log('Player '+playerName+' saved');
-    //gameStatePublic.systemmessages = data.systemmessages;
-    //gameStatePublic.settings = data.settings;
     socket.to('System').emit('settings', data)
     saveSettings(data);
   });
+  socket.on('saveChar', data => {
+    console.log('Player '+playerName+' saving char'+data.data.name);
+    //socket.to('System').emit('settings', data)
+    data.data.owner_id = new ObjectId(data.owner_id);
+    gameDataCollection.updateOne({_id:new ObjectId(data._id)},{$set:data.data});
+  });
   socket.on('showCharacters', data =>{
+    //sets the variable for this socket to show all charaters or current living ones
     showCharacters = data;
+  });
+  socket.on('listOwners', async () => {
+    let owners = await gameDataCollection.find({type:'player'}).project({name:1,_id:1}).toArray();
+    socket.emit('listedOwners',owners);
   });
   socket.on("saveplaying", data => {
     console.log("saveplaying for user:",playerName)
@@ -119,6 +128,20 @@ io.on('connection', async (socket) => {
       }
     }
   });
+  socket.on('fetchCharData', async id => {
+    let query = ''
+    if (playerData.admin) {
+      query = {_id:new ObjectId(id)}
+    } else {
+      query = {_id:new ObjectId(id),owner_id:playerData._id}
+    }
+    let charData = await gameDataCollection.findOne(query)
+    if (charData){
+      socket.emit('charData',charData);
+    } else {
+      socket.emit('error','could not find character with ID: '+id)
+    }
+  });
   socket.on('tab',async tabName =>{
     playerData = await fetchPlayerData(playerName);
     //remove player from old tab channel
@@ -135,9 +158,13 @@ io.on('connection', async (socket) => {
       if (tabName == 'Characters') {
         let characterNames = ''
         if (showCharacters == 'All'){
-          characterNames = await gameDataCollection.find({type:'character'},{name:1,_id:0}).toArray();
+          if (playerData.admin) {
+            characterNames = await gameDataCollection.find({type:'character'}).project({name:1,_id:1}).toArray();
+          } else {
+            characterNames = await gameDataCollection.find({type:'character',owner_id:playerData._id}).project({name:1,_id:1}).toArray();
+          }
         } else {
-          characterNames = await gameDataCollection.find({type:'character',owner_id:playerData._id},{name:1,_id:0}).toArray();
+          characterNames = await gameDataCollection.find({type:'character',state:'alive',owner_id:playerData._id}).project({name:1,_id:1}).toArray();
         }
         socket.emit('charList',characterNames);
       }

@@ -1,6 +1,6 @@
 const socket = io({autoConnect: false});
 
-let playerName = '', currentTab = localStorage.getItem('currentTab'), charData;
+let playerName = '', currentTab = localStorage.getItem('currentTab');
 if(document.getElementById(currentTab+'Btn')){
   console.log("currentTab",currentTab);
   document.getElementById(currentTab+'Btn').click();
@@ -10,10 +10,8 @@ if(document.getElementById(currentTab+'Btn')){
 }
 
 document.getElementById('SystemBtn').style.display = 'none';
-document.getElementById('all_characters').disabled = true;
 document.getElementById('character1').style.display = 'none';
 document.getElementById('character2').style.display = 'none';
-document.getElementById('character3').style.display = 'none';
 document.getElementById('save').addEventListener('click', save);
 document.getElementById('saveChar').addEventListener('click', saveChar);
 document.getElementById('connectButton').addEventListener('click', connectButton);
@@ -61,7 +59,6 @@ socket.onAny((event, ...args) => {
 socket.on('serverRole', role => {
   if (role == 'admin') {
     document.getElementById('SystemBtn').style.display = 'inline';
-    document.getElementById('all_characters').disabled = false;
   };
 });
 socket.on('error', data => {
@@ -84,27 +81,59 @@ socket.on('slap', (playerName) => {
   // are you alive message?
 });
 socket.on('charList', (data) => {
-  let optionDoc = document.getElementById('characters_list');
-  //remove options
+  let optionDoc = document.getElementById('characters_list'), curChar = document.getElementById('characters_list').value;
   if (optionDoc.options.length > 0) {
     for(let i = (optionDoc.options.length - 1); i >= 0; i--) {
       optionDoc.remove(i);
     }
   }
-  //for (let name)
   let displayChar = false;
   if (data.length) {
     for(let i = 0; i < data.length; i++){
-      optionDoc.options[i] = new Option(data[i].name, data[i].name);
+      optionDoc.options[i] = new Option(data[i].name, data[i]._id);
     }
-    charData = data;
-    displayChar = data[0].name;
+    charData = data._id;
+    displayChar = data[0]._id;
   } else if (data) {
-    optionDoc.options[0] = new Option(data.name, data.name);
-    displayChar = data.name;
+    optionDoc.options[0] = new Option(data[i].name, data[i]._id);
+    displayChar = data._id;
     charData = [data];
   }
-  showChar(displayChar)
+  if (curChar == '') {
+    document.getElementById('character1').style.display = 'none';
+    document.getElementById('character2').style.display = 'none';
+    socket.emit('fetchCharData',displayChar)
+  } else {
+    document.getElementById('characters_list').value = curChar;
+    if (document.getElementById('characters_list').value != curChar){
+      document.getElementById('character1').style.display = 'none';
+      document.getElementById('character2').style.display = 'none';
+    }
+  }
+});
+socket.on('charData', (data) => {
+  if (localStorage.getItem('currentTab') == 'Characters') {
+    if (document.getElementById('characters_list').value == data._id) {
+      document.getElementById('character1').style.display = 'inline';
+      document.getElementById('character2').style.display = 'inline';
+      document.getElementById('character_name').value = data.name;
+      document.getElementById('character_id').value = data._id;
+      document.getElementById('character_owner').options[0].value = data.owner_id;
+      document.getElementById('character_owner').options[0].innerText = 'resolving...';
+      document.getElementById('character_owner').value = data.owner_id;
+      socket.emit('listOwners');
+      document.getElementById('character_state').value = data.state;
+      document.getElementById('character_activeAdventure').value = data.activeAdventure;
+      let attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
+      for (let i = 0 ; i < attributes.length; i++){
+        document.getElementById('character_'+attributes[i]).value = data.details[attributes[i]];
+      };
+    } else {
+      console.log("recieved data for "+data._id+" but drop down set to "+document.getElementById('characters_list').value)
+    }
+  } else {
+    console.log('no longer on char tab');
+  }
 });
 socket.on('nameChanged', (name) => {
   localStorage.setItem('playerName', name);
@@ -115,6 +144,26 @@ socket.on('nameChanged', (name) => {
 });
 socket.on('nonce', (nonce) => {
   localStorage.setItem('authNonce', nonce);
+});
+socket.on('listedOwners', (data) => {
+  if (localStorage.getItem('currentTab') == 'Characters') {
+    let optionDoc = document.getElementById('character_owner'), owner = optionDoc.options[0].value;
+    if (data.length) {
+      for(let i = 0; i < data.length; i++){
+        optionDoc.options[i] = new Option(data[i].name, data[i]._id);
+      }
+      optionDoc.value = owner;
+    } else if (data) {
+      if (data._id == optionDoc.options[0].value){
+        optionDoc.options[0].innerText = data.name
+      } else {
+        optionDoc.options[1] = new Option(data.name, data._id);
+      }
+    }
+    optionDoc.disabled = false;
+  } else {
+    console.log("recieved owner list but no longer on char tab");
+  }
 });
 socket.on('disconnect', () => {
   console.log('Disconnected from server');
@@ -145,21 +194,34 @@ function save() {
 }
 function saveChar() {
   console.log('saveChar');
-  //socket.emit("save",{"systemmessages":[
-  //                      {"value":document.getElementById('system-message0').value,"checked":document.getElementById('system-message0-ck').checked},
-  //                      {"value":document.getElementById('system-message1').value,"checked":document.getElementById('system-message1-ck').checked},
-  //                      {"value":document.getElementById('system-message2').value,"checked":document.getElementById('system-message2-ck').checked},
-  //                      {"value":document.getElementById('system-message3').value,"checked":document.getElementById('system-message3-ck').checked},
-  //                      {"value":document.getElementById('system-message4').value,"checked":document.getElementById('system-message4-ck').checked},
-  //                      {"value":document.getElementById('system-message5').value,"checked":document.getElementById('system-message5-ck').checked}
-  //                    ],
-  //                    "temperature":document.getElementById('temperature').value,
-  //                    "maxTokens":document.getElementById('maxTokens').value,
-  //                    "model":document.getElementById('model').value
-  //                   }
-  //            )
+  socket.emit("saveChar",{_id: document.getElementById('character_id').value,
+                     owner_id: document.getElementById('character_owner').value,
+                         data:{
+                           name: document.getElementById('character_name').value,
+                     adventures: document.getElementById('character_adventures').value.split(","),
+                          state: document.getElementById('character_state').value,
+                        details: {
+                             Race: document.getElementById('character_Race').value,
+                           Gender: document.getElementById('character_Gender').value,
+                            Class: document.getElementById('character_Class').value,
+                              Lvl: document.getElementById('character_Lvl').value,
+                              STR: document.getElementById('character_STR').value,
+                              DEX: document.getElementById('character_DEX').value,
+                              CON: document.getElementById('character_CON').value,
+                              INT: document.getElementById('character_INT').value,
+                              WIS: document.getElementById('character_WIS').value,
+                              CHA: document.getElementById('character_CHA').value,
+                               HP: document.getElementById('character_HP').value,
+                               AC: document.getElementById('character_AC').value,
+                           Weapon: document.getElementById('character_Weapon').value.split(","),
+                            Armor: document.getElementById('character_Armor').value.split(","),
+                        Inventory: document.getElementById('character_Inventory').value.split(","),
+                        Backstory: document.getElementById('character_Backstory').value
+                                  }
+                          }}
+              )
 }
-function showChars() {
+function showCharsOption() {
   if (document.getElementById('all_characters').checked) {
     socket.emit('showCharacters','All')
     socket.emit('tab','Characters') //will refresh data
@@ -168,16 +230,21 @@ function showChars() {
     socket.emit('tab','Characters') //will refresh data
   }
 }
-function showChar(name) {
-  let displayChar = charData.filter(item => {return item.name === name})[0];
-  document.getElementById('character1').style.display = 'inline';
-  document.getElementById('character2').style.display = 'inline';
-  document.getElementById('character3').style.display = 'inline';
-  document.getElementById('character_name').value = displayChar.name;
-  let attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
-  for (let i = 0 ; i < attributes.length; i++){
-    document.getElementById('character_'+attributes[i]).value = displayChar.details[attributes[i]];
-  };
+function showChar(id) {
+  document.getElementById('character1').style.display = 'none';
+  document.getElementById('character2').style.display = 'none';
+  
+  //remove all but the top owner 
+  let optionDoc = document.getElementById('character_owner');
+  if (optionDoc.options.length > 1) {
+    for(let i = (optionDoc.options.length - 1); i >= 1; i--) {
+      //optionDoc.remove(i);
+    }
+  }
+  optionDoc.disabled = true;
+  optionDoc.options[0].value = 'unowned';
+  optionDoc.options[0].innerText = 'unowned';
+  socket.emit('fetchCharData',id);
 }
 function connectButton() {
   let temp = document.getElementById('player-name').value
