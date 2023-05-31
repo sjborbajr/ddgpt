@@ -1,13 +1,11 @@
 // Import required modules
 import { Configuration, OpenAIApi } from "openai";
-import express, { response } from 'express';
+import express from 'express';
 import http from 'http';
 import { Server as SocketIO } from 'socket.io';
-import fs, { write } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
-import inspect from 'util';
 import crypto from 'crypto';
 
 const mongoUri = "mongodb://localhost/?retryWrites=true";
@@ -174,7 +172,6 @@ io.on('connection', async (socket) => {
                     {role:'user',content:data.user}
                    ]
     let response = await openaiCall(messages,data.model,Number(data.temperature),Number(data.maxTokens),data.apikey)
-    //let response = await openaiCall(data.systemmessage,data.assistantmessage,data.user,'gpt-4-0314',Number(data.temperature),Number(data.maxTokens),data.apikey)
     socket.emit('ScotRan',response);
   });
   socket.on('tab',async tabName =>{
