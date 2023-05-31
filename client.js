@@ -11,9 +11,11 @@ if(document.getElementById(currentTab+'Btn')){
 
 document.getElementById('alertMsg').style.display = 'none';
 document.getElementById('SystemBtn').style.display = 'none';
+document.getElementById('ScotGPTBtn').style.display = 'none';
 document.getElementById('character1').style.display = 'none';
 document.getElementById('character2').style.display = 'none';
 document.getElementById('save').addEventListener('click', save);
+document.getElementById('scotRun').addEventListener('click', ScotRun);
 document.getElementById('saveChar').addEventListener('click', saveChar);
 document.getElementById('connectButton').addEventListener('click', connectButton);
 document.getElementById('disconnectButton').addEventListener('click', disconnectButton);
@@ -60,10 +62,12 @@ socket.onAny((event, ...args) => {
 socket.on('serverRole', role => {
   if (role == 'admin') {
     document.getElementById('SystemBtn').style.display = 'inline';
-    document.getElementById('HomeBtn').style.width = '25%'
-    document.getElementById('CharactersBtn').style.width = '25%'
-    document.getElementById('AdventuresBtn').style.width = '25%'
-    document.getElementById('SystemBtn').style.width = '25%'
+    document.getElementById('ScotGPTBtn').style.display = 'inline';
+    document.getElementById('HomeBtn').style.width = '20%'
+    document.getElementById('CharactersBtn').style.width = '20%'
+    document.getElementById('AdventuresBtn').style.width = '20%'
+    document.getElementById('SystemBtn').style.width = '20%'
+    document.getElementById('ScotGPTBtn').style.width = '20%'
   };
 });
 socket.on('error', data => {
@@ -181,6 +185,9 @@ socket.on('listedOwners', (data) => {
     console.log("recieved owner list but no longer on char tab");
   }
 });
+socket.on('ScotRan', (data) => {
+  document.getElementById('response-messageScot').value = data;
+});
 socket.on('disconnect', () => {
   console.log('Disconnected from server');
   document.getElementById('connectButton').disabled = false;
@@ -288,6 +295,19 @@ function connectButton() {
 }
 function disconnectButton() {
   socket.disconnect();
+}
+function ScotRun(){
+  console.log('scotRun');
+  let ScotData = {
+    temperature:document.getElementById('temperatureScot').value,
+    apikey:document.getElementById('keyScot').value,
+    maxTokens:document.getElementById('maxTokensScot').value,
+    model:document.getElementById('modelScot').value,
+    systemmessage:document.getElementById('system-messageScot').value,
+    assistantmessage:document.getElementById('assistant-messageScot').value,
+    user:document.getElementById('user-messageScot').value
+  }
+  socket.emit("scotRun",ScotData);
 }
 function saveplaying(){
   console.log('saveplaying');

@@ -77,8 +77,9 @@
   <div class="alertMsg" role="alert" id="alertMsg"></div>
   <button class="tablink" onclick="openPage('Home',       this, 'green')"   id="HomeBtn"      >Home</button>
   <button class="tablink" onclick="openPage('Characters', this, 'blue')"    id="CharactersBtn">Characters</button>
-  <button class="tablink" onclick="openPage('Adventures',  this, 'orange')" id="AdventuresBtn">Adventures</button>
+  <button class="tablink" onclick="openPage('Adventures', this, 'orange')"  id="AdventuresBtn">Adventures</button>
   <button class="tablink" onclick="openPage('System',     this, 'red')"     id="SystemBtn"    >System</button>
+  <button class="tablink" onclick="openPage('ScotGPT',    this, '#008080')" id="ScotGPTBtn"   >ScotGPT</button>
   <div id="Home" class="tabcontent">
     <label for="player-name">Player Name:</label>
     <input type="text" id="player-name" />
@@ -166,7 +167,67 @@
       <input type="checkbox" id="playing" checked disabled>Playing?</input>
     </div> 
   </div>
+  <div id="ScotGPT" class="tabcontent">
+    <div class="item">
+      <label for="temperatureScot">Temperature:</label>
+      <input id="temperatureScot"></input>
+      <label for="keyScot">API Key:</label>
+      <input id="keyScot"></input>
+      <label for="maxTokensScot">Max Tokens:</label>
+      <input id="maxTokensScot"></input>
+  
+      <label for="modelScot">Model:</label>
+      <select name="model" id="modelScot">
+        <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
+        <option value="gpt-4">gpt-4</option>
+        <option value="gpt-4-0314">gpt-4-0314</option>
+        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+        <option value="text-davinci-003">text-davinci-003</option>
+        <option value="code-davinci-edit-001">code-davinci-edit-001</option>
+        <option value="text-curie-001">text-curie-001</option>
+        <option value="text-babbage-001">text-babbage-001</option>
+        <option value="text-ada-001">text-ada-001</option>
+        <option value="whisper-1">whisper-1</option>
+        <option value="babbage-code-search-code">babbage-code-search-code</option>
+      </select>
+    </div> 
+    <div class="item">
+      <label for="system-messageScot">system-message:</label>
+      <textarea id="system-messageScot" oninput="autoResize(this)"></textarea>
+    </div> 
+    <div class="item">
+      <label for="assistant-messageScot">assistant-message:</label>
+      <textarea id="assistant-messageScot" oninput="autoResize(this)" cols="80"></textarea>
+    </div> 
+    <div class="item">
+      <label for="user-messageScot">user-message:</label>
+      <textarea id="user-messageScot" oninput="autoResize(this)" cols="80"></textarea>
+    </div> 
+    <button id="scotRun" >Run</button>
+    <div class="item">
+      <label for="response-messageScot">response:</label>
+      <textarea id="response-messageScot" oninput="autoResize(this)" cols="80"></textarea>
+    </div>
+  </div>
   <div id="Adventures" class="tabcontent">
+    <div>
+      <label for="adventure_list">Characters:</label>
+      <select name="model" id="adventure_list" onChange="showAdventure(this.value)"></select>
+      <input type="checkbox" id="active_only" onclick="listAdventure()" checked>Show All</input>
+    </div>
+    <br>
+
+    <div id="adventure-history" class="adventure-history">
+      <!-- This section will be filled dynamically with the adventure history -->
+    </div>
+
+    <div class="player-input">
+      <form id="player-input-form">
+        <input type="text" id="player-input-field" placeholder="Enter your action">
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+    <br>
   </div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/client.js"></script>

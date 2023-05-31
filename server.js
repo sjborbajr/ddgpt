@@ -1,9 +1,9 @@
 // Import required modules
 import { Configuration, OpenAIApi } from "openai";
-import express from 'express';
+import express, { response } from 'express';
 import http from 'http';
 import { Server as SocketIO } from 'socket.io';
-import fs from 'fs';
+import fs, { write } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
@@ -38,7 +38,7 @@ app.get('/', (req, res) => res.sendFile(join(__dirname, 'index.html')));
 
 gameDataCollection.updateMany({type:'player'},{$set:{connected:false}});
 
-const openai = new OpenAIApi(new Configuration({apiKey: getSetting('apiKey')}));
+//const openai = new OpenAIApi(new Configuration({apiKey: getSetting('apiKey')}));
 
 io.on('connection', async (socket) => {
   // Get the user id, auth token and IP from handshake
@@ -165,6 +165,17 @@ io.on('connection', async (socket) => {
     } else {
       socket.emit('error','could not find character with ID: '+id)
     }
+  });
+  socket.on('scotRun',async data =>{
+    let message = {message:'Message recieved, running!',color:'green',timeout:10000}
+    socket.emit('alertMsg',message);
+    let messages = [{role:'system',content:data.systemmessage},
+                    {role:'assistant',content:data.assistantmessage},
+                    {role:'user',content:data.user}
+                   ]
+    let response = await openaiCall(messages,data.model,Number(data.temperature),Number(data.maxTokens),data.apikey)
+    //let response = await openaiCall(data.systemmessage,data.assistantmessage,data.user,'gpt-4-0314',Number(data.temperature),Number(data.maxTokens),data.apikey)
+    socket.emit('ScotRan',response);
   });
   socket.on('tab',async tabName =>{
     playerData = await fetchPlayerData(playerName);
@@ -318,31 +329,27 @@ async function saveResponse(responseRaw){
     console.error('Error saving response to MongoDB:', error);
   }
 };
-async function openaiCall(systemMessage, assistantMessages,UserMessage) {
+async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
+  temperature = Number(temperature);
+  maxTokens = Number(maxTokens);
   try {
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
+    let openai = new OpenAIApi(new Configuration({apiKey: apiKey}));
     const response = await openai.createChatCompletion({
-      model: gameStatePublic.settings.model,
-      messages: [
-        { role: 'system', content: systemMessage },
-        ...assistantMessages.map(message => ({ role: 'assistant', content: message })),
-        { role: 'user', content: UserMessage}
-      ],
-      temperature: gameStatePublic.settings.temperature,
-      max_tokens: gameStatePublic.settings.maxTokens
+      model: model,
+      messages: messages,
+      temperature: temperature,
+      max_tokens: maxTokens
     });
-
-    const safeResponse = inspect(response, {depth: 5})
-    fs.writeFileSync('response.'+safeResponse.data.created+'.private', safeResponse);
+    
     saveResponse(response);
-
     // Extract the generated response from the API
-    const generatedResponse = response.data;
-
+    const generatedResponse = response.data.choices[0].message.content;
+    
     return generatedResponse;
   } catch (error) {
     console.error('Error generating response from OpenAI:', error);
-    throw error;
+    let generatedResponse = "Status: "+error.response.status+", "+error.response.statusText;
+    return generatedResponse
   }
 }
 async function getSetting(setting){
