@@ -139,6 +139,7 @@ socket.on('charData', (data) => {
       socket.emit('listOwners');
       document.getElementById('character_state').value = data.state;
       document.getElementById('character_activeAdventure').value = data.activeAdventure;
+      document.getElementById('character_adventures').value = data.adventures;
       let attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
       for (let i = 0 ; i < attributes.length; i++){
         document.getElementById('character_'+attributes[i]).value = data.details[attributes[i]];
@@ -242,10 +243,10 @@ function saveChar() {
 }
 function showCharsOption() {
   if (document.getElementById('all_characters').checked) {
-    socket.emit('showCharacters','All')
+    socket.emit('showCharOption','All')
     socket.emit('tab','Characters') //will refresh data
   } else {
-    socket.emit('showCharacters','Own')
+    socket.emit('showCharOption','Own')
     socket.emit('tab','Characters') //will refresh data
   }
 }

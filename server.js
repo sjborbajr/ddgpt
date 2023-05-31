@@ -57,10 +57,9 @@ io.on('connection', async (socket) => {
       console.log('give '+playerName+' his nonce');
       socket.emit('nonce',playerData.authNonce);
     } else {
-      // not you, disconnect
       socket.emit("error","user not authenticated");
       socket.disconnect();
-      console.log('player '+playerName+' did not have his nonce and did not have his IP - Kicked');
+      console.log('player '+playerName+' did not have nonce and did not have IP - Kicked');
     }
   } else {
     console.log("add player "+playerName);
@@ -92,19 +91,37 @@ io.on('connection', async (socket) => {
   socket.on('saveChar', async data => {
     console.log('Player '+playerName+' saving char '+data.data.name);
     //socket.to('System').emit('settings', data)
-    data.data.owner_id = new ObjectId(data.owner_id);
-    try {
-      gameDataCollection.updateOne({_id:new ObjectId(data._id)},{$set:data.data});
-      let message = {message:'Character '+data.data.name+' saved.',color:'green',timeout:1500}
-      socket.emit('alertMsg',message);
-    } catch(error) {
-      let message = {message:'Character '+data.data.name+' not saved!',color:'red',timeout:2500}
+    data.data.owner_id = (''+data.owner_id).replace(/[^a-f0-9]/g,'');
+    data._id = (''+data._id).replace(/[^a-f0-9]/g,'');
+    if (data.data.owner_id.length == 24 && data._id.length == 24) {
+      if (playerData.admin || data.data.owner_id == playerData._id){
+        data.data.owner_id = new ObjectId(data.data.owner_id);
+        try {
+          gameDataCollection.updateOne({_id:new ObjectId(data._id)},{$set:data.data});
+          let message = {message:'Character '+data.data.name+' saved.',color:'green',timeout:1500};
+          socket.emit('alertMsg',message);
+        } catch(error) {
+          let message = {message:'Character '+data.data.name+' not saved!',color:'red',timeout:5000};
+          console.error('error saving',error);
+          socket.emit('alertMsg',message);
+        }
+      } else {
+        let message = {message:'no access - Character '+data.data.name+' not saved!',color:'red',timeout:5000}
+        socket.emit('alertMsg',message);
+      }
+    } else {
+      let message = {message:'Invalid ID - Character '+data.data.name+' not saved!',color:'red',timeout:5000}
       socket.emit('alertMsg',message);
     }
   });
-  socket.on('showCharacters', data =>{
+  socket.on('showCharOption', data =>{
     //sets the variable for this socket to show all charaters or current living ones
-    showCharacters = data;
+    if (data == 'All' || data == 'Own') {
+      showCharacters = data;
+    } else {
+      let message = {message:'Invalid response!',color:'red',timeout:5000}
+      socket.emit('alertMsg',message);
+    }
   });
   socket.on('listOwners', async () => {
     let owners = await gameDataCollection.find({type:'player'}).project({name:1,_id:1}).toArray();
@@ -117,7 +134,7 @@ io.on('connection', async (socket) => {
   });
   socket.on('disconnect', () => {
     console.log('Player disconnected:', playerName);
-    //gameStatePublic.players[playerName].connected = false;
+    gameDataCollection.updateOne({type:'player',name:playerName},{$set:{connected:false}});
   });
   socket.on('changeName', async newName => {
     console.log('Player changing name from '+playerName+' to '+newName);
