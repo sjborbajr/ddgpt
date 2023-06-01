@@ -313,6 +313,7 @@ function saveplaying(){
   console.log('saveplaying');
   socket.emit("saveplaying",playing.checked);
 }
+
 function openPage(pageName,elmnt,color) {
   var i, tabcontent, tablinks;
   tabcontent = document.getElementsByClassName("tabcontent");
@@ -335,4 +336,41 @@ function openPage(pageName,elmnt,color) {
   }
   //remember which tab was last
   localStorage.setItem('currentTab',pageName);
+}
+async function showAllAdventureHistory(data) {
+  // Get the adventure history div
+  const adventureHistoryDiv = document.getElementById('adventure-history');
+
+  // Clear the current content
+  adventureHistoryDiv.innerHTML = '';
+
+  // Add each dialog entry to the div
+  historyJson.dialogHistory.forEach((entry) => {
+    const entryElem = document.createElement('p');
+    entryElem.textContent = data.role
+    entryElem.textContent = data.content
+    adventureHistoryDiv.appendChild(entryElem);
+  });
+
+  document.getElementById('submit-input').addEventListener('click', function() {
+    var playerInput = document.getElementById('player-input').value;
+    // Here you can do whatever you need with the player's input,
+    // like sending it to your server.
+  });
+  
+  // Assuming you have a function called updateAdventureHistory that gets called whenever
+  // there's new adventure data to display.
+  function updateAdventureHistory(newData, sender) {
+    var adventureHistoryDiv = document.getElementById('adventure-history');
+    var messageDiv = document.createElement('div');
+  
+    messageDiv.className = 'message ' + (sender === 'dm' ? 'dm-message' : 'player-message');
+    messageDiv.textContent = newData;
+  
+    adventureHistoryDiv.appendChild(messageDiv);
+    // This will automatically scroll to the bottom whenever new data is added.
+    adventureHistoryDiv.scrollTop = adventureHistoryDiv.scrollHeight;
+  }
+  // Scroll to the bottom
+  adventureHistoryDiv.scrollTop = adventureHistoryDiv.scrollHeight;
 }
