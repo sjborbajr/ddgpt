@@ -7,6 +7,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import crypto from 'crypto';
+import { write } from "fs";
 
 const mongoUri = "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri,{ forceServerObjectId: true });
@@ -41,7 +42,7 @@ gameDataCollection.updateMany({type:'player'},{$set:{connected:false}});
 io.on('connection', async (socket) => {
   // Get the user id, auth token and IP from handshake
   let playerName = socket.handshake.auth.playerName || '', clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address, authNonce = socket.handshake.auth.authNonce || '';
-  let showCharacters = 'Own';
+  let showCharacters = 'Own', showActiveAdventures = true;
   playerName = playerName.trim().replace(/[^a-zA-Z0-9]/g,'');
   console.log('User connected: '+playerName+'\nFrom: '+clientIp);
 
@@ -174,19 +175,36 @@ io.on('connection', async (socket) => {
     let response = await openaiCall(messages,data.model,Number(data.temperature),Number(data.maxTokens),data.apikey)
     socket.emit('ScotRan',response);
   });
+  socket.on('fetchAllAdventureHistory',async adventure_id =>{
+    let adventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(adventure_id)}).sort({date:1}).toArray();
+    socket.emit('AllAdventureHistory',adventureMessages);
+    socket.join('Adventure-'+adventure_id);
+  });
+  socket.on('sendAdventureInput',async UserInput =>{
+    //need more!
+    let count = await gameDataCollection.countDocuments({type:'message',adventure_id:new ObjectId(UserInput.adventure_id)})
+    let firstAdventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(UserInput.adventure_id)}).sort({date:1}).limit(1);
+    let recentAdventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(UserInput.adventure_id)}).sort({date:-1}).limit(3);
+    socket.emit('adventureEvent',UserInput);
+    console.log("count: "+count)
+    socket.emit("firstAdventureMessages: "+firstAdventureMessages)
+    socket.emit("recentAdventureMessages: "+recentAdventureMessages)
+    console.log(socket.rooms);
+  });
   socket.on('tab',async tabName =>{
     playerData = await fetchPlayerData(playerName);
+    updatePlayer(playerName,{$set:{tabName:tabName}});
     //remove player from old tab channel
     if (tabName == 'System') {
       if (playerData.admin) {
-        socket.join(tabName);
+        socket.join('Tab-'+tabName);
         let allSettings = await getSetting('');
         socket.emit('settings',allSettings);
       } else {
         socket.emit('error','you are not admin')
       }
     } else {
-      socket.join(tabName);
+      socket.join('Tab-'+tabName);
       if (tabName == 'Characters') {
         let characterNames = ''
         if (showCharacters == 'All'){
@@ -198,10 +216,22 @@ io.on('connection', async (socket) => {
         } else {
           characterNames = await gameDataCollection.find({type:'character',state:'alive',owner_id:playerData._id}).project({name:1,_id:1}).toArray();
         }
-        socket.emit('charList',characterNames);
+        if (characterNames) {
+          socket.emit('charList',characterNames);
+        }
+      }
+      if (tabName == 'Adventures') {
+        let advetureNames = ''
+        if (showActiveAdventures != ''){
+          advetureNames = await gameDataCollection.find({type:'adventure',state:'active'}).project({name:1,_id:1}).toArray();
+        } else {
+          advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
+        }
+        if (advetureNames != ''){
+          socket.emit('adventureList',advetureNames);
+        }
       }
     }
-    updatePlayer(playerName,{$set:{tabName:tabName}});
   });
 });
 async function fetchPlayerData(playerName) {
@@ -345,7 +375,7 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
     return generatedResponse;
   } catch (error) {
     console.error('Error generating response from OpenAI:', error);
-    let generatedResponse = ''
+    let generatedResponse = '['+new Date().toUTCString()+']'
     if (error.response) {
       generatedResponse += " Status: "+error.response.status+", "+error.response.statusText;
     }

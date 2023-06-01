@@ -19,6 +19,7 @@ document.getElementById('scotRun').addEventListener('click', ScotRun);
 document.getElementById('saveChar').addEventListener('click', saveChar);
 document.getElementById('connectButton').addEventListener('click', connectButton);
 document.getElementById('disconnectButton').addEventListener('click', disconnectButton);
+document.getElementById('player-input-submit').addEventListener('click', sendAdventureInput);
 
 // Attach event listeners to the buttons
 window.onload = function() {
@@ -111,12 +112,10 @@ socket.on('charList', (data) => {
     for(let i = 0; i < data.length; i++){
       optionDoc.options[i] = new Option(data[i].name, data[i]._id);
     }
-    charData = data._id;
     displayChar = data[0]._id;
   } else if (data) {
-    optionDoc.options[0] = new Option(data[i].name, data[i]._id);
+    optionDoc.options[0] = new Option(data.name, data._id);
     displayChar = data._id;
-    charData = [data];
   }
   if (curChar == '') {
     document.getElementById('character1').style.display = 'none';
@@ -164,6 +163,40 @@ socket.on('nameChanged', (name) => {
 });
 socket.on('nonce', (nonce) => {
   localStorage.setItem('authNonce', nonce);
+});
+socket.on('AllAdventureHistory', (data) => {
+  addAllAdventureHistory(data);
+});
+socket.on('adventureEvent', (data) => {
+  addAdventureHistory(data);
+});
+socket.on('adventureList', (data) => {
+  if (localStorage.getItem('currentTab') == 'Adventures') {
+    let optionDoc = document.getElementById('adventure_list'), curOption = document.getElementById('adventure_list').value, firstId = false;
+    if (optionDoc.options.length > 0) {
+      for(let i = (optionDoc.options.length - 1); i >= 0; i--) {
+        optionDoc.remove(i);
+      }
+    }
+    if (data.length) {
+      for(let i = 0; i < data.length; i++){
+        optionDoc.options[i] = new Option(data[i].name, data[i]._id);
+      }
+      firstId = data[0]._id
+    } else if (data) {
+      optionDoc.options[0] = new Option(data.name, data._id);
+      firstId = data._id
+    }
+
+    if (curOption == '') {
+      if (firstId != '') {
+        socket.emit('fetchAllAdventureHistory',firstId)
+      }
+    } else {
+      document.getElementById('adventure_list').value = curOption;
+      socket.emit('fetchAllAdventureHistory',curOption)
+    }
+  }
 });
 socket.on('listedOwners', (data) => {
   if (localStorage.getItem('currentTab') == 'Characters') {
@@ -337,40 +370,26 @@ function openPage(pageName,elmnt,color) {
   //remember which tab was last
   localStorage.setItem('currentTab',pageName);
 }
-async function showAllAdventureHistory(data) {
-  // Get the adventure history div
+function addAllAdventureHistory(data) {
   const adventureHistoryDiv = document.getElementById('adventure-history');
-
-  // Clear the current content
   adventureHistoryDiv.innerHTML = '';
-
-  // Add each dialog entry to the div
-  historyJson.dialogHistory.forEach((entry) => {
-    const entryElem = document.createElement('p');
-    entryElem.textContent = data.role
-    entryElem.textContent = data.content
-    adventureHistoryDiv.appendChild(entryElem);
+  data.forEach((entry) => {
+    addAdventureHistory(entry);
   });
-
-  document.getElementById('submit-input').addEventListener('click', function() {
-    var playerInput = document.getElementById('player-input').value;
-    // Here you can do whatever you need with the player's input,
-    // like sending it to your server.
-  });
-  
-  // Assuming you have a function called updateAdventureHistory that gets called whenever
-  // there's new adventure data to display.
-  function updateAdventureHistory(newData, sender) {
-    var adventureHistoryDiv = document.getElementById('adventure-history');
-    var messageDiv = document.createElement('div');
-  
-    messageDiv.className = 'message ' + (sender === 'dm' ? 'dm-message' : 'player-message');
-    messageDiv.textContent = newData;
-  
-    adventureHistoryDiv.appendChild(messageDiv);
-    // This will automatically scroll to the bottom whenever new data is added.
-    adventureHistoryDiv.scrollTop = adventureHistoryDiv.scrollHeight;
-  }
-  // Scroll to the bottom
+}
+function addAdventureHistory(entry) {
+  const adventureHistoryDiv = document.getElementById('adventure-history');
+  let messageDiv = document.createElement('div');
+  messageDiv.className = 'message ' + (entry.role === 'user' ? 'player-message' : 'dm-message');
+  messageDiv.textContent = entry.content;
+  adventureHistoryDiv.appendChild(messageDiv);
   adventureHistoryDiv.scrollTop = adventureHistoryDiv.scrollHeight;
+}
+function sendAdventureInput() {
+  var playerInput = document.getElementById('player-input-field').value;
+  socket.emit('sendAdventureInput',{role:'user',content:playerInput,adventure_id:document.getElementById('adventure_list').value});
+  document.getElementById('player-input-field').value = '';
+}
+function listAdventureOption() {
+  socket.emit('listActiveAdventure',document.getElementById('active_only').checked)
 }
