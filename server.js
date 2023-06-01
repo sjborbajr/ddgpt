@@ -345,7 +345,16 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
     return generatedResponse;
   } catch (error) {
     console.error('Error generating response from OpenAI:', error);
-    let generatedResponse = "Status: "+error.response.status+", "+error.response.statusText;
+    let generatedResponse = ''
+    if (error.response) {
+      generatedResponse += " Status: "+error.response.status+", "+error.response.statusText;
+    }
+    if (error.errno) {
+      generatedResponse += " errno: "+error.errno;
+    }
+    if (error.code) {
+      generatedResponse += " code: "+error.code;
+    }
     return generatedResponse
   }
 }
