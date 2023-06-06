@@ -14,6 +14,7 @@ document.getElementById('SystemBtn').style.display = 'none';
 document.getElementById('ScotGPTBtn').style.display = 'none';
 document.getElementById('character1').style.display = 'none';
 document.getElementById('character2').style.display = 'none';
+
 document.getElementById('save').addEventListener('click', save);
 document.getElementById('scotRun').addEventListener('click', ScotRun);
 document.getElementById('saveChar').addEventListener('click', saveChar);
@@ -346,7 +347,6 @@ function saveplaying(){
   console.log('saveplaying');
   socket.emit("saveplaying",playing.checked);
 }
-
 function openPage(pageName,elmnt,color) {
   var i, tabcontent, tablinks;
   tabcontent = document.getElementsByClassName("tabcontent");
