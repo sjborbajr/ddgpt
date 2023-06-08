@@ -120,6 +120,17 @@
       margin-top: 0;
       margin-bottom: 0;
     }
+    #messages {
+      display: flex;
+    }
+
+    #messages-left-column {
+      width: 30%;
+    }
+
+    #messages-right-column {
+      width: 70%;
+    }    
   </style>
 </head>
 <body>
@@ -181,74 +192,42 @@
         <option value="babbage-code-search-code">babbage-code-search-code</option>
       </select>
     </div>
+    <h2>Chat Messages</h2>
     <div id="messages">
-      <h2>Chat Messages</h2>
       <div id="adventure-history" style="height: 500px; overflow-y: scroll; border: 1px solid #ddd;"></div>
-      <div class="item">
-        <label for="croupier_backend">croupier_backend:</label>
-        <textarea id="croupier_backend" oninput="autoResize(this)" cols="80"></textarea>
+      <div id="messages-left-column">
+        <ul id="option-list">
+          <li onclick="showInput('option1')">Option 1</li>
+          <li onclick="showInput('option2')">Option 2</li>
+          <li onclick="showInput('option3')">Option 3</li>
+        </ul>
       </div>
-      <div class="item">
-        <label for="croupier_generic_begin">croupier_generic_begin:</label>
-        <textarea id="croupier_generic_begin" oninput="autoResize(this)" cols="80"></textarea>
-      </div>
-      <div class="item">
-        <label for="croupier_adventureName">croupier_adventureName:</label>
-        <textarea id="croupier_adventureName" oninput="autoResize(this)" cols="80"></textarea>
-      </div>
-      <div class="item">
-        <label for="response_adventureName">response_adventureName:</label>
-        <textarea id="response_adventureName" oninput="autoResize(this)" cols="80"></textarea>
-      </div>
-      <div class="item">
-        <label for="croupier_dice">croupier_dice:</label>
-        <textarea id="croupier_dice" oninput="autoResize(this)" cols="80"></textarea>
-      </div>
-      <div class="item">
-        <label for="response_dice">response_dice:</label>
-        <textarea id="response_dice" oninput="autoResize(this)" cols="80"></textarea>
-      </div>
-      <div class="item">
-        <label for="croupier_accepted">croupier_accepted:</label>
-        <textarea id="croupier_accepted" oninput="autoResize(this)" cols="80"></textarea>
-      </div>
-      <div class="item">
-        <label for="response_accepted">response_accepted:</label>
-        <textarea id="response_accepted" oninput="autoResize(this)" cols="80"></textarea>
-      </div>
-      <div class="item">
-        <label for="croupier_loot">croupier_loot:</label>
-        <textarea id="croupier_loot" oninput="autoResize(this)" cols="80"></textarea>
-      </div>
-      <div class="item">
-        <label for="cruopier_loot_note">cruopier_loot_note:</label>
-        <textarea id="cruopier_loot_note" oninput="autoResize(this)" cols="80"></textarea>
-      </div>
-      <div class="item">
-        <label for="response_loot">response_loot:</label>
-        <textarea id="response_loot" oninput="autoResize(this)" cols="80"></textarea>
-      </div>
-      <div class="item">
-        <label for="croupier_generic_end">croupier_generic_end:</label>
-        <textarea id="croupier_generic_end" oninput="autoResize(this)" cols="80"></textarea>
-      </div>
-      <div class="item">
-        <label for="dm_system ">dm_system :</label>
-        <textarea id="dm_system " oninput="autoResize(this)" cols="80"></textarea>
-      </div>
-      <div class="item">
-        <label for="dm_create_adventure">dm_create_adventure:</label>
-        <textarea id="dm_create_adventure" oninput="autoResize(this)" cols="80"></textarea>
-      </div>
-      <div class="item">
-        <label for="dm_continue_adventure">dm_continue_adventure:</label>
-        <textarea id="dm_continue_adventure" oninput="autoResize(this)" cols="80"></textarea>
-      </div>
+      <div id="messages-right-column">
+        <div id="option1" style="display: none;">
+          <label for="input1">Input 1:</label>
+          <input type="text" id="input1">
+        </div>
+        <div id="option2" style="display: none;">
+          <label for="input2">Input 2:</label>
+          <input type="text" id="input2">
+        </div>
+        <div id="option3" style="display: none;">
+          <label for="input3">Input 3:</label>
+          <input type="text" id="input3">
+        </div>
+        <div class="item">
+          <label for="croupier_backend">croupier_backend:</label>
+          <textarea id="croupier_backend" oninput="autoResize(this)" cols="80"></textarea>
+        </div>
+        <div class="item">
+          <label for="dm_create_adventure">dm_create_adventure:</label>
+          <textarea id="dm_create_adventure" oninput="autoResize(this)" cols="80"></textarea>
+        </div>
+        <div class="item">
+          <label for="dm_continue_adventure">dm_continue_adventure:</label>
+          <textarea id="dm_continue_adventure" oninput="autoResize(this)" cols="80"></textarea>
+        </div>
     </div>
-
-    <div class="item">
-      
-    </div> 
   </div>
   <div id="ScotGPT" class="tabcontent">
     <div class="item">
