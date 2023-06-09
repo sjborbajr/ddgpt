@@ -1,6 +1,6 @@
 const socket = io({autoConnect: false});
 
-let playerName = '', currentTab = localStorage.getItem('currentTab');
+let playerName = '', currentTab = localStorage.getItem('currentTab'), systemSettings;
 if(document.getElementById(currentTab+'Btn')){
   console.log("currentTab",currentTab);
   document.getElementById(currentTab+'Btn').click();
@@ -33,31 +33,47 @@ window.onload = function() {
 };
 socket.on('settings', data => {
   console.log('got game settings');
-  document.getElementById('system-message0').value = data.systemmessages[0].value;
-  document.getElementById('system-message0-ck').checked = data.systemmessages[0].checked;
-  autoResize(document.getElementById('system-message0'));
-  document.getElementById('system-message1').value = data.systemmessages[1].value;
-  document.getElementById('system-message1-ck').checked = data.systemmessages[1].checked;
-  autoResize(document.getElementById('system-message1'));
-  document.getElementById('system-message2').value = data.systemmessages[2].value;
-  document.getElementById('system-message2').disabled = true;
-  document.getElementById('system-message2-ck').checked = data.systemmessages[2].checked;
-  document.getElementById('system-message2-ck').disabled = true;
-  autoResize(document.getElementById('system-message2'));
-  document.getElementById('system-message3').value = data.systemmessages[3].value;
-  document.getElementById('system-message3').checked = data.systemmessages[3].checked;
-  autoResize(document.getElementById('system-message3'));
-  document.getElementById('system-message4').value = data.systemmessages[4].value;
-  document.getElementById('system-message4').checked = data.systemmessages[4].checked;
-  autoResize(document.getElementById('system-message4'));
-  document.getElementById('system-message5').value = data.systemmessages[5].value;
-  document.getElementById('system-message5').checked = data.systemmessages[5].checked;
-  autoResize(document.getElementById('system-message5'));
-
+  systemSettings = data
   document.getElementById('temperature').value = data.temperature;
   document.getElementById('maxTokens').value = data.maxTokens;
   document.getElementById('model').value = data.model;
+  document.getElementById('gpt-messages-list').innerHTML = "";
+  for (let messageName in systemSettings.messages) {
+    let entry=document.createElement('li');
+    //entry.addEventListener('onclick',showChatMessage);
+    entry.onclick=function () {showChatMessage(this);};
+    entry.innerText=messageName;
+    document.getElementById('gpt-messages-list').appendChild(entry);
+  }
 });
+function showChatMessage(e){
+  //console.log(e);
+  let messageName = e.innerText;
+  if(systemSettings.messages){
+    if(systemSettings.messages[messageName]) {
+      console.log(systemSettings.messages[messageName]);
+      if(systemSettings.messages[messageName].role){
+        document.getElementById('croupier_role').value = systemSettings.messages[messageName].role;
+      } else {document.getElementById('croupier_role').value = ''}
+
+      if(systemSettings.messages[messageName].order){
+        document.getElementById('croupier_order').value = systemSettings.messages[messageName].order;
+      } else {document.getElementById('croupier_order').value = ''}
+
+      if(systemSettings.messages[messageName].content){
+        document.getElementById('croupier_content').innerHTML = systemSettings.messages[messageName].content;
+      } else {document.getElementById('croupier_content').value = ''}
+
+      if(systemSettings.messages[messageName].notes){
+        document.getElementById('croupier_notes').innerHTML = systemSettings.messages[messageName].notes;
+      } else {document.getElementById('croupier_notes').innerHTML = ''}
+
+      if(systemSettings.messages[messageName].json){
+        document.getElementById('croupier_json').innerHTML = JSON.stringify(systemSettings.messages[messageName].json);
+      } else {document.getElementById('croupier_json').innerHTML = ''}
+    }
+  }
+}
 socket.onAny((event, ...args) => {
   console.log(event, args);
 });
@@ -140,16 +156,20 @@ socket.on('charData', (data) => {
       document.getElementById('character_owner').options[0].value = data.owner_id;
       document.getElementById('character_owner').options[0].innerText = 'resolving...';
       document.getElementById('character_owner').value = data.owner_id;
+      //fill the drop down with potential owners
       socket.emit('listOwners');
       document.getElementById('character_state').value = data.state;
-      document.getElementById('character_activeAdventure').value = data.activeAdventure;
-      document.getElementById('character_adventures').value = data.adventures;
+      document.getElementById('character_activeAdventure').value = data.activeAdventure.name;
+      document.getElementById('character_adventures').value = data.adventures[0].name;
+      for (let i = 1 ; i < data.adventures.length; i++){
+        document.getElementById('character_adventures').value += ','+data.adventures[i].name;
+      };
       let attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
       for (let i = 0 ; i < attributes.length; i++){
         document.getElementById('character_'+attributes[i]).value = data.details[attributes[i]];
       };
     } else {
-      console.log("recieved data for "+data._id+" but drop down set to "+document.getElementById('characters_list').value)
+      console.log("recieved data for "+data._id+" but drop down set to "+document.getElementById('characters_list').value);
     }
   } else {
     console.log('no longer on char tab');
@@ -255,11 +275,11 @@ function save() {
 }
 function saveChar() {
   console.log('saveChar');
+  adventures: document.getElementById('character_adventures').value.split(","),
   socket.emit("saveChar",{_id: document.getElementById('character_id').value,
                      owner_id: document.getElementById('character_owner').value,
                          data:{
                            name: document.getElementById('character_name').value,
-                     adventures: document.getElementById('character_adventures').value.split(","),
                           state: document.getElementById('character_state').value,
                         details: {
                              Race: document.getElementById('character_Race').value,

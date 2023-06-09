@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>DDGPT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    .alertMsg {
+      border: none;
+      padding: 0px;
+      color: #4CAF50;
+      text-align: center;
+      width: 100% !important;
+      height: fit-content;
+      left:0px;
+      right:0px;
+      top:0px;
+      position: absolute;
+    }
+    .tablink {
+      background-color: #555;
+      color: white;
+      float: left;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 14px 16px;
+      font-size: 17px;
+      width: 20%;
+    }
+    .tablink:hover {
+      background-color: #777;
+    }
+  </style>
+</head>
+<body>
+  <div class="alertMsg" role="alert" id="alertMsg"></div>
+  <div id="tabs">
+    <button class="tablink" onclick="openPage('Home',       this, 'green')"   id="HomeBtn"      >Home</button>
+    <button class="tablink" onclick="openPage('Characters', this, 'blue')"    id="CharactersBtn">Characters</button>
+    <button class="tablink" onclick="openPage('Adventures', this, 'orange')"  id="AdventuresBtn">Adventures</button>
+    <button class="tablink" onclick="openPage('System',     this, 'red')"     id="SystemBtn"    >System</button>
+    <button class="tablink" onclick="openPage('ScotGPT',    this, '#008080')" id="ScotGPTBtn"   >ScotGPT</button>
+  </div>
+</body>
+</html>

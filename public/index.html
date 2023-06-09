@@ -3,135 +3,7 @@
 <head>
   <title>DDGPT</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    * {box-sizing: border-box}
-    
-    /* Set height of body and the document to 100% */
-    body, html {
-      height: 100%;
-      margin: 0;
-      font-family: Arial;
-    }
-    
-    /* Style tab links */
-    .tablink {
-      background-color: #555;
-      color: white;
-      float: left;
-      border: none;
-      outline: none;
-      cursor: pointer;
-      padding: 14px 16px;
-      font-size: 17px;
-      width: 33.3%;
-    }
-    
-    .tablink:hover {
-      background-color: #777;
-    }
-    
-    /* Style the tab content (and add height:100% for full page content) */
-    .tabcontent {
-      color: black;
-      display: none;
-      padding: 60px 20px;
-      height: 100%;
-    }
-    .button {
-      background-color: #4CAF50;
-      color: white;
-    }
-    .alertMsg {
-      border: none;
-      padding: 0px;
-      color: #4CAF50;
-      text-align: center;
-      width: 100% !important;
-      height: fit-content;
-      left:0px;
-      right:0px;
-      top:0px;
-      position: absolute;
-    }
-
-    table {
-      border-collapse: collapse;
-      width: 100%;
-    }
-    th, td {
-      padding: 8px;
-      text-align: left;
-    }
-    
-    th {
-      text-align: right;
-    }
-    textarea {
-      width: 100%;
-      height: 100px;
-      resize: vertical;
-    }
-    .message {
-      width: 88%;
-      padding: 5px;
-      margin: 6px 0;
-      border-radius: 10px;
-    }
-    
-    .dm-message {
-      background-color: #9E9E9E;
-      align-self: flex-start;
-    }
-    
-    .player-message {
-      background-color: #4CAF50;
-      align-self: flex-end;
-    }
-    
-    #Adventures {
-      display: flex;
-      flex-direction: column;
-      margin-top: 0;
-      margin-bottom: 0;
-    }
-    
-    #adventure-history-container {
-      margin-top: 8px;
-      margin-bottom: 0;
-    }
-    #adventure-history-container h2 {
-      margin-top: 0;
-      margin-bottom: 0;
-    }
-    #adventure-history {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      border: 1px solid #ddd;
-      margin-right: 0;
-      margin-top: 0;
-      margin-bottom: 0;
-    }
-    #player-input-container {
-      margin-top: 4px;
-      margin-bottom: 0;
-    }
-    #player-input-container h2 {
-      margin-top: 0;
-      margin-bottom: 0;
-    }
-    #messages {
-      display: flex;
-    }
-
-    #messages-left-column {
-      width: 30%;
-    }
-
-    #messages-right-column {
-      width: 70%;
-    }    
-  </style>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="alertMsg" role="alert" id="alertMsg"></div>
@@ -193,40 +65,35 @@
       </select>
     </div>
     <h2>Chat Messages</h2>
-    <div id="messages">
-      <div id="adventure-history" style="height: 500px; overflow-y: scroll; border: 1px solid #ddd;"></div>
-      <div id="messages-left-column">
-        <ul id="option-list">
-          <li onclick="showInput('option1')">Option 1</li>
-          <li onclick="showInput('option2')">Option 2</li>
-          <li onclick="showInput('option3')">Option 3</li>
+    <div id="gpt-messages">
+      <div id="gpt-messages-left-column">
+        <ul id="gpt-messages-list">
         </ul>
       </div>
-      <div id="messages-right-column">
-        <div id="option1" style="display: none;">
-          <label for="input1">Input 1:</label>
-          <input type="text" id="input1">
-        </div>
-        <div id="option2" style="display: none;">
-          <label for="input2">Input 2:</label>
-          <input type="text" id="input2">
-        </div>
-        <div id="option3" style="display: none;">
-          <label for="input3">Input 3:</label>
-          <input type="text" id="input3">
+      <div id="gpt-messages-resize-bar"></div>
+      <div id="gpt-messages-right-column">
+        <div class="item">
+          <label for="croupier_role">role:</label>
+          <select name="model" id="croupier_role">
+            <option value="system">system</option>
+            <option value="user">user</option>
+            <option value="assistant">assistant</option>
+          </select>
+          Order:<input type="number" id="croupier_order" min=0 max=9999>
         </div>
         <div class="item">
-          <label for="croupier_backend">croupier_backend:</label>
-          <textarea id="croupier_backend" oninput="autoResize(this)" cols="80"></textarea>
+          <label for="croupier_content">content:</label>
+          <textarea id="croupier_content"></textarea>
         </div>
         <div class="item">
-          <label for="dm_create_adventure">dm_create_adventure:</label>
-          <textarea id="dm_create_adventure" oninput="autoResize(this)" cols="80"></textarea>
+          <label for="croupier_notes">notes:</label>
+          <textarea id="croupier_notes"></textarea>
         </div>
         <div class="item">
-          <label for="dm_continue_adventure">dm_continue_adventure:</label>
-          <textarea id="dm_continue_adventure" oninput="autoResize(this)" cols="80"></textarea>
+          <label for="croupier_json">json:</label>
+          <textarea id="croupier_json"></textarea>
         </div>
+      </div>
     </div>
   </div>
   <div id="ScotGPT" class="tabcontent">
@@ -289,5 +156,39 @@
   </div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/client.js"></script>
+  <script>
+    var resizeBar = document.getElementById('gpt-messages-resize-bar');
+    var leftColumn = document.getElementById('gpt-messages-left-column');
+    var rightColumn = document.getElementById('gpt-messages-right-column');
+    var container = document.getElementById('gpt-messages');
+    var startX;
+    var initialLeftWidth;
+
+    resizeBar.addEventListener('mousedown', initDrag);
+
+    function initDrag(e) {
+      startX = e.clientX;
+      initialLeftWidth = leftColumn.offsetWidth;
+
+      document.addEventListener('mousemove', doDrag);
+      document.addEventListener('mouseup', stopDrag);
+    }
+
+    function doDrag(e) {
+      var deltaX = e.clientX - startX;
+      var newLeftWidth = initialLeftWidth + deltaX;
+      var containerWidth = container.offsetWidth;
+      var leftWidthPercentage = (newLeftWidth / containerWidth) * 100;
+      var rightWidthPercentage = 100 - leftWidthPercentage;
+
+      leftColumn.style.width = leftWidthPercentage + '%';
+      rightColumn.style.width = rightWidthPercentage + '%';
+    }
+
+    function stopDrag() {
+      document.removeEventListener('mousemove', doDrag);
+      document.removeEventListener('mouseup', stopDrag);
+    }
+  </script>
 </body>
 </html>

@@ -123,6 +123,7 @@ io.on('connection', async (socket) => {
     }
   });
   socket.on('listOwners', async () => {
+    //TODO limit the owner list for non-admins
     let owners = await gameDataCollection.find({type:'player'}).project({name:1,_id:1}).toArray();
     socket.emit('listedOwners',owners);
   });
