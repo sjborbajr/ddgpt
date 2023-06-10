@@ -16,11 +16,13 @@ document.getElementById('character1').style.display = 'none';
 document.getElementById('character2').style.display = 'none';
 
 document.getElementById('save').addEventListener('click', save);
+document.getElementById('rename').addEventListener('click', renameGptMessage);
 document.getElementById('scotRun').addEventListener('click', ScotRun);
 document.getElementById('saveChar').addEventListener('click', saveChar);
 document.getElementById('connectButton').addEventListener('click', connectButton);
 document.getElementById('disconnectButton').addEventListener('click', disconnectButton);
 document.getElementById('player-input-submit').addEventListener('click', sendAdventureInput);
+document.getElementById('player-input-edit').addEventListener('click', editAdventureInput);
 
 // Attach event listeners to the buttons
 window.onload = function() {
@@ -40,18 +42,18 @@ socket.on('settings', data => {
   document.getElementById('gpt-messages-list').innerHTML = "";
   for (let messageName in systemSettings.messages) {
     let entry=document.createElement('li');
-    //entry.addEventListener('onclick',showChatMessage);
-    entry.onclick=function () {showChatMessage(this);};
+    //entry.addEventListener('onclick',showGptMessage);
+    entry.onclick=function () {showGptMessage(this);};
     entry.innerText=messageName;
     document.getElementById('gpt-messages-list').appendChild(entry);
   }
 });
-function showChatMessage(e){
+function showGptMessage(e){
   //console.log(e);
   let messageName = e.innerText;
   if(systemSettings.messages){
     if(systemSettings.messages[messageName]) {
-      console.log(systemSettings.messages[messageName]);
+      //console.log(systemSettings.messages[messageName]);
       if(systemSettings.messages[messageName].role){
         document.getElementById('croupier_role').value = systemSettings.messages[messageName].role;
       } else {document.getElementById('croupier_role').value = ''}
@@ -61,21 +63,35 @@ function showChatMessage(e){
       } else {document.getElementById('croupier_order').value = ''}
 
       if(systemSettings.messages[messageName].content){
-        document.getElementById('croupier_content').innerHTML = systemSettings.messages[messageName].content;
+        document.getElementById('croupier_content').value = systemSettings.messages[messageName].content;
       } else {document.getElementById('croupier_content').value = ''}
 
       if(systemSettings.messages[messageName].notes){
-        document.getElementById('croupier_notes').innerHTML = systemSettings.messages[messageName].notes;
-      } else {document.getElementById('croupier_notes').innerHTML = ''}
+        document.getElementById('croupier_notes').value = systemSettings.messages[messageName].notes;
+      } else {document.getElementById('croupier_notes').value = ''}
+
+      document.getElementById('croupier_name_hidden').value = messageName;
+      document.getElementById('croupier_name').value = messageName;
 
       if(systemSettings.messages[messageName].json){
-        document.getElementById('croupier_json').innerHTML = JSON.stringify(systemSettings.messages[messageName].json);
-      } else {document.getElementById('croupier_json').innerHTML = ''}
+        document.getElementById('croupier_json').value = JSON.stringify(systemSettings.messages[messageName].json);
+      } else {document.getElementById('croupier_json').value = ''}
     }
   }
 }
+function renameGptMessage(e){
+  if (document.getElementById('croupier_name_hidden').value == document.getElementById('croupier_name').value) {
+    //show error alert
+    alert ("old and new names are the same")
+  } else {
+    delete systemSettings.messages[document.getElementById('croupier_name_hidden').value];
+    save();
+  }
+}
 socket.onAny((event, ...args) => {
-  console.log(event, args);
+  if (event != 'settings'){
+    console.log(event, args);
+  }
 });
 socket.on('serverRole', role => {
   if (role == 'admin') {
@@ -188,8 +204,21 @@ socket.on('nonce', (nonce) => {
 socket.on('AllAdventureHistory', (data) => {
   addAllAdventureHistory(data);
 });
+socket.on('adventureEventSuggest', (data) => {
+  document.getElementById('player-input-field').value = data.content;
+  document.getElementById('player-input-field').disabled = true;
+  document.getElementById("player-input-header").innerText = "Player Input - "+data.playerName;
+  document.getElementById('player-input-submit').innerText = 'Approve';
+  document.getElementById('player-input-edit').hidden = false;
+});
 socket.on('adventureEvent', (data) => {
   addAdventureHistory(data);
+  document.getElementById('player-input-field').value = '';
+  document.getElementById('player-input-field').disabled = false;
+  document.getElementById("player-input-header").innerText = "Player Input";
+  document.getElementById('player-input-submit').innerText = 'Suggest';
+  document.getElementById('player-input-edit').hidden = true;
+
 });
 socket.on('adventureList', (data) => {
   if (localStorage.getItem('currentTab') == 'Adventures') {
@@ -259,19 +288,25 @@ function autoResize(textarea) {
 }
 function save() {
   console.log('save');
-  socket.emit("save",{"systemmessages":[
-                        {"value":document.getElementById('system-message0').value,"checked":document.getElementById('system-message0-ck').checked},
-                        {"value":document.getElementById('system-message1').value,"checked":document.getElementById('system-message1-ck').checked},
-                        {"value":document.getElementById('system-message2').value,"checked":document.getElementById('system-message2-ck').checked},
-                        {"value":document.getElementById('system-message3').value,"checked":document.getElementById('system-message3-ck').checked},
-                        {"value":document.getElementById('system-message4').value,"checked":document.getElementById('system-message4-ck').checked},
-                        {"value":document.getElementById('system-message5').value,"checked":document.getElementById('system-message5-ck').checked}
-                      ],
-                      "temperature":document.getElementById('temperature').value,
-                      "maxTokens":document.getElementById('maxTokens').value,
-                      "model":document.getElementById('model').value
-                     }
-              )
+  console.log('"'+document.getElementById('croupier_content').value+'"');
+  if (document.getElementById('croupier_name').value != '' && document.getElementById('croupier_content').value != ''){
+    systemSettings.messages[document.getElementById('croupier_name').value] = {content: document.getElementById('croupier_content').value,
+                                                                               role: document.getElementById('croupier_role').value
+                                                                              };
+    if (document.getElementById('croupier_order').value != '') {
+      systemSettings.messages[document.getElementById('croupier_name').value].order = document.getElementById('croupier_order').value;
+    }
+    if (document.getElementById('croupier_notes').value != '') {
+      systemSettings.messages[document.getElementById('croupier_name').value].notes = document.getElementById('croupier_notes').value;
+    }
+    if (document.getElementById('croupier_json').value != '') {
+      systemSettings.messages[document.getElementById('croupier_name').value].json = JSON.parse(document.getElementById('croupier_json').value);
+    }
+  }
+  systemSettings.temperature = document.getElementById('temperature').value;
+  systemSettings.maxTokens = document.getElementById('maxTokens').value;
+  systemSettings.model = document.getElementById('model').value;
+  socket.emit("save",systemSettings)
 }
 function saveChar() {
   console.log('saveChar');
@@ -341,7 +376,7 @@ function connectButton() {
   } else if (document.getElementById('player-name').disabled && document.getElementById('connectButton').innerText == 'Change') {
     console.log('enabling change name feature')
     document.getElementById('player-name').disabled = false;
-    document.getElementById('connectButton').innerText = 'Submit';
+    document.getElementById('connectButton').innerText = 'Suggest';
   } else {
     console.log('requesting name change')
     socket.emit("changeName",document.getElementById('player-name').value);
@@ -405,10 +440,32 @@ function addAdventureHistory(entry) {
   adventureHistoryDiv.appendChild(messageDiv);
   adventureHistoryDiv.scrollTop = adventureHistoryDiv.scrollHeight;
 }
+function editAdventureInput() {
+  document.getElementById('player-input-field').disabled = false;
+  document.getElementById('player-input-submit').innerText = 'Suggest';
+  document.getElementById('player-input-edit').hidden = true;
+}
 function sendAdventureInput() {
-  var playerInput = document.getElementById('player-input-field').value;
-  socket.emit('sendAdventureInput',{role:'user',content:playerInput,adventure_id:document.getElementById('adventure_list').value});
-  document.getElementById('player-input-field').value = '';
+  if (document.getElementById('player-input-submit').innerText == 'Suggest') {
+    var playerInput = document.getElementById('player-input-field').value;
+    socket.emit('suggestAdventureInput',{role:'user',content:playerInput,adventure_id:document.getElementById('adventure_list').value});
+    document.getElementById('player-input-field').disabled = true;
+    document.getElementById('player-input-edit').hidden = false;
+    document.getElementById('player-input-submit').innerText = 'Approve';
+  } else {
+    let content = document.getElementById('player-input-field').value;
+    let adventure_id = document.getElementById('adventure_list').value
+    let suggestingPlayerName = document.getElementById("player-input-header").innerText
+    console.log(suggestingPlayerName)
+    suggestingPlayerName = suggestingPlayerName.substring(15,suggestingPlayerName.length)
+
+    socket.emit('approveAdventureInput',{role:'user',
+                                         content:content,
+                                         adventure_id:adventure_id,
+                                         playerName:suggestingPlayerName
+                                        });
+    document.getElementById('player-input-edit').hidden = true;
+  }
 }
 function listAdventureOption() {
   socket.emit('listActiveAdventure',document.getElementById('active_only').checked)

@@ -83,9 +83,15 @@ io.on('connection', async (socket) => {
     }
   });
   socket.on('save', data => {
-    console.log('Player '+playerName+' saved');
-    socket.to('System').emit('settings', data)
-    saveSettings(data,socket);
+    if (playerData.admin){
+      console.log('Player '+playerName+' saved');
+      socket.to('System').emit('settings', data)
+      saveSettings(data,socket);
+    } else {
+      console.log('Player '+playerName+' tried to save');
+      socket.emit("error","user not admin");
+      socket.disconnect();
+    }
   });
   socket.on('saveChar', async data => {
     console.log('Player '+playerName+' saving char '+data.data.name);
@@ -174,23 +180,57 @@ io.on('connection', async (socket) => {
                     {role:'user',content:data.user}
                    ]
     let response = await openaiCall(messages,data.model,Number(data.temperature),Number(data.maxTokens),data.apikey)
-    socket.emit('ScotRan',response);
+    socket.emit('ScotRan',response.content);
   });
   socket.on('fetchAllAdventureHistory',async adventure_id =>{
     let adventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(adventure_id)}).sort({date:1}).toArray();
     socket.emit('AllAdventureHistory',adventureMessages);
     socket.join('Adventure-'+adventure_id);
   });
-  socket.on('sendAdventureInput',async UserInput =>{
-    //need more!
-    let count = await gameDataCollection.countDocuments({type:'message',adventure_id:new ObjectId(UserInput.adventure_id)})
-    let firstAdventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(UserInput.adventure_id)}).sort({date:1}).limit(1);
-    let recentAdventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(UserInput.adventure_id)}).sort({date:-1}).limit(3);
-    socket.emit('adventureEvent',UserInput);
-    console.log("count: "+count)
-    socket.emit("firstAdventureMessages: "+firstAdventureMessages)
-    socket.emit("recentAdventureMessages: "+recentAdventureMessages)
-    console.log(socket.rooms);
+  socket.on('approveAdventureInput',async UserInput =>{
+    UserInput.approverName = playerName;
+    UserInput.adventure_id = new ObjectId(UserInput.adventure_id);
+    UserInput.date = new Date().toUTCString();
+    UserInput.type = 'message';
+    try {
+      gameDataCollection.insertOne(UserInput,{safe: true});
+    } catch (error) {
+      console.error('Error saving response to MongoDB:', error);
+    }
+    io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEvent',UserInput);
+
+    //let adventureData = await gameDataCollection.find({type:'adventure',_id:new ObjectId(UserInput.adventure_id)}).sort({date:1}).toArray();
+    let adventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(UserInput.adventure_id)}).sort({date:1}).project({content:1,role:1,_id:0}).toArray();
+    let characters = await gameDataCollection.find({type:'character','activeAdventure.id':new ObjectId(UserInput.adventure_id)}).toArray();
+    let charTable = await CreateCharTable(characters);
+    let settings = await getSetting('');
+    let dmSystemMessage = settings.messages.dm_system;
+    dmSystemMessage.content = dmSystemMessage.content.replaceAll('${char_count}',characters.length);
+    //needs work, static set to level 2, need to set to floor + 1 of characters.detail.lvl
+    dmSystemMessage.content = dmSystemMessage.content.replaceAll('${next_level}',"2");
+    dmSystemMessage.content = dmSystemMessage.content.replaceAll('${CharTable}',charTable);
+    
+    let messages = [{content:dmSystemMessage.content,role:dmSystemMessage.role}];
+    messages.push.apply(messages,adventureMessages);
+    messages.push({role:'user',content:UserInput.content});
+    messages.push({content:settings.messages.dm_continue_adventure.content,role:settings.messages.dm_continue_adventure.role});
+
+    let openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),settings.apiKey)
+    openAiResponse.type = 'message';
+    openAiResponse.adventure_id = UserInput.adventure_id;
+    if(openAiResponse.allResponse_id){
+      try {
+        gameDataCollection.insertOne(openAiResponse,{safe: true});
+      } catch (error) {
+        console.error('Error saving response to MongoDB:', error);
+      }
+    }
+    io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEvent',openAiResponse);
+
+  });
+  socket.on('suggestAdventureInput',async UserInput =>{
+    UserInput.playerName = playerName;
+    io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEventSuggest',UserInput);
   });
   socket.on('tab',async tabName =>{
     playerData = await fetchPlayerData(playerName);
@@ -200,6 +240,8 @@ io.on('connection', async (socket) => {
       if (playerData.admin) {
         socket.join('Tab-'+tabName);
         let allSettings = await getSetting('');
+        delete allSettings.apiKey;
+        delete allSettings._id;
         socket.emit('settings',allSettings);
       } else {
         socket.emit('error','you are not admin')
@@ -296,7 +338,7 @@ async function updatePlayer(playerName,update) {
     console.error('Error saving response to MongoDB:', error);
   }
 }
-async function CreateCharTable(){
+async function CreateCharTable(characters){
   let table = 'Name      ', attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
   let attributesLen = [10,6,3,3,3,3,3,3,3,2,2,24,17,9,1,1], spaces = '                   ';
   for (let i = 0 ; i < attributes.length; i++){
@@ -306,20 +348,18 @@ async function CreateCharTable(){
     };
   };
   table+=' or Abilities'
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Write
-  for (let name in gameStatePublic.players) {
-    let CharData = gameStatePublic.players[name];
-    table+='\n'+name;
-    if (name.length < 10){
-      table+=spaces.substring(0,10-name.length);
+  characters.forEach((CharData) => {
+    table+='\n'+CharData.name;
+    if (CharData.name.length < 10){
+      table+=spaces.substring(0,10-CharData.name.length);
     }
     for (let i = 0 ; i < attributes.length; i++){
-      table+='|'+CharData[attributes[i]];
-      if ((''+CharData[attributes[i]]).length < attributesLen[i]){
-        table+=spaces.substring(0,attributesLen[i]-(''+CharData[attributes[i]]).length)
+      table+='|'+CharData.details[attributes[i]];
+      if ((''+CharData.details[attributes[i]]).length < attributesLen[i]){
+        table+=spaces.substring(0,attributesLen[i]-(''+CharData.details[attributes[i]]).length)
       }
     };
-  };
+  });
   return table;
 }
 async function ServerEvery1Second() {
@@ -350,9 +390,10 @@ async function saveResponse(responseRaw){
     response:responseRaw.data.choices[0].message.content,
     finish_reason:responseRaw.data.choices[0].finish_reason
   };
-  console.log(response);
+  //console.log(response);
   try {
     await responseCollection.insertOne(response,{safe: true});
+    return response._id
   } catch (error) {
     console.error('Error saving response to MongoDB:', error);
   }
@@ -369,9 +410,14 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
       max_tokens: maxTokens
     });
     
-    saveResponse(response);
+    let allResponse_id = saveResponse(response);
     // Extract the generated response from the API
-    const generatedResponse = response.data.choices[0].message.content;
+    const generatedResponse = {
+      content:response.data.choices[0].message.content,
+      date:response.headers.date,
+      role:response.data.choices[0].message.role,
+      allResponse_id:allResponse_id
+    }
     
     return generatedResponse;
   } catch (error) {
@@ -386,7 +432,7 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
     if (error.code) {
       generatedResponse += " code: "+error.code;
     }
-    return generatedResponse
+    return {content:generatedResponse}
   }
 }
 async function getSetting(setting){

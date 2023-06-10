@@ -21,14 +21,14 @@
   <div id="Characters" class="tabcontent">
     <div>
       <label for="characters_list">Characters:</label>
-      <select name="model" id="characters_list" onChange="showChar(this.value)"></select>
+      <select id="characters_list" onChange="showChar(this.value)"></select>
       <input type="checkbox" id="all_characters" onclick="showCharsOption()">Show All</input>
     </div>
     <br>
     <input type="hidden" id="character_id" disabled >
     <table id="character1">
-      <tr><th>Owner:</th><td><select name="model" id="character_owner" disabled><option value="unowned">unowned</option></select></td><th><button id="saveChar" >Save</button></th><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<button id="character_activeAdventure_remove" hidden="true">Abandon Adventure</button></td><th>Adventure:</th><td><input type="text" id="character_activeAdventure" disabled></td></tr>
-      <tr><th>Name:</th><td><input type="text" id="character_name"></td><th>Gender:</th><td><select name="model" id="character_Gender"><option value="not specified">not specified</option><option value="Male">Male</option><option value="Female">Female</option></select></td><th>State:</th><td><select name="model" id="character_state"><option value="alive">alive</option><option value="dead">dead</option><option value="missing">missing</option></select></td></tr>
+      <tr><th>Owner:</th><td><select id="character_owner" disabled><option value="unowned">unowned</option></select></td><th><button id="saveChar" >Save</button></th><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<button id="character_activeAdventure_remove" hidden="true">Abandon Adventure</button></td><th>Adventure:</th><td><input type="text" id="character_activeAdventure" disabled></td></tr>
+      <tr><th>Name:</th><td><input type="text" id="character_name"></td><th>Gender:</th><td><select id="character_Gender"><option value="not specified">not specified</option><option value="Male">Male</option><option value="Female">Female</option></select></td><th>State:</th><td><select id="character_state"><option value="alive">alive</option><option value="dead">dead</option><option value="missing">missing</option></select></td></tr>
       <tr><th>Race:</th><td><input type="text" id="character_Race"></td><th>Class:</th><td><input type="text" id="character_Class"></td><th>Level:</th><td><input type="number" id="character_Lvl" min=1 max=30></td></tr>
       <tr><th>STR:</th><td><input type="number" id="character_STR" min=1 max=30></td><th>DEX:</th><td><input type="number" id="character_DEX" min=1 max=30></td><th>CON:</th><td><input type="number" id="character_CON" min=1 max=30></td></tr>
       <tr><th>INT:</th><td><input type="number" id="character_INT" min=1 max=30></td><th>WIS:</th><td><input type="number" id="character_WIS" min=1 max=30></td><th>CHA:</th><td><input type="number" id="character_CHA" min=1 max=30></td></tr>
@@ -50,21 +50,16 @@
       <label for="maxTokens">Max Tokens:</label>
       <input id="maxTokens"></input>
       <label for="model">Model:</label>
-      <select name="model" id="model">
+      <select id="model">
         <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
+        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
         <option value="gpt-4">gpt-4</option>
         <option value="gpt-4-0314">gpt-4-0314</option>
-        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-        <option value="text-davinci-003">text-davinci-003</option>
-        <option value="code-davinci-edit-001">code-davinci-edit-001</option>
-        <option value="text-curie-001">text-curie-001</option>
-        <option value="text-babbage-001">text-babbage-001</option>
-        <option value="text-ada-001">text-ada-001</option>
-        <option value="whisper-1">whisper-1</option>
-        <option value="babbage-code-search-code">babbage-code-search-code</option>
+        <option value="gpt-4-32k">gpt-4-32k</option>
+        <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
       </select>
     </div>
-    <h2>Chat Messages</h2>
+    <h3>GPT Messages</h3>
     <div id="gpt-messages">
       <div id="gpt-messages-left-column">
         <ul id="gpt-messages-list">
@@ -74,12 +69,15 @@
       <div id="gpt-messages-right-column">
         <div class="item">
           <label for="croupier_role">role:</label>
-          <select name="model" id="croupier_role">
+          <select  id="croupier_role">
             <option value="system">system</option>
             <option value="user">user</option>
             <option value="assistant">assistant</option>
           </select>
           Order:<input type="number" id="croupier_order" min=0 max=9999>
+          Message Name:<input type="text" id="croupier_name">
+          <button id="rename" >Rename</button>
+          <input type="hidden" id="croupier_name_hidden" disabled>
         </div>
         <div class="item">
           <label for="croupier_content">content:</label>
@@ -106,18 +104,13 @@
       <input id="maxTokensScot"></input>
   
       <label for="modelScot">Model:</label>
-      <select name="model" id="modelScot">
+      <select id="modelScot">
         <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
+        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
         <option value="gpt-4">gpt-4</option>
         <option value="gpt-4-0314">gpt-4-0314</option>
-        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-        <option value="text-davinci-003">text-davinci-003</option>
-        <option value="code-davinci-edit-001">code-davinci-edit-001</option>
-        <option value="text-curie-001">text-curie-001</option>
-        <option value="text-babbage-001">text-babbage-001</option>
-        <option value="text-ada-001">text-ada-001</option>
-        <option value="whisper-1">whisper-1</option>
-        <option value="babbage-code-search-code">babbage-code-search-code</option>
+        <option value="gpt-4-32k">gpt-4-32k</option>
+        <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
       </select>
     </div> 
     <div class="item">
@@ -149,9 +142,10 @@
       <div id="adventure-history" style="height: 500px; overflow-y: scroll; border: 1px solid #ddd;"></div>
     </div>
     <div id="player-input-container">
-      <h2>Player Input</h2>
+      <h2 id="player-input-header">Player Input</h2>
       <textarea id="player-input-field" placeholder="Enter your action"></textarea>
-      <button id="player-input-submit">Submit</button>
+      <button id="player-input-submit">Suggest</button>
+      <button id="player-input-edit" hidden="true">Edit</button>
     </div>
   </div>
   <script src="/socket.io/socket.io.js"></script>
