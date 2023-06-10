@@ -2,10 +2,10 @@ const socket = io({autoConnect: false});
 
 let playerName = '', currentTab = localStorage.getItem('currentTab'), systemSettings;
 if(document.getElementById(currentTab+'Btn')){
-  console.log("currentTab",currentTab);
+  //console.log("currentTab",currentTab);
   document.getElementById(currentTab+'Btn').click();
 } else {
-  console.log("nocurrentTab");
+  //console.log("nocurrentTab");
   document.getElementById("HomeBtn").click();
 }
 
@@ -34,7 +34,7 @@ window.onload = function() {
   };
 };
 socket.on('settings', data => {
-  console.log('got game settings');
+  //console.log('got game settings');
   systemSettings = data
   document.getElementById('temperature').value = data.temperature;
   document.getElementById('maxTokens').value = data.maxTokens;
@@ -119,7 +119,7 @@ socket.on('alertMsg',data => {
   setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',data.timeout);
 });
 socket.on('connect', () => {
-  console.log('Connected to server');
+  //console.log('Connected to server');
   document.getElementById('player-name').disabled = true;
   document.getElementById('disconnectButton').disabled = false;
   document.getElementById('connectButton').innerText = 'Change';
@@ -153,7 +153,9 @@ socket.on('charList', (data) => {
   if (curChar == '') {
     document.getElementById('character1').style.display = 'none';
     document.getElementById('character2').style.display = 'none';
-    socket.emit('fetchCharData',displayChar)
+    if(displayChar) {
+      socket.emit('fetchCharData',displayChar)
+    }
   } else {
     document.getElementById('characters_list').value = curChar;
     if (document.getElementById('characters_list').value != curChar){
@@ -287,8 +289,8 @@ function autoResize(textarea) {
   textarea.style.height = textarea.scrollHeight + 'px';
 }
 function save() {
-  console.log('save');
-  console.log('"'+document.getElementById('croupier_content').value+'"');
+  //console.log('save');
+  //console.log('"'+document.getElementById('croupier_content').value+'"');
   if (document.getElementById('croupier_name').value != '' && document.getElementById('croupier_content').value != ''){
     systemSettings.messages[document.getElementById('croupier_name').value] = {content: document.getElementById('croupier_content').value,
                                                                                role: document.getElementById('croupier_role').value
@@ -309,7 +311,7 @@ function save() {
   socket.emit("save",systemSettings)
 }
 function saveChar() {
-  console.log('saveChar');
+  //console.log('saveChar');
   adventures: document.getElementById('character_adventures').value.split(","),
   socket.emit("saveChar",{_id: document.getElementById('character_id').value,
                      owner_id: document.getElementById('character_owner').value,
@@ -372,13 +374,13 @@ function connectButton() {
     let authNonce = localStorage.getItem('authNonce') || '';
     socket.auth = { playerName, authNonce };
     socket.connect();
-    console.log('connect attempt')
+    //console.log('connect attempt')
   } else if (document.getElementById('player-name').disabled && document.getElementById('connectButton').innerText == 'Change') {
-    console.log('enabling change name feature')
+    //console.log('enabling change name feature')
     document.getElementById('player-name').disabled = false;
     document.getElementById('connectButton').innerText = 'Suggest';
   } else {
-    console.log('requesting name change')
+    //console.log('requesting name change')
     socket.emit("changeName",document.getElementById('player-name').value);
   }
 }
@@ -386,7 +388,7 @@ function disconnectButton() {
   socket.disconnect();
 }
 function ScotRun(){
-  console.log('scotRun');
+  //console.log('scotRun');
   let ScotData = {
     temperature:document.getElementById('temperatureScot').value,
     apikey:document.getElementById('keyScot').value,
@@ -399,7 +401,7 @@ function ScotRun(){
   socket.emit("scotRun",ScotData);
 }
 function saveplaying(){
-  console.log('saveplaying');
+  //console.log('saveplaying');
   socket.emit("saveplaying",playing.checked);
 }
 function openPage(pageName,elmnt,color) {
@@ -456,7 +458,7 @@ function sendAdventureInput() {
     let content = document.getElementById('player-input-field').value;
     let adventure_id = document.getElementById('adventure_list').value
     let suggestingPlayerName = document.getElementById("player-input-header").innerText
-    console.log(suggestingPlayerName)
+    //console.log(suggestingPlayerName)
     suggestingPlayerName = suggestingPlayerName.substring(15,suggestingPlayerName.length)
 
     socket.emit('approveAdventureInput',{role:'user',

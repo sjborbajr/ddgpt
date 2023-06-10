@@ -265,8 +265,9 @@ io.on('connection', async (socket) => {
       }
       if (tabName == 'Adventures') {
         let advetureNames = ''
-        if (showActiveAdventures != ''){
-          advetureNames = await gameDataCollection.find({type:'adventure',state:'active'}).project({name:1,_id:1}).toArray();
+        if (showActiveAdventures){
+          //advetureNames = await gameDataCollection.find({type:'adventure',state:'active'}).project({name:1,_id:1}).toArray();
+          advetureNames = await gameDataCollection.distinct('activeAdventure',{type:'character',owner_id: new ObjectId(playerData._id)})
         } else {
           advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
         }
@@ -392,8 +393,8 @@ async function saveResponse(responseRaw){
   };
   //console.log(response);
   try {
-    await responseCollection.insertOne(response,{safe: true});
-    return response._id
+    let allResponse_id = await responseCollection.insertOne(response,{safe: true});
+    return allResponse_id._id
   } catch (error) {
     console.error('Error saving response to MongoDB:', error);
   }
