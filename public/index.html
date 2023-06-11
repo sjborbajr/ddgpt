@@ -44,13 +44,29 @@
   </div>
   <div id="System" class="tabcontent">
     <div class="item">
-      <button id="save" >Save</button>
+      <button id="save" >Save</button>&nbsp;&#8239;
       <label for="temperature">Temperature:</label>
       <input id="temperature"></input>
       <label for="maxTokens">Max Tokens:</label>
       <input id="maxTokens"></input>
       <label for="model">Model:</label>
       <select id="model">
+        <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
+        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+        <option value="gpt-4">gpt-4</option>
+        <option value="gpt-4-0314">gpt-4-0314</option>
+        <option value="gpt-4-32k">gpt-4-32k</option>
+        <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
+      </select>
+    </div>
+    <div class="item">
+      <label>Crupier</label>
+      <label for="cru_temperature">Temperature:</label>
+      <input id="cru_temperature"></input>
+      <label for="cru_maxTokens">Max Tokens:</label>
+      <input id="cru_maxTokens"></input>
+      <label for="cru_model">Model:</label>
+      <select id="cru_model">
         <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
         <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
         <option value="gpt-4">gpt-4</option>

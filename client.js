@@ -39,6 +39,9 @@ socket.on('settings', data => {
   document.getElementById('temperature').value = data.temperature;
   document.getElementById('maxTokens').value = data.maxTokens;
   document.getElementById('model').value = data.model;
+  document.getElementById('cru_temperature').value = data.cru_temperature;
+  document.getElementById('cru_maxTokens').value = data.cru_maxTokens;
+  document.getElementById('cru_model').value = data.cru_model;
   document.getElementById('gpt-messages-list').innerHTML = "";
   for (let messageName in systemSettings.messages) {
     let entry=document.createElement('li');
@@ -308,6 +311,9 @@ function save() {
   systemSettings.temperature = document.getElementById('temperature').value;
   systemSettings.maxTokens = document.getElementById('maxTokens').value;
   systemSettings.model = document.getElementById('model').value;
+  systemSettings.cru_temperature = document.getElementById('cru_temperature').value;
+  systemSettings.cru_maxTokens = document.getElementById('cru_maxTokens').value;
+  systemSettings.cru_model = document.getElementById('cru_model').value;
   socket.emit("save",systemSettings)
 }
 function saveChar() {
