@@ -7,74 +7,165 @@
 </head>
 <body>
   <div class="alertMsg" role="alert" id="alertMsg"></div>
-  <button class="tablink" onclick="openPage('Home',       this, 'green')"   id="HomeBtn"      >Home</button>
-  <button class="tablink" onclick="openPage('Characters', this, 'blue')"    id="CharactersBtn">Characters</button>
-  <button class="tablink" onclick="openPage('Adventures', this, 'orange')"  id="AdventuresBtn">Adventures</button>
-  <button class="tablink" onclick="openPage('System',     this, 'red')"     id="SystemBtn"    >System</button>
-  <button class="tablink" onclick="openPage('ScotGPT',    this, '#008080')" id="ScotGPTBtn"   >ScotGPT</button>
-  <div id="Home" class="tabcontent">
+  <button class="tablink" onclick="showTab('Home',       this, 'green')"   id="HomeBtn"      >Home</button>
+  <button class="tablink" onclick="showTab('Characters', this, 'blue')"    id="CharactersBtn">Characters</button>
+  <button class="tablink" onclick="showTab('Adventures', this, 'orange')"  id="AdventuresBtn">Adventures</button>
+  <button class="tablink" onclick="showTab('System',     this, 'red')"     id="SystemBtn"    >System</button>
+  <button class="tablink" onclick="showTab('History',    this, '#008080')" id="HistoryBtn"   >History</button>
+  <button class="tablink" onclick="showTab('ScotGPT',    this, '#008080')" id="ScotGPTBtn"   >ScotGPT</button>
+  <div id="Home" class="tabcontent" style="display: flex;">
     <label for="player-name">Player Name:</label>
     <input type="text" id="player-name" />
     <button type="button" id="connectButton">Connect</button>
     <button type="button" id="disconnectButton" disabled>Disconnect</button>
+    <div style="width: 20%;">
+      <h3>Connected Users</h3>
+      <div id="connected users" style="position: relative; border: 1px solid black; height: 100px;">
+        <ul id="home-users-connected">
+        </ul>
+        <button class="refreshButton" onclick="refreshList()" ><img src="/refresh.gif" alt="Refresh" style="width:10px;height:10px;"></button>
+      </div>
+    </div>
+    <div style="width: 75%;">
+      hi
+    </div>
   </div>
   <div id="Characters" class="tabcontent">
     <div>
       <label for="characters_list">Characters:</label>
-      <select id="characters_list" onChange="showChar(this.value)"></select>
+      <select id="characters_list" onChange="showChar(this.value)">
+      </select>
       <input type="checkbox" id="all_characters" onclick="showCharsOption()">Show All</input>
+      <button id="saveChar" >Save</button>
     </div>
     <br>
-    <input type="hidden" id="character_id" disabled >
-    <table id="character1">
-      <tr><th>Owner:</th><td><select id="character_owner" disabled><option value="unowned">unowned</option></select></td><th><button id="saveChar" >Save</button></th><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<button id="character_activeAdventure_remove" hidden="true">Abandon Adventure</button></td><th>Adventure:</th><td><input type="text" id="character_activeAdventure" disabled></td></tr>
-      <tr><th>Name:</th><td><input type="text" id="character_name"></td><th>Gender:</th><td><select id="character_Gender"><option value="not specified">not specified</option><option value="Male">Male</option><option value="Female">Female</option></select></td><th>State:</th><td><select id="character_state"><option value="alive">alive</option><option value="dead">dead</option><option value="missing">missing</option></select></td></tr>
-      <tr><th>Race:</th><td><input type="text" id="character_Race"></td><th>Class:</th><td><input type="text" id="character_Class"></td><th>Level:</th><td><input type="number" id="character_Lvl" min=1 max=30></td></tr>
-      <tr><th>STR:</th><td><input type="number" id="character_STR" min=1 max=30></td><th>DEX:</th><td><input type="number" id="character_DEX" min=1 max=30></td><th>CON:</th><td><input type="number" id="character_CON" min=1 max=30></td></tr>
-      <tr><th>INT:</th><td><input type="number" id="character_INT" min=1 max=30></td><th>WIS:</th><td><input type="number" id="character_WIS" min=1 max=30></td><th>CHA:</th><td><input type="number" id="character_CHA" min=1 max=30></td></tr>
-      <tr><th>HP:</th><td><input  type="number" id="character_HP"  min=1 max=1000></td><th>AC:</th> <td><input type="number" id="character_AC" min=1 max=49></td></tr>
-    </table>
+    <input type="hidden" id="character_id" disabled>
+    <div id="character1">
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px , 1fr));">
+        <label for="character_owner">
+          <span>Owner:</span>
+          <select id="character_owner" disabled><option value="unowned">unowned</option></select>
+        </label>
+        <label for="character_Gender">
+          <span>Gender:</span>
+          <select id="character_Gender"><option value="not specified">not specified</option><option value="Male">Male</option><option value="Female">Female</option></select>
+        </label>
+        <label for="character_state">
+          <span>State:</span>
+          <select id="character_state"><option value="alive">alive</option><option value="dead">dead</option><option value="missing">missing</option></select>
+        </label>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px , 1fr)); padding-top: 10px">
+        <label for="character_name">
+          <span>Name:</span>
+          <input type="text" id="character_name">
+        </label>
+        <label for="character_Race">
+          <span>Race:</span>
+          <input type="text" id="character_Race">
+        </label>
+        <label for="character_Class">
+          <span>Class:</span>
+          <input type="text" id="character_Class">
+        </label>
+        <label for="character_activeAdventure">
+          <span>Adventure:</span>
+          <input type="text" id="character_activeAdventure" disabled>
+        </label>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px , 1fr)); padding-top: 10px;">
+        <label for="character_Lvl" class="charstat-label">
+          <span>Level:</span>
+          <input type="text" id="character_Lvl" class="charstat">
+        </label>
+        <label for="character_HP" class="charstat-label">
+          <span>HP:</span>
+          <input  type="text" id="character_HP"  class="charstat">
+        </label>
+        <label for="character_AC" class="charstat-label">
+          <span>AC:</span>
+          <input type="text" id="character_AC" class="charstat">
+        </label>
+        <label for="character_STR" class="charstat-label">
+          <span>STR:</span>
+          <input type="text" id="character_STR" class="charstat">
+        </label>
+        <label for="character_DEX" class="charstat-label">
+          <span>DEX:</span>
+          <input type="text" id="character_DEX" class="charstat">
+        </label>
+        <label for="character_CON" class="charstat-label">
+          <span>CON:</span>
+          <input type="text" id="character_CON" class="charstat">
+        </label>
+        <label for="character_INT" class="charstat-label">
+          <span>INT:</span>
+          <input type="text" id="character_INT" class="charstat">
+        </label>
+        <label for="character_INT" class="charstat-label">
+          <span>WIS:</span>
+          <input type="text" id="character_WIS" class="charstat">
+        </label>
+        <label for="character_CHA" class="charstat-label">
+          <span>CHA:</span>
+          <input type="text" id="character_CHA" class="charstat">
+        </label>
+      </div>
+    </div>
     <table id="character2" >
       <tr><th>Weapon:</th><td width="94%"><textarea id="character_Weapon"></textarea></td></tr>
       <tr><th>Armor:</th><td><textarea id="character_Armor"></textarea></td></tr>
       <tr><th>Inventory:</th><td><textarea id="character_Inventory"></textarea></td></tr>
       <tr><th>Backstory:</th><td><textarea id="character_Backstory"></textarea></td></tr>
-      <tr><th>Adventures:</th><td><textarea id="character_adventures"></textarea></td></tr>
+      <tr><th>Adventures:</th><td><textarea id="character_adventures" disabled></textarea></td></tr>
     </table><br>
   </div>
   <div id="System" class="tabcontent">
     <div class="item">
-      <button id="save" >Save</button>&nbsp;&#8239;
-      <label for="temperature">Temperature:</label>
-      <input id="temperature"></input>
-      <label for="maxTokens">Max Tokens:</label>
-      <input id="maxTokens"></input>
-      <label for="model">Model:</label>
-      <select id="model">
-        <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
-        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-        <option value="gpt-4">gpt-4</option>
-        <option value="gpt-4-0314">gpt-4-0314</option>
-        <option value="gpt-4-32k">gpt-4-32k</option>
-        <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
-      </select>
-    </div>
+      <label>Dungeon</label>
+      <label for="temperature">
+        <span>Temperature:</span>
+        <input type="number" id="temperature" min=0 max=2 step="0.05"></input>
+      </label>
+      <label for="maxTokens">
+        <span>Max Tokens:</span>
+        <input type="number" id="maxTokens" min=128 max=8296 step="128"></input>
+      </label>
+      <label for="model">
+        <span>Model:</span>
+        <select id="model">
+          <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
+          <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+          <option value="gpt-4">gpt-4</option>
+          <option value="gpt-4-0314">gpt-4-0314</option>
+          <option value="gpt-4-32k">gpt-4-32k</option>
+          <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
+        </select>
+      </label>
+    </div><br><br>
     <div class="item">
-      <label>Crupier</label>
-      <label for="cru_temperature">Temperature:</label>
-      <input id="cru_temperature"></input>
-      <label for="cru_maxTokens">Max Tokens:</label>
-      <input id="cru_maxTokens"></input>
-      <label for="cru_model">Model:</label>
-      <select id="cru_model">
-        <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
-        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-        <option value="gpt-4">gpt-4</option>
-        <option value="gpt-4-0314">gpt-4-0314</option>
-        <option value="gpt-4-32k">gpt-4-32k</option>
-        <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
-      </select>
-    </div>
+      <label>Croupier</label>
+      <label for="cru_temperature">
+        Temperature:
+        <input type="number" id="cru_temperature" min=0 max=2 step="0.05"></input>
+      </label>
+      <label for="cru_maxTokens">
+        Max Tokens:
+        <input type="number" id="cru_maxTokens" min=128 max=8296 step="128"></input>
+      </label>
+      <label for="cru_model">
+        Model:
+        <select id="cru_model">
+          <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
+          <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+          <option value="gpt-4">gpt-4</option>
+          <option value="gpt-4-0314">gpt-4-0314</option>
+          <option value="gpt-4-32k">gpt-4-32k</option>
+          <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
+        </select>
+      </label>
+    </div><br><br>
+    <button id="save" >Save</button>
     <h3>GPT Messages</h3>
     <div id="gpt-messages">
       <div id="gpt-messages-left-column">
@@ -127,6 +218,7 @@
         <option value="gpt-4-0314">gpt-4-0314</option>
         <option value="gpt-4-32k">gpt-4-32k</option>
         <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
+        <option value="gpt-4-32k-0314">gpt-4-32k-0613</option>
       </select>
     </div> 
     <div class="item">
@@ -147,10 +239,66 @@
       <textarea id="response-messageScot" oninput="autoResize(this)" cols="80"></textarea>
     </div>
   </div>
+  <div id="History" class="tabcontent">
+    <div id="gpt-history">
+      <div id="gpt-history-left-column">
+        <ul id="gpt-history-list">
+        </ul>
+        <button class="refreshButton" onclick="refreshList()" ><img src="/refresh.gif" alt="Refresh" style="width:10px;height:10px;"></button>
+      </div>
+      <div id="gpt-history-resize-bar"></div>
+      <div id="gpt-history-right-column">
+        <label for="history_limit">
+          <span>Display:</span>
+          <select id="history_limit" onChange="listHistory(this.value)">
+            <option value="all">ALL</option>
+          </select>
+        </label>
+        <label for="history_temperature">
+          <span>Temperature:</span>
+          <input type="number" id="history_temperature"  min=1 max="100" disabled></input>
+        </label>
+        <label for="history_maxTokens">
+          <span>Max Tokens:</span>
+          <input type="number" id="history_maxTokens"  min=1 max="100" disabled></input>
+        </label>
+        <label for="history_model">
+          <span>Model:</span>
+          <input type="text" id="history_model" disabled></input>
+        </label>
+        <label for="history_completion_tokens">
+          <span>completion_tokens:</span>
+          <input type="text" id="history_completion_tokens" disabled></input>
+        </label>
+        <label for="history_duration">
+          <span>duration:</span>
+          <input type="text" id="history_duration" disabled></input>
+        </label>
+        <label for="history_finish_reason">
+          <span>finish_reason:</span>
+          <input type="text" id="history_finish_reason" disabled></input>
+        </label>
+        <label for="history_prompt_tokens">
+          <span>prompt_tokens:</span>
+          <input type="text" id="history_prompt_tokens" disabled></input>
+        </label>
+        <label for="history_status">
+          <span>status:</span>
+          <input type="text" id="history_status" disabled></input>
+        </label>
+        <label for="history_url">
+          <span>status:</span>
+          <input type="text" id="history_url" disabled></input>
+        </label>
+        <table id="history_table">
+        </table>
+      </div>
+    </div>
+  </div>
   <div id="Adventures" class="tabcontent">
     <div>
       <label for="adventure_list">Adventures:</label>
-      <select name="model" id="adventure_list" onChange="showAdventure(this.value)"></select>
+      <select id="adventure_list" onChange="showAdventure(this.value)"></select>
       <input type="checkbox" id="active_only" onclick="listAdventureOption()" checked>Show Active</input>
     </div>
     <div id="adventure-history-container">

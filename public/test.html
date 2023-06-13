@@ -1,45 +1,55 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>DDGPT</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>List with Refresh Button</title>
   <style>
-    .alertMsg {
-      border: none;
-      padding: 0px;
-      color: #4CAF50;
-      text-align: center;
-      width: 100% !important;
-      height: fit-content;
-      left:0px;
-      right:0px;
-      top:0px;
+    #listContainer {
+      position: relative;
+      margin-bottom: 10px;
+    }
+    
+    #list {
+      list-style-type: none;
+      padding: 0;
+    }
+    
+    #refreshButton {
       position: absolute;
-    }
-    .tablink {
-      background-color: #555;
-      color: white;
-      float: left;
-      border: none;
-      outline: none;
+      top: 0;
+      right: 0;
+      padding: 5px;
+      background-color: #ffffff;
+      border: 1px solid #ffffff;
+      border-radius: 5px;
       cursor: pointer;
-      padding: 14px 16px;
-      font-size: 17px;
-      width: 20%;
-    }
-    .tablink:hover {
-      background-color: #777;
     }
   </style>
 </head>
 <body>
-  <div class="alertMsg" role="alert" id="alertMsg"></div>
-  <div id="tabs">
-    <button class="tablink" onclick="openPage('Home',       this, 'green')"   id="HomeBtn"      >Home</button>
-    <button class="tablink" onclick="openPage('Characters', this, 'blue')"    id="CharactersBtn">Characters</button>
-    <button class="tablink" onclick="openPage('Adventures', this, 'orange')"  id="AdventuresBtn">Adventures</button>
-    <button class="tablink" onclick="openPage('System',     this, 'red')"     id="SystemBtn"    >System</button>
-    <button class="tablink" onclick="openPage('ScotGPT',    this, '#008080')" id="ScotGPTBtn"   >ScotGPT</button>
+  <h1>List with Refresh Button</h1>
+  <div id="listContainer">
+    <ul id="list">
+      <li>Item 1</li>
+      <li>Item 2</li>
+      <li>Item 3</li>
+    </ul>
+    <button id="refreshButton" onclick="refreshList()" ><img src="/refresh.gif" alt="Refresh" style="width:10px;height:10px;"></button>
   </div>
+
+  <script>
+    // Function to refresh the list
+    function refreshList() {
+      var list = document.getElementById('list');
+      list.innerHTML = ''; // Clear the list
+      
+      // Add new items to the list
+      var items = ['New Item 1', 'New Item 2', 'New Item 3'];
+      items.forEach(function(item) {
+        var li = document.createElement('li');
+        li.innerText = item;
+        list.appendChild(li);
+      });
+    }
+  </script>
 </body>
 </html>

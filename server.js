@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import crypto from 'crypto';
 import { write } from "fs";
+import { table } from "console";
 
 const mongoUri = "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri,{ forceServerObjectId: true });
@@ -158,6 +159,18 @@ io.on('connection', async (socket) => {
       }
     }
   });
+  socket.on('fetchHistory', async id => {
+    let query = ''
+    if (playerData.admin) {
+      query = {_id:new ObjectId(id)};
+      let history = await responseCollection.findOne(query);
+      if (history){
+        socket.emit('historyData',history);
+      } else {
+        socket.emit('error','could not find history with ID: '+id);
+      }    
+    }
+  });
   socket.on('fetchCharData', async id => {
     let query = ''
     if (playerData.admin) {
@@ -236,45 +249,55 @@ io.on('connection', async (socket) => {
     playerData = await fetchPlayerData(playerName);
     updatePlayer(playerName,{$set:{tabName:tabName}});
     //remove player from old tab channel
-    if (tabName == 'System') {
-      if (playerData.admin) {
-        socket.join('Tab-'+tabName);
-        let allSettings = await getSetting('');
-        delete allSettings.apiKey;
-        delete allSettings._id;
-        socket.emit('settings',allSettings);
-      } else {
-        socket.emit('error','you are not admin')
-      }
-    } else {
+    if (tabName == 'Home'){
       socket.join('Tab-'+tabName);
-      if (tabName == 'Characters') {
-        let characterNames = ''
-        if (showCharacters == 'All'){
-          if (playerData.admin) {
-            characterNames = await gameDataCollection.find({type:'character'}).project({name:1,_id:1}).toArray();
-          } else {
-            characterNames = await gameDataCollection.find({type:'character',owner_id:playerData._id}).project({name:1,_id:1}).toArray();
-          }
+      //send friends or if admin send all if selected
+    } else if (tabName == 'Characters'){
+      socket.join('Tab-'+tabName);
+      let characterNames = ''
+      if (showCharacters == 'All'){
+        if (playerData.admin) {
+          characterNames = await gameDataCollection.find({type:'character'}).project({name:1,_id:1}).toArray();
         } else {
-          characterNames = await gameDataCollection.find({type:'character',state:'alive',owner_id:playerData._id}).project({name:1,_id:1}).toArray();
+          characterNames = await gameDataCollection.find({type:'character',owner_id:playerData._id}).project({name:1,_id:1}).toArray();
         }
-        if (characterNames) {
-          socket.emit('charList',characterNames);
-        }
+      } else {
+        characterNames = await gameDataCollection.find({type:'character',state:'alive',owner_id:playerData._id}).project({name:1,_id:1}).toArray();
       }
-      if (tabName == 'Adventures') {
-        let advetureNames = ''
-        if (showActiveAdventures){
-          //advetureNames = await gameDataCollection.find({type:'adventure',state:'active'}).project({name:1,_id:1}).toArray();
+      if (characterNames) {
+        socket.emit('charList',characterNames);
+      }
+    } else if (tabName == 'Adventures'){
+      socket.join('Tab-'+tabName);
+      let advetureNames = ''
+      if (showActiveAdventures){
+        //if (playerData.admin){
+        //  advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
+        //} else {
           advetureNames = await gameDataCollection.distinct('activeAdventure',{type:'character',owner_id: new ObjectId(playerData._id)})
-        } else {
-          advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
-        }
-        if (advetureNames != ''){
-          socket.emit('adventureList',advetureNames);
-        }
+        //}
+      } else {
+        advetureNames = await gameDataCollection.find({type:'adventure',state:'active'}).project({name:1,_id:1}).toArray();
       }
+      if (advetureNames != ''){
+        socket.emit('adventureList',advetureNames);
+      }
+    } else if (tabName == 'System' && playerData.admin) {
+      socket.join('Tab-'+tabName);
+      let allSettings = await getSetting('');
+      delete allSettings.apiKey;
+      delete allSettings._id;
+      socket.emit('settings',allSettings);
+    } else if (tabName == 'ScotGPT' && playerData.admin) {
+      socket.join('Tab-'+tabName);
+    } else if (tabName == 'History' && playerData.admin) {
+      console.log('History');
+      socket.join('Tab-'+tabName);
+      let history = await responseCollection.find({}).project({date:1,_id:1,created:1}).sort({created:-1}).toArray()
+      socket.emit('historyList',history)
+    } else {
+      console.log('unknown tabName',tabName);
+      socket.emit('error','unknown tab')
     }
   });
 });
@@ -305,9 +328,10 @@ async function handleInactivity(socket,playerName) {
 async function saveSettings(data,socket){
   try {
     await settingsCollection.updateOne({}, { $set: data }, { upsert: true });
-    let message = {message:'Settings saved.',color:'green',timeout:1500}
+    let message = {message:'Settings saved.',color:'green',timeout:3000}
     socket.emit('alertMsg',message);
-} catch (error) {
+    io.sockets.in('Tab-System').emit('settings',data);
+  } catch (error) {
     console.error('Error updating settings:', error);
     socket.emit('error',error)
   }

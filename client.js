@@ -12,6 +12,7 @@ if(document.getElementById(currentTab+'Btn')){
 document.getElementById('alertMsg').style.display = 'none';
 document.getElementById('SystemBtn').style.display = 'none';
 document.getElementById('ScotGPTBtn').style.display = 'none';
+document.getElementById('HistoryBtn').style.display = 'none';
 document.getElementById('character1').style.display = 'none';
 document.getElementById('character2').style.display = 'none';
 
@@ -33,27 +34,8 @@ window.onload = function() {
     connectButton();
   };
 };
-socket.on('settings', data => {
-  //console.log('got game settings');
-  systemSettings = data
-  document.getElementById('temperature').value = data.temperature;
-  document.getElementById('maxTokens').value = data.maxTokens;
-  document.getElementById('model').value = data.model;
-  document.getElementById('cru_temperature').value = data.cru_temperature;
-  document.getElementById('cru_maxTokens').value = data.cru_maxTokens;
-  document.getElementById('cru_model').value = data.cru_model;
-  document.getElementById('gpt-messages-list').innerHTML = "";
-  for (let messageName in systemSettings.messages) {
-    let entry=document.createElement('li');
-    //entry.addEventListener('onclick',showGptMessage);
-    entry.onclick=function () {showGptMessage(this);};
-    entry.innerText=messageName;
-    document.getElementById('gpt-messages-list').appendChild(entry);
-  }
-});
-function showGptMessage(e){
-  //console.log(e);
-  let messageName = e.innerText;
+
+function showGptMessage(messageName){
   if(systemSettings.messages){
     if(systemSettings.messages[messageName]) {
       //console.log(systemSettings.messages[messageName]);
@@ -82,6 +64,9 @@ function showGptMessage(e){
     }
   }
 }
+function getResponseData(listItem){
+  socket.emit('fetchHistory',listItem.id);
+}
 function renameGptMessage(e){
   if (document.getElementById('croupier_name_hidden').value == document.getElementById('croupier_name').value) {
     //show error alert
@@ -100,12 +85,43 @@ socket.on('serverRole', role => {
   if (role == 'admin') {
     document.getElementById('SystemBtn').style.display = 'inline';
     document.getElementById('ScotGPTBtn').style.display = 'inline';
-    document.getElementById('HomeBtn').style.width = '20%'
-    document.getElementById('CharactersBtn').style.width = '20%'
-    document.getElementById('AdventuresBtn').style.width = '20%'
-    document.getElementById('SystemBtn').style.width = '20%'
-    document.getElementById('ScotGPTBtn').style.width = '20%'
+    document.getElementById('HistoryBtn').style.display = 'inline';
+    document.getElementById('HomeBtn').style.width = '16%'
+    document.getElementById('CharactersBtn').style.width = '16%'
+    document.getElementById('AdventuresBtn').style.width = '17%'
+    document.getElementById('SystemBtn').style.width = '17%'
+    document.getElementById('HistoryBtn').style.width = '17%'
+    document.getElementById('ScotGPTBtn').style.width = '17%'
   };
+});
+socket.on('settings', data => {
+  //console.log('got game settings');
+  systemSettings = data
+  document.getElementById('temperature').value = data.temperature;
+  document.getElementById('maxTokens').value = data.maxTokens;
+  document.getElementById('model').value = data.model;
+  document.getElementById('cru_temperature').value = data.cru_temperature;
+  document.getElementById('cru_maxTokens').value = data.cru_maxTokens;
+  document.getElementById('cru_model').value = data.cru_model;
+  document.getElementById('gpt-messages-list').innerHTML = "";
+  let array = []
+  for (let messageName in systemSettings.messages) {
+    array.push({name:messageName,section:messageName.substring(0,3),order:systemSettings.messages[messageName].order})
+  }
+  array.sort(function(a, b) {
+    return b.section.localeCompare(a.section)
+            || a.order - b.order
+  })
+  for(let i = 0; i < array.length; i++){
+    let messageName=array[i].name;
+    let entry=document.createElement('li');
+    entry.onclick=function () {showGptMessage(this.innerText);};
+    entry.innerText=messageName;
+    document.getElementById('gpt-messages-list').appendChild(entry);
+  }
+  if (document.getElementById('croupier_name_hidden').value != ''){
+    showGptMessage(document.getElementById('croupier_name_hidden').value);
+  }
 });
 socket.on('error', data => {
   alert (data);
@@ -253,6 +269,44 @@ socket.on('adventureList', (data) => {
     }
   }
 });
+socket.on('historyList', (data) => {
+  if (localStorage.getItem('currentTab') == 'History') {
+    let list = document.getElementById('gpt-history-list');
+    list.innerHTML = "";
+    for(let i = 0; i < data.length; i++){
+      let response=data[i];
+      let entry=document.createElement('li');
+      entry.onclick=function () {getResponseData(this);};
+      entry.innerText=response.date;
+      entry.id = response._id;
+      list.appendChild(entry);
+    }
+  }
+});
+socket.on('historyData', (data) => {
+  if (localStorage.getItem('currentTab') == 'History') {
+    let table = document.getElementById('history_table');
+    while(table.rows[0]) table.deleteRow(0);
+
+    let attributes = ["model","completion_tokens","duration","finish_reason","prompt_tokens","url"];
+    for (let i = 0 ; i < attributes.length; i++){
+      document.getElementById('history_'+attributes[i]).value = data[attributes[i]];
+    };
+    document.getElementById('history_status').value = data.status.toString()+':'+data.statusText;
+    let request = JSON.parse(data.request);
+    document.getElementById('history_temperature').value = request.temperature;
+    document.getElementById('history_maxTokens').value = request.max_tokens;
+    for (let i = 0 ; i < request.messages.length; i++){
+      let newrow = document.createElement('tr');
+      newrow.innerHTML = '<th>'+request.messages[i].role+'</th><td width="90%"><textarea disabled>'+request.messages[i].content+'</textarea></td>';
+      table.append(newrow);
+    };
+    let newrow = document.createElement('tr');
+    newrow.innerHTML = '<th>Response</th><td width="90%"><textarea disabled>'+data.response+'</textarea></td>';
+    table.append(newrow);
+
+  }
+});
 socket.on('listedOwners', (data) => {
   if (localStorage.getItem('currentTab') == 'Characters') {
     let optionDoc = document.getElementById('character_owner'), owner = optionDoc.options[0].value;
@@ -318,7 +372,7 @@ function save() {
 }
 function saveChar() {
   //console.log('saveChar');
-  adventures: document.getElementById('character_adventures').value.split(","),
+  //adventures: document.getElementById('character_adventures').value.split(","),
   socket.emit("saveChar",{_id: document.getElementById('character_id').value,
                      owner_id: document.getElementById('character_owner').value,
                          data:{
@@ -410,7 +464,7 @@ function saveplaying(){
   //console.log('saveplaying');
   socket.emit("saveplaying",playing.checked);
 }
-function openPage(pageName,elmnt,color) {
+function showTab(pageName,elmnt,color) {
   var i, tabcontent, tablinks;
   tabcontent = document.getElementsByClassName("tabcontent");
   //hide all content
