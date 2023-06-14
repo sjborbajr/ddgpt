@@ -7,8 +7,6 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import crypto from 'crypto';
-import { write } from "fs";
-import { table } from "console";
 
 const mongoUri = "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri,{ forceServerObjectId: true });
@@ -22,7 +20,7 @@ const settingsCollection = database.collection('settings'), gameDataCollection =
 
 const timers = {};
 
-// Set up the web/io server
+// Set up the app/web/io server
 const app = express(), server = http.createServer(app), io = new SocketIO(server);
 const __filename = fileURLToPath(import.meta.url), __dirname = dirname(__filename);
 
@@ -38,11 +36,33 @@ app.get('/', (req, res) => res.sendFile(join(__dirname, 'index.html')));
 
 gameDataCollection.updateMany({type:'player'},{$set:{connected:false}});
 
-//const openai = new OpenAIApi(new Configuration({apiKey: getSetting('apiKey')}));
 
-if (1 == 1){
-  let characters = await gameDataCollection.find({type:'character','activeAdventure._id':new ObjectId("6478094ce25df0c428be1c1c")}).toArray();
-  console.log(JSON.stringify(characters));
+if (1 == 2) {
+  let allMessages = await gameDataCollection.find({type:'message'}).sort({date:1}).project({content:1,summary:1,_id:1}).toArray();
+  let forReal = true;
+  let settings = await getSetting('');
+  let cru_SystemMessage = settings.messages.croupier_system;
+  let croupier_generic_end = settings.messages.croupier_generic_end, croupier_adventure_complete = settings.messages.croupier_adventure_complete;
+  let croupier_dice = settings.messages.croupier_dice, croupier_loot = settings.messages.croupier_loot;
+
+  let json = {...croupier_dice.json, ...croupier_loot.json, ...croupier_adventure_complete.json}
+  json = "I will format the output in json:\n"+JSON.stringify(json)
+  for (let i = 0 ; i < allMessages.length; i++){
+    let cru_messages = [
+      {content:cru_SystemMessage.content,role:cru_SystemMessage.role},
+      {content:croupier_dice.content,role:croupier_dice.role},
+      {content:croupier_loot.content,role:croupier_loot.role},
+      {content:croupier_adventure_complete.content,role:croupier_adventure_complete.role},
+      {content:allMessages[i].content,role:'user'},
+      {content:json,role:'assistant'},
+      {content:croupier_generic_end.content,role:croupier_generic_end.role}
+    ];
+    if (forReal) {
+      let cru_openAiResponse = await openaiCall(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),settings.apiKey)
+    } else {
+      console.log(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens));
+    }
+  }
 }
 
 if (1 == 2) {
@@ -241,7 +261,12 @@ io.on('connection', async (socket) => {
     socket.join('Adventure-'+adventure_id);
   });
   socket.on('approveAdventureInput',async UserInput =>{
+    let originMessage = await gameDataCollection.findOne({type:'message',originMessage:true,adventure_id:UserInput.adventure_id});
+    let allMessages = await gameDataCollection.find({type:'message',adventure_id:UserInput.adventure_id}).toArray();
+    let characters = await gameDataCollection.find({type:'character','activeAdventure._id':UserInput.adventure_id}).toArray();
+
     let forReal = true;
+
     UserInput.approverName = playerName;
     UserInput.adventure_id = new ObjectId(UserInput.adventure_id);
     UserInput.date = new Date().toUTCString();
@@ -255,9 +280,6 @@ io.on('connection', async (socket) => {
     }
     io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEvent',UserInput);
 
-    let originMessage = await gameDataCollection.findOne({type:'message',originMessage:true,adventure_id:UserInput.adventure_id});
-    let allMessages = await gameDataCollection.find({type:'message',adventure_id:UserInput.adventure_id}).toArray();
-    let characters = await gameDataCollection.find({type:'character','activeAdventure._id':UserInput.adventure_id}).toArray();
     let charTable = await CreateCharTable(characters);
     let settings = await getSetting('');
 
@@ -280,9 +302,9 @@ io.on('connection', async (socket) => {
     ]
     for (let i = 0 ; i < allMessages.length; i++){
       if (!allMessages[i].originMessage){
-        if (allMessages[i].summary){
-          allMessages[i].content = allMessages[i].summary;
-        }
+        //if (allMessages[i].summary){
+        //  allMessages[i].content = allMessages[i].summary;
+        //}
         messages.push({content:allMessages[i].content,role:allMessages[i].role})
       }
     }
@@ -296,29 +318,36 @@ io.on('connection', async (socket) => {
       console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
       openAiResponse = {content:"Something that came from the ai"}
     }
-    openAiResponse.type = 'message';
-    openAiResponse.adventure_id = UserInput.adventure_id;
-    io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEvent',openAiResponse);
-
-    let cru_messages = [
-      {content:cru_SystemMessage.content,role:cru_SystemMessage.role},
-      {content:croupier_narrator.content,role:croupier_narrator.role},
-      {content:openAiResponse.content,role:'assistant'}
-    ];
-    if (forReal) {
-      cru_openAiResponse = await openaiCall(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),settings.apiKey)
-    } else {
-      console.log(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),settings.apiKey);
-      cru_openAiResponse = {content:"some summary"}
-    }
-
-    openAiResponse.summary = cru_openAiResponse.content;
-    if (forReal){
-      try {
-        gameDataCollection.insertOne(openAiResponse,{safe: true});
-      } catch (error) {
-        console.error('Error saving response to MongoDB:', error);
+    if (openAiResponse.id) {
+      openAiResponse.type = 'message';
+      openAiResponse.adventure_id = UserInput.adventure_id;
+      io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEvent',openAiResponse);
+      
+      let cru_messages = [
+        {content:cru_SystemMessage.content,role:cru_SystemMessage.role},
+        {content:croupier_narrator.content,role:croupier_narrator.role},
+        {content:openAiResponse.content,role:'assistant'}
+      ];
+      if (forReal) {
+        cru_openAiResponse = await openaiCall(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),settings.apiKey)
+      } else {
+        console.log(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),settings.apiKey);
+        cru_openAiResponse = {content:"some summary"}
       }
+      
+      openAiResponse.summary = cru_openAiResponse.content;
+      if (forReal){
+        try {
+          gameDataCollection.insertOne(openAiResponse,{safe: true});
+        } catch (error) {
+          console.error('Error saving response to MongoDB:', error);
+        }
+      }
+    } else {
+      console.log('did not get proper response',openAiResponse)
+      console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
+      let message = {message:'API call failed!',color:'red',timeout:8000};
+      io.sockets.in('Adventure-'+UserInput.adventure_id).emit('alertMsg',message);
     }
 
   });
@@ -502,8 +531,7 @@ async function saveResponse(responseRaw){
   };
   //console.log(response);
   try {
-    await responseCollection.insertOne(response,{safe: true});
-    return response._id;
+    await responseCollection.insertOne(response);
   } catch (error) {
     console.error('Error saving response to MongoDB:', error);
   }
@@ -520,13 +548,13 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
       max_tokens: maxTokens
     });
     
-    let allResponse_id = saveResponse(response);
+    saveResponse(response);
     // Extract the generated response from the API
     const generatedResponse = {
       content:response.data.choices[0].message.content,
       date:response.headers.date,
       role:response.data.choices[0].message.role,
-      allResponse_id:allResponse_id
+      id:response.data.id
     }
     
     return generatedResponse;
@@ -542,6 +570,9 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
     if (error.code) {
       generatedResponse += " code: "+error.code;
     }
+    try {
+      saveResponse(error);
+    } catch (error2) {console.log(error2)}
     return {content:generatedResponse}
   }
 }
