@@ -23,11 +23,10 @@
       <div id="connected users" style="position: relative; border: 1px solid black; height: 100px;">
         <ul id="home-users-connected">
         </ul>
-        <button class="refreshButton" onclick="refreshList()" ><img src="/refresh.gif" alt="Refresh" style="width:10px;height:10px;"></button>
+        <button class="refreshButton" onclick="socket.emit('tab','Home');" ><img src="/refresh.gif" alt="Refresh" style="width:10px;height:10px;"></button>
       </div>
     </div>
     <div style="width: 75%;">
-      hi
     </div>
   </div>
   <div id="Characters" class="tabcontent">
@@ -135,9 +134,11 @@
         <span>Model:</span>
         <select id="model">
           <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
+          <option value="gpt-3.5-turbo-0613">gpt-3.5-turbo-0613</option>
           <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
           <option value="gpt-4">gpt-4</option>
           <option value="gpt-4-0314">gpt-4-0314</option>
+          <option value="gpt-4-0613">gpt-4-0613</option>
           <option value="gpt-4-32k">gpt-4-32k</option>
           <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
         </select>
@@ -157,9 +158,11 @@
         Model:
         <select id="cru_model">
           <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
+          <option value="gpt-3.5-turbo-0613">gpt-3.5-turbo-0613</option>
           <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
           <option value="gpt-4">gpt-4</option>
           <option value="gpt-4-0314">gpt-4-0314</option>
+          <option value="gpt-4-0613">gpt-4-0613</option>
           <option value="gpt-4-32k">gpt-4-32k</option>
           <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
         </select>
@@ -244,7 +247,7 @@
       <div id="gpt-history-left-column">
         <ul id="gpt-history-list">
         </ul>
-        <button class="refreshButton" onclick="refreshList()" ><img src="/refresh.gif" alt="Refresh" style="width:10px;height:10px;"></button>
+        <button class="refreshButton" onclick="socket.emit('tab','History');" ><img src="/refresh.gif" alt="Refresh" style="width:10px;height:10px;"></button>
       </div>
       <div id="gpt-history-resize-bar"></div>
       <div id="gpt-history-right-column">
