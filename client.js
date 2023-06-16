@@ -59,13 +59,20 @@ function showGptMessage(messageName){
       document.getElementById('croupier_name').value = messageName;
 
       if(systemSettings.messages[messageName].json){
-        document.getElementById('croupier_json').value = JSON.stringify(systemSettings.messages[messageName].json);
+        document.getElementById('croupier_json').value = JSON.stringify(systemSettings.messages[messageName].json,null,2);
       } else {document.getElementById('croupier_json').value = ''}
     }
   }
 }
 function getResponseData(listItem){
   socket.emit('fetchHistory',listItem.id);
+  let table = document.getElementById('history_table');
+  while(table.rows[0]) table.deleteRow(0);
+  if(listItem.tagName === 'LI') {                                      // 2.
+    selected= document.querySelector('li.selected');                   // 2a.
+    if(selected) selected.className= '';                               // "
+    listItem.className= 'selected';                                    // 2b.
+  }
 }
 function renameGptMessage(e){
   if (document.getElementById('croupier_name_hidden').value == document.getElementById('croupier_name').value) {
@@ -104,6 +111,7 @@ socket.on('settings', data => {
   document.getElementById('cru_maxTokens').value = data.cru_maxTokens;
   document.getElementById('cru_model').value = data.cru_model;
   document.getElementById('gpt-messages-list').innerHTML = "";
+  document.getElementById('forReal').checked = data.forReal;
   let array = []
   for (let messageName in systemSettings.messages) {
     array.push({name:messageName,section:messageName.substring(0,3),order:systemSettings.messages[messageName].order})
@@ -239,7 +247,6 @@ socket.on('adventureEvent', (data) => {
   document.getElementById("player-input-header").innerText = "Player Input";
   document.getElementById('player-input-submit').innerText = 'Suggest';
   document.getElementById('player-input-edit').hidden = true;
-
 });
 socket.on('adventureList', (data) => {
   if (localStorage.getItem('currentTab') == 'Adventures') {
@@ -285,8 +292,6 @@ socket.on('historyList', (data) => {
 });
 socket.on('historyData', (data) => {
   if (localStorage.getItem('currentTab') == 'History') {
-    let table = document.getElementById('history_table');
-    while(table.rows[0]) table.deleteRow(0);
 
     let attributes = ["model","completion_tokens","duration","finish_reason","prompt_tokens","url"];
     for (let i = 0 ; i < attributes.length; i++){
@@ -296,6 +301,9 @@ socket.on('historyData', (data) => {
     let request = JSON.parse(data.request);
     document.getElementById('history_temperature').value = request.temperature;
     document.getElementById('history_maxTokens').value = request.max_tokens;
+
+    let table = document.getElementById('history_table');
+    while(table.rows[0]) table.deleteRow(0);
     for (let i = 0 ; i < request.messages.length; i++){
       let newrow = document.createElement('tr');
       newrow.innerHTML = '<th>'+request.messages[i].role+'</th><td width="90%"><textarea disabled>'+request.messages[i].content+'</textarea></td>';
@@ -304,7 +312,9 @@ socket.on('historyData', (data) => {
     let newrow = document.createElement('tr');
     newrow.innerHTML = '<th>Response</th><td width="90%"><textarea disabled>'+data.response+'</textarea></td>';
     table.append(newrow);
-
+    newrow = document.createElement('tr');
+    newrow.innerHTML = '<th>raw</th><td width="90%"><textarea disabled>'+JSON.stringify(data,null,2)+'</textarea></td>';
+    table.append(newrow);
   }
 });
 socket.on('listedOwners', (data) => {
@@ -329,6 +339,22 @@ socket.on('listedOwners', (data) => {
 });
 socket.on('ScotRan', (data) => {
   document.getElementById('response-messageScot').value = data;
+});
+socket.on('continueAdventure', data => {
+  if (data){
+    const adventureHistoryDiv = document.getElementById('adventure-history');
+    let messageDiv = document.createElement('div');
+    messageDiv.className = 'message dm-message loading';
+    messageDiv.id = 'loading';
+    messageDiv.text = 'processing'
+    adventureHistoryDiv.appendChild(messageDiv);
+    adventureHistoryDiv.scrollTop = adventureHistoryDiv.scrollHeight;
+  } else {
+    let messageDiv = document.getElementById('loading');
+    if (messageDiv){
+      messageDiv.remove();
+    }
+  }
 });
 socket.on('disconnect', () => {
   console.log('Disconnected from server');
@@ -368,6 +394,7 @@ function save() {
   systemSettings.cru_temperature = document.getElementById('cru_temperature').value;
   systemSettings.cru_maxTokens = document.getElementById('cru_maxTokens').value;
   systemSettings.cru_model = document.getElementById('cru_model').value;
+  systemSettings.forReal = document.getElementById('forReal').checked;
   socket.emit("save",systemSettings)
 }
 function saveChar() {
@@ -496,7 +523,12 @@ function addAllAdventureHistory(data) {
 }
 function addAdventureHistory(entry) {
   const adventureHistoryDiv = document.getElementById('adventure-history');
-  let messageDiv = document.createElement('div');
+  let messageDiv = document.getElementById('loading');
+  if (messageDiv){
+    messageDiv.id = ''
+  } else {
+    messageDiv = document.createElement('div');
+  }
   messageDiv.className = 'message ' + (entry.role === 'user' ? 'player-message' : 'dm-message');
   messageDiv.textContent = entry.content;
   adventureHistoryDiv.appendChild(messageDiv);

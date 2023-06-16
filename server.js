@@ -37,38 +37,86 @@ app.get('/', (req, res) => res.sendFile(join(__dirname, 'index.html')));
 gameDataCollection.updateMany({type:'player'},{$set:{connected:false}});
 
 
-if (1 == 2) {
-  let allMessages = await gameDataCollection.find({type:'message'}).sort({date:1}).project({content:1,summary:1,_id:1}).toArray();
-  let forReal = true;
+if (1 == 2){
+  //testing out new openai functions
+  let message = await gameDataCollection.findOne({_id: new ObjectId("648a23b822b92b61b83a119c")});
   let settings = await getSetting('');
-  let cru_SystemMessage = settings.messages.croupier_system;
-  let croupier_generic_end = settings.messages.croupier_generic_end, croupier_adventure_complete = settings.messages.croupier_adventure_complete;
-  let croupier_dice = settings.messages.croupier_dice, croupier_loot = settings.messages.croupier_loot;
+  let forReal = settings.forReal || false;
+  let systemMessage = settings.messages.croupier_system2;
+  let diceFunction = settings.messages.croupier_dice_function.json;
 
-  let json = {...croupier_dice.json, ...croupier_loot.json, ...croupier_adventure_complete.json}
-  json = "I will format the output in json:\n"+JSON.stringify(json)
-  for (let i = 0 ; i < allMessages.length; i++){
+  let messages = [
+    {content:systemMessage.content,role:systemMessage.role},
+    {content:message.content,role:'user'}
+  ];
+  let functions = [
+    diceFunction
+  ];
+
+  let response = ''
+  if (forReal){
+    response = await openaiCall2(
+      messages,
+      functions,
+      settings.cru_model,
+      Number(settings.cru_temperature),
+      Number(settings.cru_maxTokens),
+      settings.apiKey
+    );
+  } else {
+    response = [
+      messages,
+      {functions: JSON.stringify(functions,null,2)},
+      settings.cru_model,
+      Number(settings.cru_temperature),
+      Number(settings.cru_maxTokens),
+      settings.apiKey
+    ];
+  }
+
+  console.log(response);
+
+}
+
+if (1 == 2) {
+  //do the croupier on all assistant messages
+  let allMessages = await gameDataCollection.find({type:'message',role:'assistant'}).sort({date:1}).project({content:1,_id:1}).toArray();
+  let settings = await getSetting('');
+  let forReal = settings.forReal || false;
+  let characters = await gameDataCollection.find({type:'character'}).toArray();
+  let croupier_system = settings.messages.croupier_system;
+  let croupier_end = settings.messages.croupier_end;
+  let croupier_players = settings.messages.croupier_players;
+  let croupier_assistant = settings.messages.croupier_assistant;
+
+  croupier_players.content = croupier_players.content.replaceAll('${char_count}',characters.length);
+  let character_info = characters[0].name+" is a "+characters[0].details.Class
+  for (let i = 1 ; i < characters.length; i++){
+    character_info += '\n'+characters[i].name+" is a "+characters[i].details.Class
+  }
+  croupier_players.content = croupier_players.content.replaceAll('${char_list}',character_info);
+  let json_text = JSON.stringify(croupier_assistant.json)
+  croupier_assistant.content = croupier_assistant.content.replaceAll('${json}',json_text)
+  for (let i = 3 ; i < allMessages.length; i++){
     let cru_messages = [
-      {content:cru_SystemMessage.content,role:cru_SystemMessage.role},
-      {content:croupier_dice.content,role:croupier_dice.role},
-      {content:croupier_loot.content,role:croupier_loot.role},
-      {content:croupier_adventure_complete.content,role:croupier_adventure_complete.role},
+      {content:croupier_system.content,role:croupier_system.role},
+      {content:croupier_assistant.content,role:croupier_assistant.role},
+      {content:croupier_players.content,role:croupier_players.role},
       {content:allMessages[i].content,role:'user'},
-      {content:json,role:'assistant'},
-      {content:croupier_generic_end.content,role:croupier_generic_end.role}
+      {content:croupier_end.content,role:croupier_end.role}
     ];
     if (forReal) {
       let cru_openAiResponse = await openaiCall(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),settings.apiKey)
+      console.log(allMessages[i],cru_openAiResponse)
     } else {
       console.log(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens));
+      //console.log(i,allMessages[i].content)
     }
   }
 }
 
 if (1 == 2) {
-  //let adventureData = await gameDataCollection.find({type:'adventure',_id:new ObjectId(UserInput.adventure_id)}).sort({date:1}).toArray();
-  //let adventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(UserInput.adventure_id)}).sort({date:1}).project({content:1,role:1,_id:0}).toArray();
-  //let originMessage = await gameDataCollection.findOne({type:'message',_id:new ObjectId("64726949d07686df087cf7cf")});
+  //example to start a campaign
   let characters = await gameDataCollection.find({type:'character','activeAdventure._id':new ObjectId("6478094ce25df0c428be1c1c")}).toArray();
   let charTable = await CreateCharTable(characters);
   let settings = await getSetting('');
@@ -261,11 +309,9 @@ io.on('connection', async (socket) => {
     socket.join('Adventure-'+adventure_id);
   });
   socket.on('approveAdventureInput',async UserInput =>{
-    let originMessage = await gameDataCollection.findOne({type:'message',originMessage:true,adventure_id:UserInput.adventure_id});
-    let allMessages = await gameDataCollection.find({type:'message',adventure_id:UserInput.adventure_id}).toArray();
-    let characters = await gameDataCollection.find({type:'character','activeAdventure._id':UserInput.adventure_id}).toArray();
-
-    let forReal = true;
+    //let originMessage = await gameDataCollection.findOne({type:'message',originMessage:true,adventure_id:UserInput.adventure_id});
+    let settings = await getSetting('');
+    let forReal = settings.forReal || false;
 
     UserInput.approverName = playerName;
     UserInput.adventure_id = new ObjectId(UserInput.adventure_id);
@@ -279,77 +325,8 @@ io.on('connection', async (socket) => {
       }
     }
     io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEvent',UserInput);
-
-    let charTable = await CreateCharTable(characters);
-    let settings = await getSetting('');
-
-    let dmSystemMessage = settings.messages.dm_system;
-    let assistantCharTable = settings.messages.dm_char_table
-    let assistantMessageLast = settings.messages.dm_continue_adventure
-
-    let cru_SystemMessage = settings.messages.croupier_system;
-    let croupier_narrator = settings.messages.croupier_summary;
-
-    dmSystemMessage.content = dmSystemMessage.content.replaceAll('${char_count}',characters.length);
-    //needs work, static set to level 2, need to set to floor + 1 of characters.detail.lvl
-    dmSystemMessage.content = dmSystemMessage.content.replaceAll('${next_level}',"2");
-    assistantCharTable.content = assistantCharTable.content.replaceAll('${CharTable}',charTable);
-
-    let messages = [
-      {content:dmSystemMessage.content,role:dmSystemMessage.role},
-      {content:assistantCharTable.content,role:assistantCharTable.role},
-      {content:originMessage.content,role:originMessage.role}
-    ]
-    for (let i = 0 ; i < allMessages.length; i++){
-      if (!allMessages[i].originMessage){
-        //if (allMessages[i].summary){
-        //  allMessages[i].content = allMessages[i].summary;
-        //}
-        messages.push({content:allMessages[i].content,role:allMessages[i].role})
-      }
-    }
-    messages.push({content:UserInput.content,role:'user'})
-    messages.push({content:assistantMessageLast.content,role:assistantMessageLast.role})
-
-    let openAiResponse = '', cru_openAiResponse = '';
-    if (forReal){
-      openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),settings.apiKey)
-    } else {
-      console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
-      openAiResponse = {content:"Something that came from the ai"}
-    }
-    if (openAiResponse.id) {
-      openAiResponse.type = 'message';
-      openAiResponse.adventure_id = UserInput.adventure_id;
-      io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEvent',openAiResponse);
-      
-      let cru_messages = [
-        {content:cru_SystemMessage.content,role:cru_SystemMessage.role},
-        {content:croupier_narrator.content,role:croupier_narrator.role},
-        {content:openAiResponse.content,role:'assistant'}
-      ];
-      if (forReal) {
-        cru_openAiResponse = await openaiCall(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),settings.apiKey)
-      } else {
-        console.log(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),settings.apiKey);
-        cru_openAiResponse = {content:"some summary"}
-      }
-      
-      openAiResponse.summary = cru_openAiResponse.content;
-      if (forReal){
-        try {
-          gameDataCollection.insertOne(openAiResponse,{safe: true});
-        } catch (error) {
-          console.error('Error saving response to MongoDB:', error);
-        }
-      }
-    } else {
-      console.log('did not get proper response',openAiResponse)
-      console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
-      let message = {message:'API call failed!',color:'red',timeout:8000};
-      io.sockets.in('Adventure-'+UserInput.adventure_id).emit('alertMsg',message);
-    }
-
+    
+    continueAdventure(UserInput.adventure_id,forReal);
   });
   socket.on('suggestAdventureInput',async UserInput =>{
     UserInput.playerName = playerName;
@@ -510,26 +487,71 @@ async function ServerEvery1Second() {
   }
 }
 async function saveResponse(responseRaw){
-  let response = {
-    status: responseRaw.status,
-    statusText: responseRaw.statusText,
-    date:responseRaw.headers.date,
-    duration:responseRaw['headers']['openai-processing-ms'],
-    openaiversion:responseRaw.headers['openai-version'],
-    xrequestid:responseRaw.headers['x-request-id'],
-    request:responseRaw.config.data,
-    url:responseRaw.config.url,
-    id:responseRaw.data.id,
-    type:responseRaw.data.object,
-    created:responseRaw.data.created,
-    model:responseRaw.data.model,
-    prompt_tokens:responseRaw.data.usage.prompt_tokens,
-    completion_tokens:responseRaw.data.usage.completion_tokens,
-    tokens:responseRaw.data.usage.total_tokens,
-    response:responseRaw.data.choices[0].message.content,
-    finish_reason:responseRaw.data.choices[0].finish_reason
-  };
-  //console.log(response);
+  let response = {}
+  if (responseRaw.status) {
+    response.status = responseRaw.status
+  }
+  if (responseRaw.statusText) {
+    response.statusText = responseRaw.statusText
+  }
+  if (responseRaw.date) {
+    response.date = responseRaw.date
+  } else if (responseRaw.headers.date) {
+    response.date = responseRaw.headers.date
+  }
+  if (responseRaw['headers']['openai-processing-ms']) {
+    response.duration = responseRaw['headers']['openai-processing-ms']
+  }
+  if (responseRaw.headers['openai-version']) {
+    response.openaiversion = responseRaw.headers['openai-version']
+  }
+  if (responseRaw.headers['x-request-id']) {
+    response.xrequestid = responseRaw.headers['x-request-id']
+  }
+  if (responseRaw.config.data) {
+    response.request = responseRaw.config.data
+  }
+  if (responseRaw.config.url) {
+    response.url = responseRaw.config.url
+  }
+  if (responseRaw.data){
+    if (responseRaw.data.id) {
+      response.id = responseRaw.data.id
+    }
+    if (responseRaw.data.object) {
+      response.type = responseRaw.data.object
+    }
+    if (responseRaw.data.created) {
+      response.created = responseRaw.data.created
+    } else if (response.date) {
+      response.created = Math.round(new Date(response.date).getTime()/1000);
+    }
+    if (responseRaw.data.model) {
+      response.model = responseRaw.data.model
+    }
+    if (responseRaw.data.usage){
+      if (responseRaw.data.usage.prompt_tokens) {
+        response.prompt_tokens = responseRaw.data.usage.prompt_tokens
+      }
+      if (responseRaw.data.usage.completion_tokens) {
+        response.completion_tokens = responseRaw.data.usage.completion_tokens
+      }
+      if (responseRaw.data.usage.total_tokens) {
+        response.tokens = responseRaw.data.usage.total_tokens
+      }
+    }
+    if (responseRaw.data.choices){
+      if (responseRaw.data.choices[0].message.content) {
+        response.response = responseRaw.data.choices[0].message.content
+      } else {
+        response.response = JSON.stringify(responseRaw.data.choices)
+      }
+      response.responseRaw = JSON.stringify(responseRaw.data.choices[0])
+      if (responseRaw.data.choices[0].finish_reason) {
+        response.finish_reason = responseRaw.data.choices[0].finish_reason
+      }
+    }
+  }
   try {
     await responseCollection.insertOne(response);
   } catch (error) {
@@ -571,7 +593,49 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
       generatedResponse += " code: "+error.code;
     }
     try {
-      saveResponse(error);
+      saveResponse(error.response);
+    } catch (error2) {console.log(error2)}
+    return {content:generatedResponse}
+  }
+}
+async function openaiCall2(messages,functions, model, temperature, maxTokens, apiKey) {
+  temperature = Number(temperature);
+  maxTokens = Number(maxTokens);
+  try {
+    let openai = new OpenAIApi(new Configuration({apiKey: apiKey}));
+    const response = await openai.createChatCompletion({
+      model: model,
+      messages: messages,
+      functions: functions,
+      temperature: temperature,
+      max_tokens: maxTokens
+    });
+    
+    saveResponse(response);
+    console.log(JSON.stringify(response.data.choices[0]));
+    // Extract the generated response from the API
+    const generatedResponse = {
+      content:response.data.choices[0].message.content,
+      date:response.headers.date,
+      role:response.data.choices[0].message.role,
+      id:response.data.id
+    }
+    
+    return generatedResponse;
+  } catch (error) {
+    console.error('Error generating response from OpenAI:', error);
+    let generatedResponse = '['+new Date().toUTCString()+']'
+    if (error.response) {
+      generatedResponse += " Status: "+error.response.status+", "+error.response.statusText;
+    }
+    if (error.errno) {
+      generatedResponse += " errno: "+error.errno;
+    }
+    if (error.code) {
+      generatedResponse += " code: "+error.code;
+    }
+    try {
+      saveResponse(error.response);
     } catch (error2) {console.log(error2)}
     return {content:generatedResponse}
   }
@@ -583,4 +647,78 @@ async function getSetting(setting){
     dbsetting = dbsetting[setting];
   };
   return dbsetting
+}
+async function continueAdventure(adventure_id,forReal){
+  io.sockets.in('Adventure-'+adventure_id).emit('continueAdventure',true);
+  let allMessages = await gameDataCollection.find({type:'message',adventure_id:adventure_id}).toArray();
+  let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
+  let settings = await getSetting('');
+  let charTable = await CreateCharTable(characters);
+
+  let dmSystemMessage = settings.messages.dm_system;
+  let assistantCharTable = settings.messages.dm_char_table
+  let assistantMessageLast = settings.messages.dm_continue_adventure
+
+  let cru_SystemMessage = settings.messages.croupier_system;
+  let croupier_narrator = settings.messages.croupier_summary;
+
+  dmSystemMessage.content = dmSystemMessage.content.replaceAll('${char_count}',characters.length);
+  //needs work, static set to level 2, need to set to floor + 1 of characters.detail.lvl
+  dmSystemMessage.content = dmSystemMessage.content.replaceAll('${next_level}',"2");
+  assistantCharTable.content = assistantCharTable.content.replaceAll('${CharTable}',charTable);
+
+  let messages = [
+    {content:dmSystemMessage.content,role:dmSystemMessage.role},
+    {content:assistantCharTable.content,role:assistantCharTable.role}
+  ]
+  for (let i = 0 ; i < allMessages.length; i++){
+    if (!allMessages[i].originMessage){
+      //if (allMessages[i].summary){
+      //  allMessages[i].content = allMessages[i].summary;
+      //}
+      messages.push({content:allMessages[i].content,role:allMessages[i].role})
+    }
+  }
+  messages.push({content:assistantMessageLast.content,role:assistantMessageLast.role})
+
+  let openAiResponse = '', cru_openAiResponse = '';
+  if (forReal){
+    openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),settings.apiKey)
+  } else {
+    console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
+    openAiResponse = {content:"Something that came from the ai"}
+  }
+  if (openAiResponse.id) {
+    openAiResponse.type = 'message';
+    openAiResponse.adventure_id = adventure_id;
+    io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',openAiResponse);
+    
+    let cru_messages = [
+      {content:cru_SystemMessage.content,role:cru_SystemMessage.role},
+      {content:croupier_narrator.content,role:croupier_narrator.role},
+      {content:openAiResponse.content,role:'assistant'}
+    ];
+    if (forReal) {
+      cru_openAiResponse = await openaiCall(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),settings.apiKey)
+    } else {
+      console.log(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),settings.apiKey);
+      cru_openAiResponse = {content:"some summary"}
+    }
+    
+    openAiResponse.summary = cru_openAiResponse.content;
+    if (forReal){
+      try {
+        gameDataCollection.insertOne(openAiResponse,{safe: true});
+      } catch (error) {
+        console.error('Error saving response to MongoDB:', error);
+      }
+    }
+  } else if (forReal) {
+    console.log('did not get proper response',openAiResponse)
+    console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
+    let message = {message:'API call failed!',color:'red',timeout:8000};
+    io.sockets.in('Adventure-'+adventure_id).emit('alertMsg',message);
+  }
+
+
 }
