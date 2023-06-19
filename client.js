@@ -234,7 +234,19 @@ socket.on('nonce', (nonce) => {
   localStorage.setItem('authNonce', nonce);
 });
 socket.on('AllAdventureHistory', (data) => {
-  addAllAdventureHistory(data);
+  //addAllAdventureHistory(data);
+  if (data.messages) {addAllAdventureHistory(data.messages);};
+  if (data.state == 'active'){
+    document.getElementById('player-input-submit').disabled = false;
+    document.getElementById('player-input-edit').disabled = false;
+    document.getElementById('player-input-end').disabled = false;
+    document.getElementById('player-input-field').disabled = false;
+  } else {
+    document.getElementById('player-input-submit').disabled = true;
+    document.getElementById('player-input-edit').disabled = true;
+    document.getElementById('player-input-end').disabled = true;
+    document.getElementById('player-input-field').disabled = true;
+  }
 });
 socket.on('adventureEventSuggest', (data) => {
   document.getElementById('player-input-field').value = data.content;

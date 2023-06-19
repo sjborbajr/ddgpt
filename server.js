@@ -265,8 +265,7 @@ io.on('connection', async (socket) => {
     socket.emit('ScotRan',response.content);
   });
   socket.on('fetchAllAdventureHistory',async adventure_id =>{
-    let adventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(adventure_id)}).sort({date:1}).toArray();
-    socket.emit('AllAdventureHistory',adventureMessages);
+    sendAdventureData(adventure_id,socket);
     socket.join('Adventure-'+adventure_id);
   });
   socket.on('approveAdventureInput',async UserInput =>{
@@ -292,8 +291,8 @@ io.on('connection', async (socket) => {
     UserInput.playerName = playerName;
     io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEventSuggest',UserInput);
   });
-  socket.on('endAdventure',async adventureId =>{
-
+  socket.on('endAdventure',async adventure_id =>{
+    completeAdventure(new ObjectId(adventure_id));
   });
   socket.on('tab',async tabName =>{
     playerData = await fetchPlayerData(playerName);
@@ -678,8 +677,25 @@ async function formatCroupierMessages(settings,content,adventure_id){
 
   return messages
 }
+async function sendAdventureData(adventure_id,socket){
+  let adventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(adventure_id)}).sort({date:1}).toArray();
+  let adventureData = await gameDataCollection.findOne({type:'adventure',_id:new ObjectId(adventure_id)});
+  if (adventureData){
+    adventureData.messages = adventureMessages;
+  } else {
+    adventureData = {messages:adventureMessages};
+  }
+  socket.emit('AllAdventureHistory',adventureData);
+}
 async function completeAdventure(adventure_id){
   //mark adventure as over, remove active adventure from chars
+  try {
+    gameDataCollection.updateOne({type:'adventure',_id:new ObjectId(adventure_id)},{$set:{state:'succeeded'}});
+    sendAdventureData(adventure_id,io.sockets.in('Adventure-'+adventure_id));
+  } catch (error) {
+    console.error('Error saving summary response to MongoDB:', error);
+  }  
+
 
   //level up character
 }
