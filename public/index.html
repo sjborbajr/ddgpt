@@ -170,6 +170,8 @@
     </div><br><br>
     <button id="save" >Save</button>
     <input type="checkbox" id="forReal" checked>For Real?</input>
+    <input type="checkbox" id="doSummary" checked>Do Summary?</input>
+    <input type="checkbox" id="useSummary" checked>Use Summary?</input>
     <h3>GPT Messages</h3>
     <div id="gpt-messages">
       <div id="gpt-messages-left-column">
@@ -313,7 +315,8 @@
       <h2 id="player-input-header">Player Input</h2>
       <textarea id="player-input-field" placeholder="Enter your action"></textarea>
       <button id="player-input-submit">Suggest</button>
-      <button id="player-input-edit" hidden="true">Edit</button>
+      <button id="player-input-edit" hidden="true">Edit</button><br><br>
+      <button id="player-input-end">End</button>
     </div>
   </div>
   <script src="/socket.io/socket.io.js"></script>

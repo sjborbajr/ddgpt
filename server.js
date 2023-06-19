@@ -36,12 +36,10 @@ app.get('/', (req, res) => res.sendFile(join(__dirname, 'index.html')));
 
 gameDataCollection.updateMany({type:'player'},{$set:{connected:false}});
 
-
 if (1 == 2){
   //testing out new openai functions
   let message = await gameDataCollection.findOne({_id: new ObjectId("648a23b822b92b61b83a119c")});
   let settings = await getSetting('');
-  let forReal = settings.forReal || false;
   let systemMessage = settings.messages.croupier_system2;
   let diceFunction = settings.messages.croupier_dice_function.json;
 
@@ -54,7 +52,7 @@ if (1 == 2){
   ];
 
   let response = ''
-  if (forReal){
+  if (settings.forReal){
     response = await openaiCall2(
       messages,
       functions,
@@ -76,43 +74,6 @@ if (1 == 2){
 
   console.log(response);
 
-}
-
-if (1 == 2) {
-  //do the croupier on all assistant messages
-  let allMessages = await gameDataCollection.find({type:'message',role:'assistant'}).sort({date:1}).project({content:1,_id:1}).toArray();
-  let settings = await getSetting('');
-  let forReal = settings.forReal || false;
-  let characters = await gameDataCollection.find({type:'character'}).toArray();
-  let croupier_system = settings.messages.croupier_system;
-  let croupier_end = settings.messages.croupier_end;
-  let croupier_players = settings.messages.croupier_players;
-  let croupier_assistant = settings.messages.croupier_assistant;
-
-  croupier_players.content = croupier_players.content.replaceAll('${char_count}',characters.length);
-  let character_info = characters[0].name+" is a "+characters[0].details.Class
-  for (let i = 1 ; i < characters.length; i++){
-    character_info += '\n'+characters[i].name+" is a "+characters[i].details.Class
-  }
-  croupier_players.content = croupier_players.content.replaceAll('${char_list}',character_info);
-  let json_text = JSON.stringify(croupier_assistant.json)
-  croupier_assistant.content = croupier_assistant.content.replaceAll('${json}',json_text)
-  for (let i = 3 ; i < allMessages.length; i++){
-    let cru_messages = [
-      {content:croupier_system.content,role:croupier_system.role},
-      {content:croupier_assistant.content,role:croupier_assistant.role},
-      {content:croupier_players.content,role:croupier_players.role},
-      {content:allMessages[i].content,role:'user'},
-      {content:croupier_end.content,role:croupier_end.role}
-    ];
-    if (forReal) {
-      let cru_openAiResponse = await openaiCall(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),settings.apiKey)
-      console.log(allMessages[i],cru_openAiResponse)
-    } else {
-      console.log(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens));
-      //console.log(i,allMessages[i].content)
-    }
-  }
 }
 
 if (1 == 2) {
@@ -311,13 +272,12 @@ io.on('connection', async (socket) => {
   socket.on('approveAdventureInput',async UserInput =>{
     //let originMessage = await gameDataCollection.findOne({type:'message',originMessage:true,adventure_id:UserInput.adventure_id});
     let settings = await getSetting('');
-    let forReal = settings.forReal || false;
 
     UserInput.approverName = playerName;
     UserInput.adventure_id = new ObjectId(UserInput.adventure_id);
     UserInput.date = new Date().toUTCString();
     UserInput.type = 'message';
-    if (forReal){
+    if (settings.forReal){
       try {
         gameDataCollection.insertOne(UserInput,{safe: true});
       } catch (error) {
@@ -326,11 +286,14 @@ io.on('connection', async (socket) => {
     }
     io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEvent',UserInput);
     
-    continueAdventure(UserInput.adventure_id,forReal);
+    continueAdventure(UserInput.adventure_id);
   });
   socket.on('suggestAdventureInput',async UserInput =>{
     UserInput.playerName = playerName;
     io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEventSuggest',UserInput);
+  });
+  socket.on('endAdventure',async adventureId =>{
+
   });
   socket.on('tab',async tabName =>{
     playerData = await fetchPlayerData(playerName);
@@ -648,23 +611,18 @@ async function getSetting(setting){
   };
   return dbsetting
 }
-async function continueAdventure(adventure_id,forReal){
-  io.sockets.in('Adventure-'+adventure_id).emit('continueAdventure',true);
+async function formatAdventureMessages(settings,adventure_id){
   let allMessages = await gameDataCollection.find({type:'message',adventure_id:adventure_id}).toArray();
   let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
-  let settings = await getSetting('');
   let charTable = await CreateCharTable(characters);
 
   let dmSystemMessage = settings.messages.dm_system;
-  let assistantCharTable = settings.messages.dm_char_table
-  let assistantMessageLast = settings.messages.dm_continue_adventure
-
-  let cru_SystemMessage = settings.messages.croupier_system;
-  let croupier_narrator = settings.messages.croupier_summary;
+  let assistantCharTable = settings.messages.dm_char_table;
+  let assistantMessageLast = settings.messages.dm_continue_adventure;
 
   dmSystemMessage.content = dmSystemMessage.content.replaceAll('${char_count}',characters.length);
-  //needs work, static set to level 2, need to set to floor + 1 of characters.detail.lvl
-  dmSystemMessage.content = dmSystemMessage.content.replaceAll('${next_level}',"2");
+  let level = (characters.reduce((prev, curr) => prev.details.Lvl < curr.details.Lvl ? prev : curr)).details.Lvl;
+  dmSystemMessage.content = dmSystemMessage.content.replaceAll('${next_level}',level);
   assistantCharTable.content = assistantCharTable.content.replaceAll('${CharTable}',charTable);
 
   let messages = [
@@ -673,52 +631,122 @@ async function continueAdventure(adventure_id,forReal){
   ]
   for (let i = 0 ; i < allMessages.length; i++){
     if (!allMessages[i].originMessage){
-      //if (allMessages[i].summary){
-      //  allMessages[i].content = allMessages[i].summary;
-      //}
+      //need to adjust to only use summaries if prompt tokens are high
+      if (allMessages[i].summary && settings.useSummary){
+        allMessages[i].content = allMessages[i].summary;
+      }
       messages.push({content:allMessages[i].content,role:allMessages[i].role})
     }
   }
   messages.push({content:assistantMessageLast.content,role:assistantMessageLast.role})
+  return messages
+}
+async function formatSummaryMessages(settings,content){
+  let croupier_system = settings.messages.croupier_system;
+  let croupier_summary = settings.messages.croupier_summary;
 
-  let openAiResponse = '', cru_openAiResponse = '';
-  if (forReal){
-    openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),settings.apiKey)
-  } else {
-    console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
-    openAiResponse = {content:"Something that came from the ai"}
+  let messages = [
+    {content:croupier_system.content,role:croupier_system.role},
+    {content:croupier_summary.content,role:croupier_summary.role},
+    {content:content,role:'user'}
+  ];
+
+  return messages
+}
+async function formatCroupierMessages(settings,content,adventure_id){
+  let croupier_system = settings.messages.croupier_system;
+  let croupier_assistant = settings.messages.croupier_assistant;
+  let croupier_characters = settings.messages.croupier_characters;
+  let croupier_end = settings.messages.croupier_end;
+  let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
+
+  //the croupier needs to know information about the party to generate good responses
+  croupier_characters.content = croupier_characters.content.replaceAll('${char_count}',characters.length);
+  let character_info = characters[0].name+" is a "+characters[0].details.Class
+  for (let i = 1 ; i < characters.length; i++){
+    character_info += '\n'+characters[i].name+" is a "+characters[i].details.Class
   }
-  if (openAiResponse.id) {
-    openAiResponse.type = 'message';
-    openAiResponse.adventure_id = adventure_id;
-    io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',openAiResponse);
-    
-    let cru_messages = [
-      {content:cru_SystemMessage.content,role:cru_SystemMessage.role},
-      {content:croupier_narrator.content,role:croupier_narrator.role},
-      {content:openAiResponse.content,role:'assistant'}
-    ];
-    if (forReal) {
-      cru_openAiResponse = await openaiCall(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),settings.apiKey)
-    } else {
-      console.log(cru_messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),settings.apiKey);
-      cru_openAiResponse = {content:"some summary"}
-    }
-    
-    openAiResponse.summary = cru_openAiResponse.content;
-    if (forReal){
+  croupier_characters.content = croupier_characters.content.replaceAll('${char_list}',character_info);
+  
+  let messages = [
+    {content:croupier_system.content,role:croupier_system.role},
+    {content:croupier_assistant.content,role:croupier_assistant.role},
+    {content:croupier_characters.content,role:croupier_characters.role},
+    {content:content,role:'user'},
+    {content:croupier_end.content,role:croupier_end.role}
+  ];
+
+  return messages
+}
+async function completeAdventure(adventure_id){
+  //mark adventure as over, remove active adventure from chars
+
+  //level up character
+}
+async function continueAdventure(adventure_id){
+  io.sockets.in('Adventure-'+adventure_id).emit('continueAdventure',true); //put the confidence builder dots in chat
+  let settings = await getSetting('');
+  let apiKey = settings.apiKey; //should this be by adventure?
+
+  let messages = await formatAdventureMessages(settings,adventure_id)
+  if (settings.forReal){
+    openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey)
+    if (openAiResponse.id) {
+      openAiResponse.type = 'message';
+      openAiResponse.adventure_id = adventure_id;
+      io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',openAiResponse);
       try {
         gameDataCollection.insertOne(openAiResponse,{safe: true});
       } catch (error) {
         console.error('Error saving response to MongoDB:', error);
       }
+
+      if (settings.doSummary) {
+        messages = await formatSummaryMessages(settings,openAiResponse.content);
+        let summaryResponse = openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey);
+        summaryResponse.then((response) => {
+          if (response.id){
+            try {
+              gameDataCollection.updateOne({type:'message',id:openAiResponse.id},{$set:{summary:response.content}});
+            } catch (error) {
+              console.error('Error saving summary response to MongoDB:', error);
+            }
+          } else {
+            //something went wrong with summary
+          }
+        })
+      }
+
+      //get system data and enhance the experiance
+      messages = await formatCroupierMessages(settings,openAiResponse.content,adventure_id)
+      let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey);
+      if (croupierResponse.id){
+        //we got data back, is it json?
+        try {
+          gameDataCollection.updateOne({type:'message',id:openAiResponse.id},{$set:{croupier:croupierResponse.content}});
+        } catch (error) {
+          console.error('Error saving summary response to MongoDB:', error);
+        }
+
+        let json = JSON.parse(croupierResponse.content)
+        if (json.adventure_completed) {
+          if (json.adventure_completed.toLowerCase() == "yes"){
+            io.sockets.in('Adventure-'+adventure_id).emit('adventureEndFound',true); //we found it, but lets have the players decide if it is right
+          }
+        }
+        //other stuff?
+      } else {
+        //something went wrong getting croupier data
+      }
+    } else {
+      //something went wrong getting adventure message
     }
-  } else if (forReal) {
-    console.log('did not get proper response',openAiResponse)
+  } else {
     console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
-    let message = {message:'API call failed!',color:'red',timeout:8000};
-    io.sockets.in('Adventure-'+adventure_id).emit('alertMsg',message);
+    io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',{role:'assistent',content:'fake'});
+    if (settings.doSummary) {
+      messages = formatSummaryMessages(settings,"Fake response from Previous fake")
+      console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
+    }
   }
-
-
 }

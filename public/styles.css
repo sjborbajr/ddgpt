@@ -105,6 +105,9 @@ textarea {
   content: "\2026"; /* ascii code for the ellipsis character */
   width: 0px;
 }
+.textExpand {
+  resize: auto;
+}
 
 @keyframes ellipsis {
   to {

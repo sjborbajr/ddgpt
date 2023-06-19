@@ -24,6 +24,7 @@ document.getElementById('connectButton').addEventListener('click', connectButton
 document.getElementById('disconnectButton').addEventListener('click', disconnectButton);
 document.getElementById('player-input-submit').addEventListener('click', sendAdventureInput);
 document.getElementById('player-input-edit').addEventListener('click', editAdventureInput);
+document.getElementById('player-input-end').addEventListener('click', endAdventure);
 
 // Attach event listeners to the buttons
 window.onload = function() {
@@ -112,6 +113,8 @@ socket.on('settings', data => {
   document.getElementById('cru_model').value = data.cru_model;
   document.getElementById('gpt-messages-list').innerHTML = "";
   document.getElementById('forReal').checked = data.forReal;
+  document.getElementById('doSummary').checked = data.doSummary;
+  document.getElementById('useSummary').checked = data.useSummary;
   let array = []
   for (let messageName in systemSettings.messages) {
     array.push({name:messageName,section:messageName.substring(0,3),order:systemSettings.messages[messageName].order})
@@ -306,14 +309,14 @@ socket.on('historyData', (data) => {
     while(table.rows[0]) table.deleteRow(0);
     for (let i = 0 ; i < request.messages.length; i++){
       let newrow = document.createElement('tr');
-      newrow.innerHTML = '<th>'+request.messages[i].role+'</th><td width="90%"><textarea disabled>'+request.messages[i].content+'</textarea></td>';
+      newrow.innerHTML = '<th>'+request.messages[i].role+'</th><td width="90%"><textarea class="textExpand" disabled>'+request.messages[i].content+'</textarea></td>';
       table.append(newrow);
     };
     let newrow = document.createElement('tr');
-    newrow.innerHTML = '<th>Response</th><td width="90%"><textarea disabled>'+data.response+'</textarea></td>';
+    newrow.innerHTML = '<th>Response</th><td width="90%"><textarea class="textExpand" disabled>'+data.response+'</textarea></td>';
     table.append(newrow);
     newrow = document.createElement('tr');
-    newrow.innerHTML = '<th>raw</th><td width="90%"><textarea disabled>'+JSON.stringify(data,null,2)+'</textarea></td>';
+    newrow.innerHTML = '<th>raw</th><td width="90%"><textarea class="textExpand" disabled>'+JSON.stringify(data,null,2)+'</textarea></td>';
     table.append(newrow);
   }
 });
@@ -356,6 +359,13 @@ socket.on('continueAdventure', data => {
     }
   }
 });
+socket.on('adventureEndFound', data => {
+  if (data){
+    const adventureEnd = document.getElementById('player-input-end');
+    adventureEnd.width = adventureEnd.width*2;
+    adventureEnd.height = adventureEnd.height*2;
+  }
+});
 socket.on('disconnect', () => {
   console.log('Disconnected from server');
   document.getElementById('connectButton').disabled = false;
@@ -395,6 +405,8 @@ function save() {
   systemSettings.cru_maxTokens = document.getElementById('cru_maxTokens').value;
   systemSettings.cru_model = document.getElementById('cru_model').value;
   systemSettings.forReal = document.getElementById('forReal').checked;
+  systemSettings.doSummary = document.getElementById('doSummary').checked;
+  systemSettings.useSummary = document.getElementById('useSummary').checked;
   socket.emit("save",systemSettings)
 }
 function saveChar() {
@@ -538,6 +550,9 @@ function editAdventureInput() {
   document.getElementById('player-input-field').disabled = false;
   document.getElementById('player-input-submit').innerText = 'Suggest';
   document.getElementById('player-input-edit').hidden = true;
+}
+function endAdventure() {
+  socket.emit('endAdventure',document.getElementById('adventure_list').value);
 }
 function sendAdventureInput() {
   if (document.getElementById('player-input-submit').innerText == 'Suggest') {
