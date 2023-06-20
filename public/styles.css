@@ -91,7 +91,7 @@ textarea {
   cursor: pointer;
 }
 .charstat{
-  width: 50px;
+  width: 45px;
 }
 .selected {
   background: lightgreen;
@@ -185,6 +185,11 @@ textarea {
   background-color: #ddd;
   cursor: col-resize;
   padding-right: 4px;
+}
+
+#home-users-connected {
+  list-style-type: none;
+  padding: 5px;
 }
 
 #gpt-history {

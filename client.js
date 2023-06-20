@@ -1,6 +1,6 @@
 const socket = io({autoConnect: false});
 
-let playerName = '', currentTab = localStorage.getItem('currentTab'), systemSettings;
+let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', systemSettings;
 if(document.getElementById(currentTab+'Btn')){
   //console.log("currentTab",currentTab);
   document.getElementById(currentTab+'Btn').click();
@@ -25,6 +25,8 @@ document.getElementById('disconnectButton').addEventListener('click', disconnect
 document.getElementById('player-input-submit').addEventListener('click', sendAdventureInput);
 document.getElementById('player-input-edit').addEventListener('click', editAdventureInput);
 document.getElementById('player-input-end').addEventListener('click', endAdventure);
+document.getElementById('create-party').addEventListener('click', createParty);
+document.getElementById('join-party').addEventListener('click', joinParty);
 
 // Attach event listeners to the buttons
 window.onload = function() {
@@ -207,7 +209,9 @@ socket.on('charData', (data) => {
       //fill the drop down with potential owners
       socket.emit('listOwners');
       document.getElementById('character_state').value = data.state;
-      document.getElementById('character_activeAdventure').value = data.activeAdventure.name;
+      if (data.activeAdventure) {
+        document.getElementById('character_activeAdventure').value = data.activeAdventure.name;
+      }
       document.getElementById('character_adventures').value = data.adventures[0].name;
       for (let i = 1 ; i < data.adventures.length; i++){
         document.getElementById('character_adventures').value += ','+data.adventures[i].name;
@@ -301,6 +305,20 @@ socket.on('historyList', (data) => {
       entry.onclick=function () {getResponseData(this);};
       entry.innerText=response.date;
       entry.id = response._id;
+      list.appendChild(entry);
+    }
+  }
+});
+socket.on('connectedPlayers', (data) => {
+  if (localStorage.getItem('currentTab') == 'Home') {
+    let list = document.getElementById('home-users-connected');
+    list.innerHTML = "";
+    for(let i = 0; i < data.length; i++){
+      let user=data[i];
+      let entry=document.createElement('li');
+      entry.onclick=function () {playerClick(this);};
+      entry.innerText=user.name;
+      entry.id = user._id;
       list.appendChild(entry);
     }
   }
@@ -590,4 +608,29 @@ function sendAdventureInput() {
 }
 function listAdventureOption() {
   socket.emit('listActiveAdventure',document.getElementById('active_only').checked)
+  socket.emit('tab','Adventures');
+  let optionDoc = document.getElementById('adventure_list');
+  if (document.getElementById('active_only').checked){
+    for(let i = (optionDoc.options.length - 1); i >= 0; i--) {
+      optionDoc.remove(i);
+    }
+  }
+  document.getElementById('adventure-history').innerHTML = '';
+}
+function playerClick(listItem){
+  if(listItem.tagName === 'LI') {
+    selected= document.querySelector('li.selected');
+    if(selected) selected.className= '';
+    listItem.className= 'selected';
+  }
+}
+function createParty(){
+  let party_name = document.getElementById('party_name').value
+  socket.emit('createParty',party_name)
+}
+function joinParty(){
+  let selected = document.querySelector('li.selected');
+  if (selected){
+    socket.emit('joinParty',selected.id)
+  }
 }

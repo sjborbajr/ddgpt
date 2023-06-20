@@ -294,6 +294,9 @@ io.on('connection', async (socket) => {
   socket.on('endAdventure',async adventure_id =>{
     completeAdventure(new ObjectId(adventure_id));
   });
+  socket.on('listActiveAdventure',async data =>{
+    showActiveAdventures = data;
+  });
   socket.on('tab',async tabName =>{
     playerData = await fetchPlayerData(playerName);
     updatePlayer(playerName,{$set:{tabName:tabName}});
@@ -303,7 +306,7 @@ io.on('connection', async (socket) => {
       //send friends or if admin send all if selected
       if (playerData.admin){
         let connectedPlayers = await gameDataCollection.find({type:'player',connected:true}).project({name:1,_id:-1}).toArray();
-        socket.emit(connectedPlayers);
+        socket.emit('connectedPlayers',connectedPlayers);
       }
     } else if (tabName == 'Characters'){
       socket.join('Tab-'+tabName);
@@ -328,9 +331,11 @@ io.on('connection', async (socket) => {
         //  advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
         //} else {
           advetureNames = await gameDataCollection.distinct('activeAdventure',{type:'character',owner_id: new ObjectId(playerData._id)})
-        //}
+          console.log('in',advetureNames);
+          //}
       } else {
-        advetureNames = await gameDataCollection.find({type:'adventure',state:'active'}).project({name:1,_id:1}).toArray();
+        advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
+        console.log('out',advetureNames);
       }
       if (advetureNames != ''){
         socket.emit('adventureList',advetureNames);
@@ -691,11 +696,11 @@ async function completeAdventure(adventure_id){
   //mark adventure as over, remove active adventure from chars
   try {
     gameDataCollection.updateOne({type:'adventure',_id:new ObjectId(adventure_id)},{$set:{state:'succeeded'}});
+    gameDataCollection.updateMany({type:'character','activeAdventure._id':new ObjectId("6490c935a4b4e2a3e2c084b4")},{$unset:{activeAdventure:1}});
     sendAdventureData(adventure_id,io.sockets.in('Adventure-'+adventure_id));
   } catch (error) {
     console.error('Error saving summary response to MongoDB:', error);
   }  
-
 
   //level up character
 }
