@@ -76,39 +76,6 @@ if (1 == 2){
 
 }
 
-if (1 == 2) {
-  //example to start a campaign
-  let characters = await gameDataCollection.find({type:'character','activeAdventure._id':new ObjectId("6478094ce25df0c428be1c1c")}).toArray();
-  let charTable = await CreateCharTable(characters);
-  let settings = await getSetting('');
-  let dmSystemMessage = settings.messages.dm_system;
-  let assistantCharTable = settings.messages.dm_char_table
-  let assistantMessageLast = settings.messages.dm_create_adventure
-  dmSystemMessage.content = dmSystemMessage.content.replaceAll('${char_count}',characters.length);
-  //needs work, static set to level 2, need to set to floor + 1 of characters.detail.lvl
-  dmSystemMessage.content = dmSystemMessage.content.replaceAll('${next_level}',"2");
-  assistantCharTable.content = assistantCharTable.content.replaceAll('${CharTable}',charTable);
-
-  let messages = [
-    {content:dmSystemMessage.content,role:dmSystemMessage.role},
-    {content:assistantCharTable.content,role:assistantCharTable.role},
-    {content:assistantMessageLast.content,role:assistantMessageLast.role}
-  ];
-  console.log("charaters",characters)
-  console.log("api:",{messages:messages,model:settings.model,temperature:Number(settings.temperature),maxTokens:Number(settings.maxTokens)})
-  let openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),settings.apiKey)
-  openAiResponse.type = 'message';
-  openAiResponse.adventure_id = new ObjectId("6478094ce25df0c428be1c1c");
-  openAiResponse.originMessage = true;
-  if(openAiResponse.allResponse_id){
-    try {
-      gameDataCollection.insertOne(openAiResponse,{safe: true});
-    } catch (error) {
-      console.error('Error saving response to MongoDB:', error);
-    }
-  }
-}
-
 io.on('connection', async (socket) => {
   // Get the user id, auth token and IP from handshake
   let playerName = socket.handshake.auth.playerName || '', clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address, authNonce = socket.handshake.auth.authNonce || '';
@@ -166,12 +133,11 @@ io.on('connection', async (socket) => {
   socket.on('saveChar', async data => {
     console.log('Player '+playerName+' saving char '+data.data.name);
     //socket.to('System').emit('settings', data)
-    data.data.owner_id = (''+data.owner_id).replace(/[^a-f0-9]/g,'');
-    data._id = (''+data._id).replace(/[^a-f0-9]/g,'');
-    if (data.data.owner_id.length == 24 && data._id.length == 24) {
-      if (playerData.admin || data.data.owner_id == playerData._id){
-        data.data.owner_id = new ObjectId(data.data.owner_id);
+    let charData = await gameDataCollection.findOne({_id:new ObjectId(data._id)});
+    if (charData) {
+      if (playerData.admin || charData.owner_id.toString() == playerData._id.toString()){
         try {
+          data.data.owner_id = new ObjectId(data.owner_id);
           gameDataCollection.updateOne({_id:new ObjectId(data._id)},{$set:data.data});
           let message = {message:'Character '+data.data.name+' saved.',color:'green',timeout:1500};
           socket.emit('alertMsg',message);
@@ -184,9 +150,6 @@ io.on('connection', async (socket) => {
         let message = {message:'no access - Character '+data.data.name+' not saved!',color:'red',timeout:5000}
         socket.emit('alertMsg',message);
       }
-    } else {
-      let message = {message:'Invalid ID - Character '+data.data.name+' not saved!',color:'red',timeout:5000}
-      socket.emit('alertMsg',message);
     }
   });
   socket.on('showCharOption', data =>{
@@ -247,7 +210,7 @@ io.on('connection', async (socket) => {
     } else {
       query = {_id:new ObjectId(id),owner_id:playerData._id}
     }
-    let charData = await gameDataCollection.findOne(query)
+    let charData = await gameDataCollection.findOne(query);
     if (charData){
       socket.emit('charData',charData);
     } else {
@@ -265,11 +228,12 @@ io.on('connection', async (socket) => {
     socket.emit('ScotRan',response.content);
   });
   socket.on('fetchAllAdventureHistory',async adventure_id =>{
-    sendAdventureData(adventure_id,socket);
-    socket.join('Adventure-'+adventure_id);
+    if (adventure_id.length == 24){
+      sendAdventureData(adventure_id,socket);
+      socket.join('Adventure-'+adventure_id);
+    }
   });
   socket.on('approveAdventureInput',async UserInput =>{
-    //let originMessage = await gameDataCollection.findOne({type:'message',originMessage:true,adventure_id:UserInput.adventure_id});
     let settings = await getSetting('');
 
     UserInput.approverName = playerName;
@@ -288,8 +252,10 @@ io.on('connection', async (socket) => {
     continueAdventure(UserInput.adventure_id);
   });
   socket.on('suggestAdventureInput',async UserInput =>{
-    UserInput.playerName = playerName;
-    io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEventSuggest',UserInput);
+    if (UserInput.content.length > 1) {
+      UserInput.playerName = playerName;
+      io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEventSuggest',UserInput);
+    }
   });
   socket.on('endAdventure',async adventure_id =>{
     completeAdventure(new ObjectId(adventure_id));
@@ -297,8 +263,45 @@ io.on('connection', async (socket) => {
   socket.on('listActiveAdventure',async data =>{
     showActiveAdventures = data;
   });
-  socket.on('tab',async tabName =>{
-    playerData = await fetchPlayerData(playerName);
+  socket.on('beginAdventure',async adventure_id =>{
+    adventure_id = new ObjectId(adventure_id);
+    let adventure = await gameDataCollection.findOne({_id:new ObjectId(adventure_id),state:'forming',type:'adventure'});
+    if (adventure.owner_id == playerData._id || playerData.admin) {
+      //await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$pull:{adventures:{_id:adventure._id}}});
+      //await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$push:{adventures:{name:adventure.name,_id:adventure._id}}});
+      await gameDataCollection.updateOne({_id:adventure_id,type:'adventure'},{$set:{state:'discovery'}});
+      await startAdventure(adventure);
+      await gameDataCollection.updateOne({_id:adventure_id,type:'adventure'},{$set:{state:'active'}});
+    }
+  });
+  socket.on('joinParty',async adventure_id =>{
+    let adventure = await gameDataCollection.findOne({_id:new ObjectId(adventure_id),state:'forming',type:'adventure'});
+    let myCharacters = await gameDataCollection.find({owner_id:playerData._id,type:'character'}).project({_id:1,name:1}).toArray();
+    await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$pull:{adventures:{_id:adventure._id}}});
+    await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$push:{adventures:{name:adventure.name,_id:adventure._id}}});
+    await gameDataCollection.updateOne({_id:adventure._id,type:'adventure'},{$push:{characters:{$each:myCharacters}}});
+    let message = {message:'Party Joined',color:'green',timeout:3000}
+    socket.emit('alertMsg',message);    
+  });
+  socket.on('createParty',async NewName =>{
+    let character_ids = await gameDataCollection.find({type:'character',owner_id:playerData._id}).project({_id:1}).toArray();
+    let document = {
+      type:'adventure',
+      party_name:NewName,
+      name:(NewName+': <forming>'),
+      state:'forming',
+      characters:character_ids,
+      owner_id:playerData._id
+    }
+    await gameDataCollection.updateOne({owner_id:playerData._id,state:'forming',type:'adventure'},{$set:document},{ upsert: true });
+    let adventure = await gameDataCollection.findOne({owner_id:playerData._id,state:'forming',type:'adventure'});
+    await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$pull:{adventures:{_id:adventure._id}}});
+    await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$push:{adventures:{name:adventure.name,_id:adventure._id}}});
+    let message = {message:'Party Forming',color:'green',timeout:3000}
+    socket.emit('alertMsg',message);
+
+  });
+  socket.on('tab',async tabName =>{    playerData = await fetchPlayerData(playerName);
     updatePlayer(playerName,{$set:{tabName:tabName}});
     //remove player from old tab channel
     if (tabName == 'Home'){
@@ -308,6 +311,9 @@ io.on('connection', async (socket) => {
         let connectedPlayers = await gameDataCollection.find({type:'player',connected:true}).project({name:1,_id:-1}).toArray();
         socket.emit('connectedPlayers',connectedPlayers);
       }
+      let formingParties = await gameDataCollection.find({type:'adventure',state: 'forming'}).project({party_name:1,_id:-1}).toArray();
+      socket.emit('formingParties',formingParties);
+
     } else if (tabName == 'Characters'){
       socket.join('Tab-'+tabName);
       let characterNames = ''
@@ -327,15 +333,15 @@ io.on('connection', async (socket) => {
       socket.join('Tab-'+tabName);
       let advetureNames = ''
       if (showActiveAdventures){
-        //if (playerData.admin){
-        //  advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
-        //} else {
-          advetureNames = await gameDataCollection.distinct('activeAdventure',{type:'character',owner_id: new ObjectId(playerData._id)})
-          console.log('in',advetureNames);
-          //}
+        advetureNames = await gameDataCollection.distinct('activeAdventure',{type:'character',owner_id: new ObjectId(playerData._id)})
       } else {
-        advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
-        console.log('out',advetureNames);
+        if (playerData.admin){
+          advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
+        } else {
+          advetureNames = await gameDataCollection.distinct('adventures',{type:'character',owner_id: new ObjectId(playerData._id)})
+          console.log('in',advetureNames);
+        }
+        //advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
       }
       if (advetureNames != ''){
         socket.emit('adventureList',advetureNames);
@@ -615,8 +621,29 @@ async function getSetting(setting){
   };
   return dbsetting
 }
+async function formatStartMessages(settings,adventure_id){
+  let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
+  let charTable = await CreateCharTable(characters);
+
+  let dmSystemMessage = settings.messages.dm_system;
+  let assistantCharTable = settings.messages.dm_char_table;
+  let assistantMessageLast = settings.messages.dm_create_adventure;
+
+  dmSystemMessage.content = dmSystemMessage.content.replaceAll('${char_count}',characters.length);
+  console.log(characters)
+  let level = (characters.reduce((prev, curr) => prev.details.Lvl < curr.details.Lvl ? prev : curr)).details.Lvl;
+  dmSystemMessage.content = dmSystemMessage.content.replaceAll('${next_level}',level);
+  assistantCharTable.content = assistantCharTable.content.replaceAll('${CharTable}',charTable);
+
+  let messages = [
+    {content:dmSystemMessage.content,role:dmSystemMessage.role},
+    {content:assistantCharTable.content,role:assistantCharTable.role},
+    {content:assistantMessageLast.content,role:assistantMessageLast.role}
+  ]
+  return messages
+}
 async function formatAdventureMessages(settings,adventure_id){
-  let allMessages = await gameDataCollection.find({type:'message',adventure_id:adventure_id}).toArray();
+  let allMessages = await gameDataCollection.find({type:'message',adventure_id:adventure_id}).sort({created:1}).toArray();
   let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
   let charTable = await CreateCharTable(characters);
 
@@ -683,7 +710,7 @@ async function formatCroupierMessages(settings,content,adventure_id){
   return messages
 }
 async function sendAdventureData(adventure_id,socket){
-  let adventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(adventure_id)}).sort({date:1}).toArray();
+  let adventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(adventure_id)}).sort({created:1}).toArray();
   let adventureData = await gameDataCollection.findOne({type:'adventure',_id:new ObjectId(adventure_id)});
   if (adventureData){
     adventureData.messages = adventureMessages;
@@ -692,22 +719,61 @@ async function sendAdventureData(adventure_id,socket){
   }
   socket.emit('AllAdventureHistory',adventureData);
 }
+async function startAdventure(adventure){
+  let settings = await getSetting('');
+  let adventure_id = adventure._id;
+  let messages = await formatStartMessages(settings,adventure_id)
+
+  io.sockets.in('Adventure-'+adventure_id).emit('continueAdventure',true); //put the confidence builder dots in chat
+  if (settings.forReal){
+    let openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),settings.apiKey)
+    if (openAiResponse.id) {
+      openAiResponse.type = 'message';
+      openAiResponse.adventure_id = adventure._id;
+      openAiResponse.originMessage = true;
+      openAiResponse.created = Math.round(new Date(allMessages[i].date).getTime()/1000);
+
+      io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',openAiResponse);
+      try {
+        gameDataCollection.insertOne(openAiResponse,{safe: true});
+      } catch (error) {
+        console.error('Error saving response to MongoDB:', error);
+      }
+    } else {
+      //something went wrong getting creating adventure
+    }
+  } else {
+    console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
+    setTimeout(()=> {io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',{role:'assistent',content:'fake'})}, 3000);
+  }  
+}
 async function completeAdventure(adventure_id){
   //mark adventure as over, remove active adventure from chars
-  try {
-    gameDataCollection.updateOne({type:'adventure',_id:new ObjectId(adventure_id)},{$set:{state:'succeeded'}});
-    gameDataCollection.updateMany({type:'character','activeAdventure._id':new ObjectId("6490c935a4b4e2a3e2c084b4")},{$unset:{activeAdventure:1}});
-    sendAdventureData(adventure_id,io.sockets.in('Adventure-'+adventure_id));
-  } catch (error) {
-    console.error('Error saving summary response to MongoDB:', error);
-  }  
-
+  let adventureData = await gameDataCollection.findOne({type:'adventure',_id:new ObjectId(adventure_id)});
+  if (adventureData.state == 'forming') {
+    try {
+      gameDataCollection.deleteOne({type:'adventure',_id:new ObjectId(adventure_id)});
+      gameDataCollection.updateMany({type:'character','activeAdventure._id':new ObjectId(adventure_id)},{$pull:{adventures:{_id:new ObjectId(adventure_id)}}});
+      gameDataCollection.updateMany({type:'character','activeAdventure._id':new ObjectId(adventure_id)},{$unset:{activeAdventure:1}});
+    } catch (error) {
+      console.error('Error removing adventure:', error);
+    }
+  } else {
+    try {
+      gameDataCollection.updateOne({type:'adventure',_id:new ObjectId(adventure_id)},{$set:{state:'succeeded'}});
+      gameDataCollection.updateMany({type:'character','activeAdventure._id':new ObjectId(adventure_id)},{$unset:{activeAdventure:1}});
+      sendAdventureData(adventure_id,io.sockets.in('Adventure-'+adventure_id));
+    } catch (error) {
+      console.error('Error ending adventure:', error);
+    }
+  }
   //level up character
 }
 async function continueAdventure(adventure_id){
   io.sockets.in('Adventure-'+adventure_id).emit('continueAdventure',true); //put the confidence builder dots in chat
   let settings = await getSetting('');
   let apiKey = settings.apiKey; //should this be by adventure?
+  let openAiResponse;
 
   let messages = await formatAdventureMessages(settings,adventure_id)
   if (settings.forReal){
@@ -715,6 +781,7 @@ async function continueAdventure(adventure_id){
     if (openAiResponse.id) {
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure_id;
+      openAiResponse.created = Math.round(new Date(allMessages[i].date).getTime()/1000);
       io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',openAiResponse);
       try {
         gameDataCollection.insertOne(openAiResponse,{safe: true});
@@ -764,7 +831,7 @@ async function continueAdventure(adventure_id){
     }
   } else {
     console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
-    io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',{role:'assistent',content:'fake'});
+    setTimeout(()=> {io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',{role:'assistent',content:'fake'})}, 3000);
     if (settings.doSummary) {
       messages = formatSummaryMessages(settings,"Fake response from Previous fake")
       console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));

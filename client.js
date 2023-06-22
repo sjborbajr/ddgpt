@@ -22,7 +22,7 @@ document.getElementById('scotRun').addEventListener('click', ScotRun);
 document.getElementById('saveChar').addEventListener('click', saveChar);
 document.getElementById('connectButton').addEventListener('click', connectButton);
 document.getElementById('disconnectButton').addEventListener('click', disconnectButton);
-document.getElementById('player-input-submit').addEventListener('click', sendAdventureInput);
+document.getElementById('adventureAction').addEventListener('click', adventureAction);
 document.getElementById('player-input-edit').addEventListener('click', editAdventureInput);
 document.getElementById('player-input-end').addEventListener('click', endAdventure);
 document.getElementById('create-party').addEventListener('click', createParty);
@@ -37,7 +37,6 @@ window.onload = function() {
     connectButton();
   };
 };
-
 function showGptMessage(messageName){
   if(systemSettings.messages){
     if(systemSettings.messages[messageName]) {
@@ -80,7 +79,7 @@ function getResponseData(listItem){
 function renameGptMessage(e){
   if (document.getElementById('croupier_name_hidden').value == document.getElementById('croupier_name').value) {
     //show error alert
-    alert ("old and new names are the same")
+    alert ("old and new names are the same");
   } else {
     delete systemSettings.messages[document.getElementById('croupier_name_hidden').value];
     save();
@@ -211,6 +210,8 @@ socket.on('charData', (data) => {
       document.getElementById('character_state').value = data.state;
       if (data.activeAdventure) {
         document.getElementById('character_activeAdventure').value = data.activeAdventure.name;
+      } else {
+        document.getElementById('character_activeAdventure').value = '';
       }
       document.getElementById('character_adventures').value = data.adventures[0].name;
       for (let i = 1 ; i < data.adventures.length; i++){
@@ -241,30 +242,40 @@ socket.on('AllAdventureHistory', (data) => {
   //addAllAdventureHistory(data);
   if (data.messages) {addAllAdventureHistory(data.messages);};
   if (data.state == 'active'){
-    document.getElementById('player-input-submit').disabled = false;
-    document.getElementById('player-input-edit').disabled = false;
     document.getElementById('player-input-end').disabled = false;
+    document.getElementById('adventureAction').disabled = false;
+    document.getElementById('player-input-edit').disabled = false;
     document.getElementById('player-input-field').disabled = false;
-  } else {
-    document.getElementById('player-input-submit').disabled = true;
+  } else if (data.state == 'forming') {
+    document.getElementById('player-input-end').disabled = false;
+    document.getElementById('adventureAction').disabled = false;
+    document.getElementById('adventureAction').innerText = 'Begin';
     document.getElementById('player-input-edit').disabled = true;
+    document.getElementById('player-input-field').disabled = true;
+  } else {
     document.getElementById('player-input-end').disabled = true;
+    document.getElementById('adventureAction').disabled = true;
+    document.getElementById('player-input-edit').disabled = true;
     document.getElementById('player-input-field').disabled = true;
   }
 });
 socket.on('adventureEventSuggest', (data) => {
-  document.getElementById('player-input-field').value = data.content;
-  document.getElementById('player-input-field').disabled = true;
+  if (!document.getElementById('adventureAction').disabled && document.getElementById('player-input-field').value.length > 0 && data.playerName != playerName){
+    document.getElementById('player-input-field').value = document.getElementById('player-input-field').value+"\n"+data.content;
+  } else {
+    document.getElementById('player-input-field').value = data.content;
+    document.getElementById('player-input-field').disabled = true;
+    document.getElementById('adventureAction').innerText = 'Approve';
+    document.getElementById('player-input-edit').hidden = false;
+  }
   document.getElementById("player-input-header").innerText = "Player Input - "+data.playerName;
-  document.getElementById('player-input-submit').innerText = 'Approve';
-  document.getElementById('player-input-edit').hidden = false;
 });
 socket.on('adventureEvent', (data) => {
   addAdventureHistory(data);
   document.getElementById('player-input-field').value = '';
   document.getElementById('player-input-field').disabled = false;
   document.getElementById("player-input-header").innerText = "Player Input";
-  document.getElementById('player-input-submit').innerText = 'Suggest';
+  document.getElementById('adventureAction').innerText = 'Suggest';
   document.getElementById('player-input-edit').hidden = true;
 });
 socket.on('adventureList', (data) => {
@@ -279,14 +290,14 @@ socket.on('adventureList', (data) => {
       for(let i = 0; i < data.length; i++){
         optionDoc.options[i] = new Option(data[i].name, data[i]._id);
       }
-      firstId = data[0]._id
+      firstId = data[0]._id;
     } else if (data) {
       optionDoc.options[0] = new Option(data.name, data._id);
-      firstId = data._id
+      firstId = data._id;
     }
-
+    
     if (curOption == '') {
-      if (firstId != '') {
+      if (firstId) {
         socket.emit('fetchAllAdventureHistory',firstId)
       }
     } else {
@@ -305,6 +316,20 @@ socket.on('historyList', (data) => {
       entry.onclick=function () {getResponseData(this);};
       entry.innerText=response.date;
       entry.id = response._id;
+      list.appendChild(entry);
+    }
+  }
+});
+socket.on('formingParties', (data) => {
+  if (localStorage.getItem('currentTab') == 'Home') {
+    let list = document.getElementById('starting-parties');
+    list.innerHTML = "";
+    for(let i = 0; i < data.length; i++){
+      let entry=document.createElement('li');
+      entry.onclick=function () {partyClick(this);};
+      entry.innerText=data[i].party_name;
+      entry.id = data[i]._id;
+      entry.value = 6;
       list.appendChild(entry);
     }
   }
@@ -578,20 +603,21 @@ function addAdventureHistory(entry) {
 }
 function editAdventureInput() {
   document.getElementById('player-input-field').disabled = false;
-  document.getElementById('player-input-submit').innerText = 'Suggest';
+  document.getElementById('adventureAction').innerText = 'Suggest';
   document.getElementById('player-input-edit').hidden = true;
 }
 function endAdventure() {
   socket.emit('endAdventure',document.getElementById('adventure_list').value);
+  showTab('Home',document.getElementById('HomeBtn'),'green')
 }
-function sendAdventureInput() {
-  if (document.getElementById('player-input-submit').innerText == 'Suggest') {
+function adventureAction() {
+  if (document.getElementById('adventureAction').innerText == 'Suggest') {
     var playerInput = document.getElementById('player-input-field').value;
     socket.emit('suggestAdventureInput',{role:'user',content:playerInput,adventure_id:document.getElementById('adventure_list').value});
     document.getElementById('player-input-field').disabled = true;
     document.getElementById('player-input-edit').hidden = false;
-    document.getElementById('player-input-submit').innerText = 'Approve';
-  } else {
+    document.getElementById('adventureAction').innerText = 'Approve';
+  } else if (document.getElementById('adventureAction').innerText == 'Approve') {
     let content = document.getElementById('player-input-field').value;
     let adventure_id = document.getElementById('adventure_list').value
     let suggestingPlayerName = document.getElementById("player-input-header").innerText
@@ -604,7 +630,17 @@ function sendAdventureInput() {
                                          playerName:suggestingPlayerName
                                         });
     document.getElementById('player-input-edit').hidden = true;
+  } else if (document.getElementById('adventureAction').innerText == 'Begin') {
+    socket.emit('beginAdventure',document.getElementById('adventure_list').value);
+  } else {
+    console.log(document.getElementById('adventureAction'));
   }
+}
+function fetchAdventure() {
+  if (document.getElementById('adventure_list').value.length == 24) {
+    socket.emit('fetchAllAdventureHistory',document.getElementById('adventure_list').value)
+  }
+  document.getElementById('adventure-history').innerHTML = '';
 }
 function listAdventureOption() {
   socket.emit('listActiveAdventure',document.getElementById('active_only').checked)
@@ -624,6 +660,14 @@ function playerClick(listItem){
     listItem.className= 'selected';
   }
 }
+function partyClick(listItem){
+  if(listItem.tagName === 'LI') {
+    selected= document.querySelector('li.selected');
+    if(selected) selected.className= '';
+    listItem.className= 'selected party';
+    listItem.tag = 'party';
+  }
+}
 function createParty(){
   let party_name = document.getElementById('party_name').value
   socket.emit('createParty',party_name)
@@ -631,6 +675,8 @@ function createParty(){
 function joinParty(){
   let selected = document.querySelector('li.selected');
   if (selected){
-    socket.emit('joinParty',selected.id)
+    if (selected.value == 6){
+      socket.emit('joinParty',selected.id)
+    }
   }
 }

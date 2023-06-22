@@ -191,6 +191,10 @@ textarea {
   list-style-type: none;
   padding: 5px;
 }
+#starting-parties {
+  list-style-type: none;
+  padding: 5px;
+}
 
 #gpt-history {
   display: flex;
