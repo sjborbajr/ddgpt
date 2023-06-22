@@ -7,6 +7,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import crypto from 'crypto';
+import { formatCroupierStartMessages, formatStartMessages, formatAdventureMessages, formatSummaryMessages, formatCroupierMessages } from './functions.js';
 
 const mongoUri = "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri,{ forceServerObjectId: true });
@@ -35,46 +36,6 @@ app.get('/client.js', (req, res) => { res.set('Content-Type', 'text/javascript')
 app.get('/', (req, res) => res.sendFile(join(__dirname, 'index.html')));
 
 gameDataCollection.updateMany({type:'player'},{$set:{connected:false}});
-
-if (1 == 2){
-  //testing out new openai functions
-  let message = await gameDataCollection.findOne({_id: new ObjectId("648a23b822b92b61b83a119c")});
-  let settings = await getSetting('');
-  let systemMessage = settings.messages.croupier_system2;
-  let diceFunction = settings.messages.croupier_dice_function.json;
-
-  let messages = [
-    {content:systemMessage.content,role:systemMessage.role},
-    {content:message.content,role:'user'}
-  ];
-  let functions = [
-    diceFunction
-  ];
-
-  let response = ''
-  if (settings.forReal){
-    response = await openaiCall2(
-      messages,
-      functions,
-      settings.cru_model,
-      Number(settings.cru_temperature),
-      Number(settings.cru_maxTokens),
-      settings.apiKey
-    );
-  } else {
-    response = [
-      messages,
-      {functions: JSON.stringify(functions,null,2)},
-      settings.cru_model,
-      Number(settings.cru_temperature),
-      Number(settings.cru_maxTokens),
-      settings.apiKey
-    ];
-  }
-
-  console.log(response);
-
-}
 
 io.on('connection', async (socket) => {
   // Get the user id, auth token and IP from handshake
@@ -375,20 +336,6 @@ async function fetchPlayerData(playerName) {
     throw error;
   }
 }
-async function handleInactivity(socket,playerName) {
-  clearTimeout(turnTimeout);
-  turnTimeout = null;
-  if (Object.values(gameStatePublic.players).filter((player) => player.connected).length > 1) {
-    console.log("Slap "+playerName);
-    
-    if (gameStatePublic.players[playerName].connected){
-      socket.emit("slap",playerName);
-    }
-    
-    sendState(socket);
-  }
-
-}
 async function saveSettings(data,socket){
   try {
     await settingsCollection.updateOne({}, { $set: data }, { upsert: true });
@@ -425,38 +372,6 @@ async function updatePlayer(playerName,update) {
     return 'success'
   } catch (error){
     console.error('Error saving response to MongoDB:', error);
-  }
-}
-async function CreateCharTable(characters){
-  let table = 'Name      ', attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
-  let attributesLen = [10,6,3,3,3,3,3,3,3,2,2,24,17,9,1,1], spaces = '                   ';
-  for (let i = 0 ; i < attributes.length; i++){
-    table+='|'+attributes[i];
-    if (attributes[i].length < attributesLen[i]){
-      table+=spaces.substring(0,attributesLen[i]-attributes[i].length);
-    };
-  };
-  table+=' or Abilities'
-  characters.forEach((CharData) => {
-    table+='\n'+CharData.name;
-    if (CharData.name.length < 10){
-      table+=spaces.substring(0,10-CharData.name.length);
-    }
-    for (let i = 0 ; i < attributes.length; i++){
-      table+='|'+CharData.details[attributes[i]];
-      if ((''+CharData.details[attributes[i]]).length < attributesLen[i]){
-        table+=spaces.substring(0,attributesLen[i]-(''+CharData.details[attributes[i]]).length)
-      }
-    };
-  });
-  return table;
-}
-async function ServerEvery1Second() {
-  if (!gameStatePublic.gameover) {
-    //let CurrentPlayer = getCurrentPlayer();
-    //console.log("current player: "+CurrentPlayer);
-    //let PlayerCount = Object.values(gameStatePublic.players).filter((player) => player.playing).length;
-    //console.log("player count: "+PlayerCount);
   }
 }
 async function saveResponse(responseRaw){
@@ -549,49 +464,8 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
       content:response.data.choices[0].message.content,
       date:response.headers.date,
       role:response.data.choices[0].message.role,
-      id:response.data.id
-    }
-    
-    return generatedResponse;
-  } catch (error) {
-    console.error('Error generating response from OpenAI:', error);
-    let generatedResponse = '['+new Date().toUTCString()+']'
-    if (error.response) {
-      generatedResponse += " Status: "+error.response.status+", "+error.response.statusText;
-    }
-    if (error.errno) {
-      generatedResponse += " errno: "+error.errno;
-    }
-    if (error.code) {
-      generatedResponse += " code: "+error.code;
-    }
-    try {
-      saveResponse(error.response);
-    } catch (error2) {console.log(error2)}
-    return {content:generatedResponse}
-  }
-}
-async function openaiCall2(messages,functions, model, temperature, maxTokens, apiKey) {
-  temperature = Number(temperature);
-  maxTokens = Number(maxTokens);
-  try {
-    let openai = new OpenAIApi(new Configuration({apiKey: apiKey}));
-    const response = await openai.createChatCompletion({
-      model: model,
-      messages: messages,
-      functions: functions,
-      temperature: temperature,
-      max_tokens: maxTokens
-    });
-    
-    saveResponse(response);
-    console.log(JSON.stringify(response.data.choices[0]));
-    // Extract the generated response from the API
-    const generatedResponse = {
-      content:response.data.choices[0].message.content,
-      date:response.headers.date,
-      role:response.data.choices[0].message.role,
-      id:response.data.id
+      id:response.data.id,
+      tokens:response.data.usage.completion_tokens
     }
     
     return generatedResponse;
@@ -621,94 +495,6 @@ async function getSetting(setting){
   };
   return dbsetting
 }
-async function formatStartMessages(settings,adventure_id){
-  let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
-  let charTable = await CreateCharTable(characters);
-
-  let dmSystemMessage = settings.messages.dm_system;
-  let assistantCharTable = settings.messages.dm_char_table;
-  let assistantMessageLast = settings.messages.dm_create_adventure;
-
-  dmSystemMessage.content = dmSystemMessage.content.replaceAll('${char_count}',characters.length);
-  console.log(characters)
-  let level = (characters.reduce((prev, curr) => prev.details.Lvl < curr.details.Lvl ? prev : curr)).details.Lvl;
-  dmSystemMessage.content = dmSystemMessage.content.replaceAll('${next_level}',level);
-  assistantCharTable.content = assistantCharTable.content.replaceAll('${CharTable}',charTable);
-
-  let messages = [
-    {content:dmSystemMessage.content,role:dmSystemMessage.role},
-    {content:assistantCharTable.content,role:assistantCharTable.role},
-    {content:assistantMessageLast.content,role:assistantMessageLast.role}
-  ]
-  return messages
-}
-async function formatAdventureMessages(settings,adventure_id){
-  let allMessages = await gameDataCollection.find({type:'message',adventure_id:adventure_id}).sort({created:1}).toArray();
-  let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
-  let charTable = await CreateCharTable(characters);
-
-  let dmSystemMessage = settings.messages.dm_system;
-  let assistantCharTable = settings.messages.dm_char_table;
-  let assistantMessageLast = settings.messages.dm_continue_adventure;
-
-  dmSystemMessage.content = dmSystemMessage.content.replaceAll('${char_count}',characters.length);
-  let level = (characters.reduce((prev, curr) => prev.details.Lvl < curr.details.Lvl ? prev : curr)).details.Lvl;
-  dmSystemMessage.content = dmSystemMessage.content.replaceAll('${next_level}',level);
-  assistantCharTable.content = assistantCharTable.content.replaceAll('${CharTable}',charTable);
-
-  let messages = [
-    {content:dmSystemMessage.content,role:dmSystemMessage.role},
-    {content:assistantCharTable.content,role:assistantCharTable.role}
-  ]
-  for (let i = 0 ; i < allMessages.length; i++){
-    if (!allMessages[i].originMessage){
-      //need to adjust to only use summaries if prompt tokens are high
-      if (allMessages[i].summary && settings.useSummary){
-        allMessages[i].content = allMessages[i].summary;
-      }
-      messages.push({content:allMessages[i].content,role:allMessages[i].role})
-    }
-  }
-  messages.push({content:assistantMessageLast.content,role:assistantMessageLast.role})
-  return messages
-}
-async function formatSummaryMessages(settings,content){
-  let croupier_system = settings.messages.croupier_system;
-  let croupier_summary = settings.messages.croupier_summary;
-
-  let messages = [
-    {content:croupier_system.content,role:croupier_system.role},
-    {content:croupier_summary.content,role:croupier_summary.role},
-    {content:content,role:'user'}
-  ];
-
-  return messages
-}
-async function formatCroupierMessages(settings,content,adventure_id){
-  let croupier_system = settings.messages.croupier_system;
-  let croupier_assistant = settings.messages.croupier_assistant;
-  let croupier_characters = settings.messages.croupier_characters;
-  let croupier_end = settings.messages.croupier_end;
-  let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
-
-  //the croupier needs to know information about the party to generate good responses
-  croupier_characters.content = croupier_characters.content.replaceAll('${char_count}',characters.length);
-  let character_info = characters[0].name+" is a "+characters[0].details.Class
-  for (let i = 1 ; i < characters.length; i++){
-    character_info += '\n'+characters[i].name+" is a "+characters[i].details.Class
-  }
-  croupier_characters.content = croupier_characters.content.replaceAll('${char_list}',character_info);
-  
-  let messages = [
-    {content:croupier_system.content,role:croupier_system.role},
-    {content:croupier_assistant.content,role:croupier_assistant.role},
-    {content:croupier_characters.content,role:croupier_characters.role},
-    {content:content,role:'user'},
-    {content:croupier_end.content,role:croupier_end.role}
-  ];
-
-  return messages
-}
 async function sendAdventureData(adventure_id,socket){
   let adventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(adventure_id)}).sort({created:1}).toArray();
   let adventureData = await gameDataCollection.findOne({type:'adventure',_id:new ObjectId(adventure_id)});
@@ -720,13 +506,17 @@ async function sendAdventureData(adventure_id,socket){
   socket.emit('AllAdventureHistory',adventureData);
 }
 async function startAdventure(adventure){
+  io.sockets.in('Adventure-'+adventure_id).emit('continueAdventure',true); //put the confidence builder dots in chat
+
   let settings = await getSetting('');
   let adventure_id = adventure._id;
-  let messages = await formatStartMessages(settings,adventure_id)
+  let apiKey = settings.apiKey; //should this be by adventure?
 
-  io.sockets.in('Adventure-'+adventure_id).emit('continueAdventure',true); //put the confidence builder dots in chat
+  let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
+  let messages = await formatStartMessages(settings,characters)
+
   if (settings.forReal){
-    let openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),settings.apiKey)
+    let openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey)
     if (openAiResponse.id) {
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure._id;
@@ -739,6 +529,43 @@ async function startAdventure(adventure){
       } catch (error) {
         console.error('Error saving response to MongoDB:', error);
       }
+      
+      let adventure = await gameDataCollection.findOne({type:'adventure',_id:adventure_id})
+      messages = await formatCroupierStartMessages(settings,adventure,openAiResponse.originMessage);
+
+      let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey);
+      if (croupierResponse.id){
+        let responseJson = JSON.parse(croupierResponse.content)
+        if (responseJson){
+          try {
+            gameDataCollection.updateOne({type:'message',id:openAiResponse.id},{$set:{croupier:responseJson}});
+          } catch (error) {
+            console.error('Error saving croupier response to MongoDB:', error);
+          }
+          
+          if (responseJson.adventure_name) {
+            try {
+              gameDataCollection.updateOne({type:'adventure',_id:adventure_id},{$set:{name:responseJson.adventure_name}});
+            } catch (error) {
+              console.error('Error updating adventure name in MongoDB:', error);
+            }
+            let adventure = await gameDataCollection.findOne({type:'adventure',_id:adventure_id}).toArray();
+            for (let i = 0 ; i < adventure.characters.length; i++) {
+              try {
+                await gameDataCollection.updateOne({_id:adventure.characters[i]._id,type:'character'},{$set:{activeAdventure:{name:responseJson.adventure_name,_id:adventure_id}},$pull:{adventures:{_id:adventure_id}}});
+                gameDataCollection.updateOne({_id:adventure.characters[i]._id,type:'character'},{$push:{adventures:{name:responseJson.adventure_name,_id:adventure_id}}});
+              } catch (error) {
+                console.error('Error saving croupier response to MongoDB:', error);
+              }
+            }
+            
+          }
+        }
+
+      } else {
+        //something went wrong getting croupier data
+      }
+
     } else {
       //something went wrong getting creating adventure
     }
@@ -775,13 +602,16 @@ async function continueAdventure(adventure_id){
   let apiKey = settings.apiKey; //should this be by adventure?
   let openAiResponse;
 
-  let messages = await formatAdventureMessages(settings,adventure_id)
+  let allMessages = await gameDataCollection.find({type:'message',adventure_id:adventure_id}).sort({created:1}).toArray();
+  let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
+  let messages = formatAdventureMessages(settings,allMessages,characters)
+
   if (settings.forReal){
     openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey)
     if (openAiResponse.id) {
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure_id;
-      openAiResponse.created = Math.round(new Date(allMessages[i].date).getTime()/1000);
+      openAiResponse.created = Math.round(new Date(openAiResponse.date).getTime()/1000);
       io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',openAiResponse);
       try {
         gameDataCollection.insertOne(openAiResponse,{safe: true});
@@ -806,7 +636,8 @@ async function continueAdventure(adventure_id){
       }
 
       //get system data and enhance the experiance
-      messages = await formatCroupierMessages(settings,openAiResponse.content,adventure_id)
+      let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
+      messages = formatCroupierMessages(settings,openAiResponse.content,characters)
       let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey);
       if (croupierResponse.id){
         //we got data back, is it json?
