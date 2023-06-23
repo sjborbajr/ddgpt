@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import crypto from 'crypto';
 import { formatCroupierStartMessages, formatStartMessages, formatAdventureMessages, formatSummaryMessages, formatCroupierMessages } from './functions.js';
+import { encoding_for_model } from "tiktoken";
 
 const mongoUri = "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri,{ forceServerObjectId: true });
@@ -42,16 +43,16 @@ io.on('connection', async (socket) => {
   let playerName = socket.handshake.auth.playerName || '', clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address, authNonce = socket.handshake.auth.authNonce || '';
   let showCharacters = 'Own', showActiveAdventures = true;
   playerName = playerName.trim().replace(/[^a-zA-Z0-9]/g,'');
-  console.log('User connected: '+playerName+'\nFrom: '+clientIp);
+  console.log('['+new Date().toUTCString()+'] User connected: '+playerName+' From: '+clientIp);
 
   let playerData = await fetchPlayerData(playerName)
   if ( playerData ) {
     //Valid Player, let make sure it is really them
     if (playerData.name == playerName && playerData.authNonce == authNonce && authNonce != '') {
-      console.log('player had his nonce');
+      //console.log('player had his nonce');
       //update database of new logon, should I add IP? - what if mobile or at friend?
     } else if (playerData.authNonce != authNonce && playerData.name == playerName && playerData.ipList.includes(clientIp)) {
-      console.log('give '+playerName+' his nonce');
+      //console.log('give '+playerName+' his nonce');
       socket.emit('nonce',playerData.authNonce);
     } else {
       socket.emit("error","user not authenticated");
@@ -59,7 +60,6 @@ io.on('connection', async (socket) => {
       console.log('player '+playerName+' did not have nonce and did not have IP - Kicked');
     }
   } else {
-    console.log("add player "+playerName);
     playerData = await addPlayer(playerName,socket,clientIp);
     if (!playerData) {
       socket.emit("error",'Could not add user with name "'+playerName+'"');
@@ -72,10 +72,9 @@ io.on('connection', async (socket) => {
     socket.emit('serverRole','admin')
   }
 
-  
   socket.onAny((event, ...args) => {
     // Log all recieved events/data except settings save
-    if (event != 'save'){
+    if (event != 'save' && event != 'listOwners' && event != 'saveChar'){
       console.log('['+new Date().toUTCString()+'] playerName('+playerName+'), socket('+event+')', args);
     }
   });
@@ -91,7 +90,7 @@ io.on('connection', async (socket) => {
     }
   });
   socket.on('saveChar', async data => {
-    console.log('Player '+playerName+' saving char '+data.data.name);
+    console.log('['+new Date().toUTCString()+'] Player '+playerName+' saving char '+data.data.name);
     //socket.to('System').emit('settings', data)
     let charData = await gameDataCollection.findOne({_id:new ObjectId(data._id)});
     if (charData) {
@@ -127,13 +126,13 @@ io.on('connection', async (socket) => {
     socket.emit('listedOwners',owners);
   });
   socket.on('disconnect', () => {
-    console.log('Player disconnected:', playerName);
+    console.log('['+new Date().toUTCString()+'] Player disconnected:', playerName);
     gameDataCollection.updateOne({type:'player',name:playerName},{$set:{connected:false}});
   });
   socket.on('changeName', async newName => {
     console.log('Player changing name from '+playerName+' to '+newName);
     let test = await fetchPlayerData(newName)
-    console.log(test)
+    //console.log(test)
     if (test) {
       socket.emit("error","player name already taken");
     } else {
@@ -180,7 +179,7 @@ io.on('connection', async (socket) => {
                     {role:'assistant',content:data.assistantmessage},
                     {role:'user',content:data.user}
                    ]
-    let response = await openaiCall(messages,data.model,Number(data.temperature),Number(data.maxTokens),data.apikey)
+    let response = await openaiCall(messages,data.model,Number(data.temperature),Number(data.maxTokens),data.apikey,'ScotGPT')
     socket.emit('ScotRan',response.content);
   });
   socket.on('fetchAllAdventureHistory',async adventure_id =>{
@@ -191,12 +190,15 @@ io.on('connection', async (socket) => {
   });
   socket.on('approveAdventureInput',async UserInput =>{
     let settings = await getSetting('');
+    let enc = encoding_for_model(settings.model);
 
     UserInput.approverName = playerName;
     UserInput.adventure_id = new ObjectId(UserInput.adventure_id);
     UserInput.date = new Date().toUTCString();
     UserInput.created = Math.round(new Date(UserInput.date).getTime()/1000);
     UserInput.type = 'message';
+    UserInput.tokens = (enc.encode(UserInput.content)).length;
+    
     if (settings.forReal){
       try {
         gameDataCollection.insertOne(UserInput,{safe: true});
@@ -211,6 +213,7 @@ io.on('connection', async (socket) => {
   socket.on('suggestAdventureInput',async UserInput =>{
     if (UserInput.content.length > 1) {
       UserInput.playerName = playerName;
+      UserInput.content = UserInput.content.trim();
       io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEventSuggest',UserInput);
     }
   });
@@ -297,7 +300,7 @@ io.on('connection', async (socket) => {
           advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
         } else {
           advetureNames = await gameDataCollection.distinct('adventures',{type:'character',owner_id: new ObjectId(playerData._id)})
-          console.log('in',advetureNames);
+          //console.log('in',advetureNames);
         }
         //advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
       }
@@ -313,7 +316,7 @@ io.on('connection', async (socket) => {
     } else if (tabName == 'ScotGPT' && playerData.admin) {
       socket.join('Tab-'+tabName);
     } else if (tabName == 'History' && playerData.admin) {
-      console.log('History');
+      //console.log('History');
       socket.join('Tab-'+tabName);
       let history = await responseCollection.find({}).project({date:1,_id:1,created:1}).sort({created:-1}).toArray()
       socket.emit('historyList',history)
@@ -371,11 +374,12 @@ async function updatePlayer(playerName,update) {
     console.error('Error saving response to MongoDB:', error);
   }
 }
-async function saveResponse(responseRaw){
+async function saveResponse(responseRaw,call_function){
   let response = {}
   if (responseRaw.status) {
     response.status = responseRaw.status
   }
+  response.function = call_function;
   if (responseRaw.statusText) {
     response.statusText = responseRaw.statusText
   }
@@ -443,10 +447,11 @@ async function saveResponse(responseRaw){
     console.error('Error saving response to MongoDB:', error);
   }
 };
-async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
+async function openaiCall(messages, model, temperature, maxTokens, apiKey,call_function) {
   temperature = Number(temperature);
   maxTokens = Number(maxTokens);
   try {
+    //should we do a retry? - todo
     let openai = new OpenAIApi(new Configuration({apiKey: apiKey}));
     const response = await openai.createChatCompletion({
       model: model,
@@ -479,7 +484,7 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
       generatedResponse += " code: "+error.code;
     }
     try {
-      saveResponse(error.response);
+      saveResponse(error.response,call_function);
     } catch (error2) {console.log(error2)}
     return {content:generatedResponse}
   }
@@ -512,9 +517,8 @@ async function startAdventure(adventure){
   let messages = formatStartMessages(settings,characters)
 
   if (settings.forReal){
-    let openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey)
+    let openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game')
     if (openAiResponse.id) {
-      console.log(adventure);
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure._id;
       openAiResponse.originMessage = true;
@@ -529,7 +533,7 @@ async function startAdventure(adventure){
       
       messages = formatCroupierStartMessages(settings,adventure,openAiResponse.content);
       
-      let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey);
+      let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'adventureStart');
       if (croupierResponse.id){
         let responseJson = JSON.parse(croupierResponse.content)
         if (responseJson){
@@ -553,14 +557,11 @@ async function startAdventure(adventure){
                 console.error('Error saving croupier response to MongoDB:', error);
               }
             }
-            
           }
         }
-
       } else {
         //something went wrong getting croupier data
       }
-
     } else {
       //something went wrong getting creating adventure
     }
@@ -602,7 +603,7 @@ async function continueAdventure(adventure_id){
   let messages = formatAdventureMessages(settings,allMessages,characters)
 
   if (settings.forReal){
-    openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey)
+    openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'adventureStart')
     if (openAiResponse.id) {
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure_id;
@@ -614,13 +615,15 @@ async function continueAdventure(adventure_id){
         console.error('Error saving response to MongoDB:', error);
       }
 
+
       if (settings.doSummary) {
-        messages = await formatSummaryMessages(settings,openAiResponse.content);
-        let summaryResponse = openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey);
+        messages = formatSummaryMessages(settings,openAiResponse.content);
+        let summaryResponse = openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'summary');
         summaryResponse.then((response) => {
           if (response.id){
+            let savings = openAiResponse.tokens - response.tokens
             try {
-              gameDataCollection.updateOne({type:'message',id:openAiResponse.id},{$set:{summary:response.content}});
+              gameDataCollection.updateOne({type:'message',id:openAiResponse.id},{$set:{summary:response.content,summary_tokens:response.tokens,tokens_savings:savings}});
             } catch (error) {
               console.error('Error saving summary response to MongoDB:', error);
             }
@@ -633,7 +636,7 @@ async function continueAdventure(adventure_id){
       //get system data and enhance the experiance
       let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
       messages = formatCroupierMessages(settings,openAiResponse.content,characters)
-      let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey);
+      let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'croupier');
       if (croupierResponse.id){
         //we got data back, is it json?
         try {

@@ -1,3 +1,4 @@
+import { encoding_for_model } from "tiktoken";
 export function CreateCharTable(characters){
   let table = 'Name      ', attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
   let attributesLen = [10,6,3,3,3,3,3,3,3,2,2,24,17,9,1,1], spaces = '                   ';
@@ -21,6 +22,34 @@ export function CreateCharTable(characters){
     };
   });
   return table;
+}
+export function calcTokens(messages,model){
+  const enc = encoding_for_model(model);
+  let adjust = 5;
+  let tokens = 0;
+  for (let i = 0 ; i < messages.length; i++) {
+    tokens = tokens + (enc.encode(messages[i].content)).length + adjust;
+  }
+  enc.free();
+  return tokens
+}
+export function getMaxTokens(model){
+  let table={
+    'gpt-4':8192,
+    'gpt-4-0613':8192,
+    'gpt-4-32k':32768,
+    'gpt-4-32k-0613':32768,
+    'gpt-3.5-turbo':4096,
+    'gpt-3.5-turbo-16k':16384,
+    'gpt-3.5-turbo-0613':4096,
+    'gpt-3.5-turbo-16k-0613':16384,
+    'text-davinci-003':4097,
+    'text-davinci-002':4097,
+    'code-davinci-002':8001
+  }
+  try {
+    return table[model]
+  } catch (error){}
 }
 export function formatCroupierStartMessages(settings,adventure,originMessage){
   let croupier_system = settings.messages.croupier_system;
@@ -75,15 +104,24 @@ export function formatAdventureMessages(settings,allMessages,characters){
     {content:assistantCharTable.content,role:assistantCharTable.role}
   ]
   for (let i = 0 ; i < allMessages.length; i++){
-    if (!allMessages[i].originMessage){
-      //need to adjust to only use summaries if prompt tokens are high
-      if (allMessages[i].summary && settings.useSummary){
-        allMessages[i].content = allMessages[i].summary;
-      }
-    }
     messages.push({content:allMessages[i].content,role:allMessages[i].role})
   }
   messages.push({content:assistantMessageLast.content,role:assistantMessageLast.role})
+  
+  if(settings.useSummary){
+    let maxTokens = getMaxTokens(settings.model);
+    if (maxTokens) {
+      let tokens = calcTokens(messages,settings.model)*1.01 + Number(settings.maxTokens);
+      let i=1 //start on the second message because we are leaving the origin message
+      while (tokens > maxTokens && i < allMessages.length){
+        if (allMessages[i].summary && allMessages[i].summary_tokens){
+          messages[i+2].content = allMessages[i].summary
+          tokens=tokens - allMessages[i].tokens + allMessages[i].summary_tokens
+        }
+        i++
+      }
+    }
+  }
   return messages
 }
 export function formatSummaryMessages(settings,content){
