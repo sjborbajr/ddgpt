@@ -241,7 +241,7 @@ io.on('connection', async (socket) => {
     socket.emit('alertMsg',message);    
   });
   socket.on('createParty',async NewName =>{
-    let character_ids = await gameDataCollection.find({type:'character',owner_id:playerData._id}).project({_id:1}).toArray();
+    let character_ids = await gameDataCollection.find({type:'character',owner_id:playerData._id}).project({_id:1,name:1}).toArray();
     let document = {
       type:'adventure',
       party_name:NewName,
