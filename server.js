@@ -72,10 +72,9 @@ io.on('connection', async (socket) => {
     socket.emit('serverRole','admin')
   }
 
-  //timers[("player_"+playerName)] = { activityTimer:(setTimeout(() => { handleInactivity(socket,playerName); }, ( 30 * 1000 )))};
   
-  // Log all recieved events/data
   socket.onAny((event, ...args) => {
+    // Log all recieved events/data except settings save
     if (event != 'save'){
       console.log('['+new Date().toUTCString()+'] playerName('+playerName+'), socket('+event+')', args);
     }
@@ -127,11 +126,6 @@ io.on('connection', async (socket) => {
     let owners = await gameDataCollection.find({type:'player'}).project({name:1,_id:1}).toArray();
     socket.emit('listedOwners',owners);
   });
-  socket.on("saveplaying", data => {
-    console.log("saveplaying for user:",playerName)
-    //gameStatePublic.players[playerName].playing = data;
-    saveState();
-  });
   socket.on('disconnect', () => {
     console.log('Player disconnected:', playerName);
     gameDataCollection.updateOne({type:'player',name:playerName},{$set:{connected:false}});
@@ -147,6 +141,7 @@ io.on('connection', async (socket) => {
       if (rc == 'success') {
         socket.emit("nameChanged",newName);
         playerName = newName;
+        playerData.name = playerName;
       } else {
         socket.emit("error","error changing name");
       }
@@ -200,6 +195,7 @@ io.on('connection', async (socket) => {
     UserInput.approverName = playerName;
     UserInput.adventure_id = new ObjectId(UserInput.adventure_id);
     UserInput.date = new Date().toUTCString();
+    UserInput.created = Math.round(new Date(UserInput.date).getTime()/1000);
     UserInput.type = 'message';
     if (settings.forReal){
       try {
@@ -226,10 +222,8 @@ io.on('connection', async (socket) => {
   });
   socket.on('beginAdventure',async adventure_id =>{
     adventure_id = new ObjectId(adventure_id);
-    let adventure = await gameDataCollection.findOne({_id:new ObjectId(adventure_id),state:'forming',type:'adventure'});
-    if (adventure.owner_id == playerData._id || playerData.admin) {
-      //await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$pull:{adventures:{_id:adventure._id}}});
-      //await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$push:{adventures:{name:adventure.name,_id:adventure._id}}});
+    let adventure = await gameDataCollection.findOne({_id:adventure_id,state:'forming',type:'adventure'});
+    if (adventure.owner_id.toString() == playerData._id.toString() || playerData.admin) {
       await gameDataCollection.updateOne({_id:adventure_id,type:'adventure'},{$set:{state:'discovery'}});
       await startAdventure(adventure);
       await gameDataCollection.updateOne({_id:adventure_id,type:'adventure'},{$set:{state:'active'}});
@@ -237,10 +231,12 @@ io.on('connection', async (socket) => {
   });
   socket.on('joinParty',async adventure_id =>{
     let adventure = await gameDataCollection.findOne({_id:new ObjectId(adventure_id),state:'forming',type:'adventure'});
-    let myCharacters = await gameDataCollection.find({owner_id:playerData._id,type:'character'}).project({_id:1,name:1}).toArray();
-    await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$pull:{adventures:{_id:adventure._id}}});
-    await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$push:{adventures:{name:adventure.name,_id:adventure._id}}});
+
+    let myCharacters = await gameDataCollection.find({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}}).project({_id:1,name:1}).toArray();
     await gameDataCollection.updateOne({_id:adventure._id,type:'adventure'},{$push:{characters:{$each:myCharacters}}});
+
+    await gameDataCollection.updateMany({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$push:{adventures:{name:adventure.name,_id:adventure._id}}});
+
     let message = {message:'Party Joined',color:'green',timeout:3000}
     socket.emit('alertMsg',message);    
   });
@@ -262,17 +258,18 @@ io.on('connection', async (socket) => {
     socket.emit('alertMsg',message);
 
   });
-  socket.on('tab',async tabName =>{    playerData = await fetchPlayerData(playerName);
+  socket.on('tab',async tabName =>{
     updatePlayer(playerName,{$set:{tabName:tabName}});
-    //remove player from old tab channel
+    //remove player from old tab channels?  - Todo
     if (tabName == 'Home'){
       socket.join('Tab-'+tabName);
-      //send friends or if admin send all if selected
+      //send friends or if admin send all if selected - Todo
       if (playerData.admin){
         let connectedPlayers = await gameDataCollection.find({type:'player',connected:true}).project({name:1,_id:-1}).toArray();
         socket.emit('connectedPlayers',connectedPlayers);
       }
-      let formingParties = await gameDataCollection.find({type:'adventure',state: 'forming'}).project({party_name:1,_id:-1}).toArray();
+      //send forming parties - need to figure out how to limit who can see which parties
+      let formingParties = await gameDataCollection.find({type:'adventure',state:'forming'}).project({party_name:1,_id:-1}).toArray();
       socket.emit('formingParties',formingParties);
 
     } else if (tabName == 'Characters'){
@@ -497,7 +494,7 @@ async function getSetting(setting){
 }
 async function sendAdventureData(adventure_id,socket){
   let adventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(adventure_id)}).sort({created:1}).toArray();
-  let adventureData = await gameDataCollection.findOne({type:'adventure',_id:new ObjectId(adventure_id)});
+  let adventureData = await gameDataCollection.findOne({type:'adventure',_id:new ObjectId(adventure_id)},{apiKey:-1});
   if (adventureData){
     adventureData.messages = adventureMessages;
   } else {
@@ -506,33 +503,32 @@ async function sendAdventureData(adventure_id,socket){
   socket.emit('AllAdventureHistory',adventureData);
 }
 async function startAdventure(adventure){
-  io.sockets.in('Adventure-'+adventure_id).emit('continueAdventure',true); //put the confidence builder dots in chat
+  io.sockets.in('Adventure-'+adventure._id).emit('continueAdventure',true); //put the confidence builder dots in chat
 
   let settings = await getSetting('');
-  let adventure_id = adventure._id;
   let apiKey = settings.apiKey; //should this be by adventure?
 
-  let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
-  let messages = await formatStartMessages(settings,characters)
+  let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure._id}).toArray();
+  let messages = formatStartMessages(settings,characters)
 
   if (settings.forReal){
     let openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey)
     if (openAiResponse.id) {
+      console.log(adventure);
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure._id;
       openAiResponse.originMessage = true;
-      openAiResponse.created = Math.round(new Date(allMessages[i].date).getTime()/1000);
+      openAiResponse.created = Math.round(new Date(openAiResponse.date).getTime()/1000);
 
-      io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',openAiResponse);
+      io.sockets.in('Adventure-'+adventure._id).emit('adventureEvent',openAiResponse);
       try {
         gameDataCollection.insertOne(openAiResponse,{safe: true});
       } catch (error) {
         console.error('Error saving response to MongoDB:', error);
       }
       
-      let adventure = await gameDataCollection.findOne({type:'adventure',_id:adventure_id})
-      messages = await formatCroupierStartMessages(settings,adventure,openAiResponse.originMessage);
-
+      messages = formatCroupierStartMessages(settings,adventure,openAiResponse.content);
+      
       let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey);
       if (croupierResponse.id){
         let responseJson = JSON.parse(croupierResponse.content)
@@ -545,15 +541,14 @@ async function startAdventure(adventure){
           
           if (responseJson.adventure_name) {
             try {
-              gameDataCollection.updateOne({type:'adventure',_id:adventure_id},{$set:{name:responseJson.adventure_name}});
+              gameDataCollection.updateOne({type:'adventure',_id:adventure._id},{$set:{name:responseJson.adventure_name}});
             } catch (error) {
               console.error('Error updating adventure name in MongoDB:', error);
             }
-            let adventure = await gameDataCollection.findOne({type:'adventure',_id:adventure_id}).toArray();
             for (let i = 0 ; i < adventure.characters.length; i++) {
               try {
-                await gameDataCollection.updateOne({_id:adventure.characters[i]._id,type:'character'},{$set:{activeAdventure:{name:responseJson.adventure_name,_id:adventure_id}},$pull:{adventures:{_id:adventure_id}}});
-                gameDataCollection.updateOne({_id:adventure.characters[i]._id,type:'character'},{$push:{adventures:{name:responseJson.adventure_name,_id:adventure_id}}});
+                await gameDataCollection.updateOne({_id:adventure.characters[i]._id,type:'character'},{$set:{activeAdventure:{name:responseJson.adventure_name,_id:adventure._id}},$pull:{adventures:{_id:adventure._id}}});
+                gameDataCollection.updateOne({_id:adventure.characters[i]._id,type:'character'},{$push:{adventures:{name:responseJson.adventure_name,_id:adventure._id}}});
               } catch (error) {
                 console.error('Error saving croupier response to MongoDB:', error);
               }
@@ -571,7 +566,7 @@ async function startAdventure(adventure){
     }
   } else {
     console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
-    setTimeout(()=> {io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',{role:'assistent',content:'fake'})}, 3000);
+    setTimeout(()=> {io.sockets.in('Adventure-'+adventure._id).emit('adventureEvent',{role:'assistent',content:'fake'})}, 3000);
   }  
 }
 async function completeAdventure(adventure_id){

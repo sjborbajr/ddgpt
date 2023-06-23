@@ -554,10 +554,6 @@ function ScotRun(){
   }
   socket.emit("scotRun",ScotData);
 }
-function saveplaying(){
-  //console.log('saveplaying');
-  socket.emit("saveplaying",playing.checked);
-}
 function showTab(pageName,elmnt,color) {
   var i, tabcontent, tablinks;
   tabcontent = document.getElementsByClassName("tabcontent");

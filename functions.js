@@ -27,13 +27,13 @@ export function formatCroupierStartMessages(settings,adventure,originMessage){
   let croupier_assistant = settings.messages.croupier_adventure;
   let croupier_end = settings.messages.croupier_end;
 
-  croupier_assistant.content = croupier_assistant.content.replaceAll('${Party_Name}',adventure.party_name);
   croupier_assistant.content = croupier_assistant.content.replaceAll('${json}',JSON.stringify(croupier_assistant.json));
+  croupier_assistant.content = croupier_assistant.content.replaceAll('${Party_Name}',adventure.party_name);
   
   let messages = [
     {content:croupier_system.content,role:croupier_system.role},
     {content:croupier_assistant.content,role:croupier_assistant.role},
-    {content:originMessage.content,role:'user'},
+    {content:originMessage,role:'user'},
     {content:croupier_end.content,role:croupier_end.role}
   ];
 
@@ -47,7 +47,6 @@ export function formatStartMessages(settings,characters){
   let assistantMessageLast = settings.messages.dm_create_adventure;
 
   dmSystemMessage.content = dmSystemMessage.content.replaceAll('${char_count}',characters.length);
-  console.log(characters)
   let level = (characters.reduce((prev, curr) => prev.details.Lvl < curr.details.Lvl ? prev : curr)).details.Lvl;
   dmSystemMessage.content = dmSystemMessage.content.replaceAll('${next_level}',level);
   assistantCharTable.content = assistantCharTable.content.replaceAll('${CharTable}',charTable);
@@ -81,8 +80,8 @@ export function formatAdventureMessages(settings,allMessages,characters){
       if (allMessages[i].summary && settings.useSummary){
         allMessages[i].content = allMessages[i].summary;
       }
-      messages.push({content:allMessages[i].content,role:allMessages[i].role})
     }
+    messages.push({content:allMessages[i].content,role:allMessages[i].role})
   }
   messages.push({content:assistantMessageLast.content,role:assistantMessageLast.role})
   return messages
