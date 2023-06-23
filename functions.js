@@ -114,7 +114,7 @@ export function formatAdventureMessages(settings,allMessages,characters){
       let tokens = calcTokens(messages,settings.model)*1.01 + Number(settings.maxTokens);
       let i=1 //start on the second message because we are leaving the origin message
       while (tokens > maxTokens && i < allMessages.length){
-        if (allMessages[i].summary && allMessages[i].summary_tokens){
+        if (allMessages[i].summary && allMessages[i].summary_tokens && allMessages[i].tokens_savings > 4){
           messages[i+2].content = allMessages[i].summary
           tokens=tokens - allMessages[i].tokens + allMessages[i].summary_tokens
         }

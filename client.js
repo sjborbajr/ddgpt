@@ -115,6 +115,7 @@ socket.on('settings', data => {
   document.getElementById('gpt-messages-list').innerHTML = "";
   document.getElementById('forReal').checked = data.forReal;
   document.getElementById('doSummary').checked = data.doSummary;
+  document.getElementById('doCroupier').checked = data.doCroupier;
   document.getElementById('useSummary').checked = data.useSummary;
   let array = []
   for (let messageName in systemSettings.messages) {
@@ -460,6 +461,7 @@ function save() {
   systemSettings.cru_maxTokens = document.getElementById('cru_maxTokens').value;
   systemSettings.cru_model = document.getElementById('cru_model').value;
   systemSettings.forReal = document.getElementById('forReal').checked;
+  systemSettings.doCroupier = document.getElementById('doCroupier').checked;
   systemSettings.doSummary = document.getElementById('doSummary').checked;
   systemSettings.useSummary = document.getElementById('useSummary').checked;
   socket.emit("save",systemSettings)
@@ -587,13 +589,21 @@ function addAllAdventureHistory(data) {
 function addAdventureHistory(entry) {
   const adventureHistoryDiv = document.getElementById('adventure-history');
   let messageDiv = document.getElementById('loading');
-  if (messageDiv){
-    messageDiv.id = ''
-  } else {
+  if (!messageDiv){
     messageDiv = document.createElement('div');
   }
+  messageDiv.id = 'div-'+entry._id;
   messageDiv.className = 'message ' + (entry.role === 'user' ? 'player-message' : 'dm-message');
   messageDiv.textContent = entry.content;
+  let button = document.createElement('button');
+  button.className = 'deleteMessage';
+  button.id = entry._id;
+  button.onclick = function() {
+    socket.emit('deleteMessage', this.id);
+    document.getElementById('div-'+this.id).remove();
+  }
+  button.textContent = 'x';
+  messageDiv.appendChild(button);
   adventureHistoryDiv.appendChild(messageDiv);
   adventureHistoryDiv.scrollTop = adventureHistoryDiv.scrollHeight;
 }

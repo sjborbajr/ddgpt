@@ -183,6 +183,7 @@
     </div><br><br>
     <button id="save" >Save</button>
     <input type="checkbox" id="forReal" checked>For Real?</input>
+    <input type="checkbox" id="doCroupier" checked>Do Croupier?</input>
     <input type="checkbox" id="doSummary" checked>Do Summary?</input>
     <input type="checkbox" id="useSummary" checked>Use Summary?</input>
     <h3>GPT Messages</h3>
@@ -270,7 +271,11 @@
         <label for="history_limit">
           <span>Display:</span>
           <select id="history_limit" onChange="listHistory(this.value)">
-            <option value="all">ALL</option>
+            <option value="all">all</option>
+            <option value="game">game</option>
+            <option value="adventureStart">adventureStart</option>
+            <option value="croupier">croupier</option>
+            <option value="ScotGPT">ScotGPT</option>
           </select>
         </label>
         <label for="history_temperature">

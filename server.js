@@ -80,11 +80,11 @@ io.on('connection', async (socket) => {
   });
   socket.on('save', data => {
     if (playerData.admin){
-      console.log('Player '+playerName+' saved');
+      console.log('['+new Date().toUTCString()+'] Player '+playerName+' saved');
       socket.to('System').emit('settings', data)
       saveSettings(data,socket);
     } else {
-      console.log('Player '+playerName+' tried to save');
+      console.log('['+new Date().toUTCString()+'] Player '+playerName+' tried to save');
       socket.emit("error","user not admin");
       socket.disconnect();
     }
@@ -209,6 +209,15 @@ io.on('connection', async (socket) => {
     io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEvent',UserInput);
     
     continueAdventure(UserInput.adventure_id);
+  });
+  socket.on('deleteMessage',async message_id =>{
+    if (playerData.admin) {
+      try{
+        gameDataCollection.deleteOne({type:'message',_id:new ObjectId(message_id)});
+      } catch (error) {
+        console.log(error);
+      }
+    }
   });
   socket.on('suggestAdventureInput',async UserInput =>{
     if (UserInput.content.length > 1) {
@@ -634,26 +643,28 @@ async function continueAdventure(adventure_id){
       }
 
       //get system data and enhance the experiance
-      let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
-      messages = formatCroupierMessages(settings,openAiResponse.content,characters)
-      let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'croupier');
-      if (croupierResponse.id){
-        //we got data back, is it json?
-        try {
-          gameDataCollection.updateOne({type:'message',id:openAiResponse.id},{$set:{croupier:croupierResponse.content}});
-        } catch (error) {
-          console.error('Error saving summary response to MongoDB:', error);
-        }
-
-        let json = JSON.parse(croupierResponse.content)
-        if (json.adventure_completed) {
-          if (json.adventure_completed.toLowerCase() == "yes"){
-            io.sockets.in('Adventure-'+adventure_id).emit('adventureEndFound',true); //we found it, but lets have the players decide if it is right
+      if (settings.doCroupier){
+        let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
+        messages = formatCroupierMessages(settings,openAiResponse.content,characters)
+        let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'croupier');
+        if (croupierResponse.id){
+          //we got data back, is it json?
+          try {
+            gameDataCollection.updateOne({type:'message',id:openAiResponse.id},{$set:{croupier:croupierResponse.content}});
+          } catch (error) {
+            console.error('Error saving summary response to MongoDB:', error);
           }
+          
+          let json = JSON.parse(croupierResponse.content)
+          if (json.adventure_completed) {
+            if (json.adventure_completed.toLowerCase() == "yes"){
+              io.sockets.in('Adventure-'+adventure_id).emit('adventureEndFound',true); //we found it, but lets have the players decide if it is right
+            }
+          }
+          //other stuff?
+        } else {
+          //something went wrong getting croupier data
         }
-        //other stuff?
-      } else {
-        //something went wrong getting croupier data
       }
     } else {
       //something went wrong getting adventure message
