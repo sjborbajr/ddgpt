@@ -87,7 +87,7 @@ export function formatStartMessages(settings,characters){
   ]
   return messages
 }
-export function formatAdventureMessages(settings,allMessages,characters){
+export function formatAdventureMessages(settings,adventureMessages,characters){
   let charTable = CreateCharTable(characters);
 
   let dmSystemMessage = settings.messages.dm_system;
@@ -103,20 +103,22 @@ export function formatAdventureMessages(settings,allMessages,characters){
     {content:dmSystemMessage.content,role:dmSystemMessage.role},
     {content:assistantCharTable.content,role:assistantCharTable.role}
   ]
-  for (let i = 0 ; i < allMessages.length; i++){
-    messages.push({content:allMessages[i].content,role:allMessages[i].role})
+  for (let i = 0 ; i < adventureMessages.length; i++){
+    messages.push({content:adventureMessages[i].content,role:adventureMessages[i].role})
   }
   messages.push({content:assistantMessageLast.content,role:assistantMessageLast.role})
   
   if(settings.useSummary){
     let maxTokens = getMaxTokens(settings.model);
-    if (maxTokens) {
-      let tokens = calcTokens(messages,settings.model)*1.01 + Number(settings.maxTokens);
+    let trimAnyhow = 10*2
+    if (maxTokens || adventureMessages.length > trimAnyhow) {
+      let tokens = calcTokens(messages,settings.model)*1.01 + Number(settings.maxTokens); //max tokens in setting controls the max response tokens
       let i=1 //start on the second message because we are leaving the origin message
-      while (tokens > maxTokens && i < allMessages.length){
-        if (allMessages[i].summary && allMessages[i].summary_tokens && allMessages[i].tokens_savings > 4){
-          messages[i+2].content = allMessages[i].summary
-          tokens=tokens - allMessages[i].tokens + allMessages[i].summary_tokens
+      //if doing summary, summarize after 10 rounds of communication
+      while ((tokens > maxTokens || (adventureMessages.length - i - trimAnyhow) > 0) && i < adventureMessages.length){
+        if (adventureMessages[i].summary && adventureMessages[i].summary_tokens && adventureMessages[i].tokens_savings > 4){
+          messages[i+2].content = adventureMessages[i].summary
+          tokens=tokens - adventureMessages[i].tokens + adventureMessages[i].summary_tokens
         }
         i++
       }
