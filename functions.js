@@ -116,9 +116,9 @@ export function formatAdventureMessages(settings,adventureMessages,characters){
       let i=1 //start on the second message because we are leaving the origin message
       //if doing summary, summarize after 10 rounds of communication
       while ((tokens > maxTokens || (adventureMessages.length - i - trimAnyhow) > 0) && i < adventureMessages.length){
-        if (adventureMessages[i].summary && adventureMessages[i].summary_tokens && adventureMessages[i].tokens_savings > 4){
-          messages[i+2].content = adventureMessages[i].summary
-          tokens=tokens - adventureMessages[i].tokens + adventureMessages[i].summary_tokens
+        if (adventureMessages[i].tokens_savings > 4){
+          messages[i+2].content = adventureMessages[i].summary;
+          tokens=tokens - adventureMessages[i].tokens + adventureMessages[i].summary_tokens;
         }
         i++
       }
