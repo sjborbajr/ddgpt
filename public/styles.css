@@ -128,10 +128,12 @@ textarea {
   z-index: 1; /* Stay on top */
   top: 1;
   right: 0;
-  background-color: lightgreen;
+  background-color: #cce5ff;
   overflow-x: hidden; /* Disable horizontal scroll */
   padding-top: 20px; /* Place content 60px from the top */
   transition: 0.5s; /* 0.5 second transition effect to slide in the sidepanel */
+  border: 1px;
+  border-color: black;
 }
 .sidepanel-item {
   position: relative;
