@@ -9,7 +9,6 @@ import { MongoClient, ObjectId } from 'mongodb';
 import crypto from 'crypto';
 import { formatCroupierStartMessages, formatStartMessages, formatAdventureMessages, formatSummaryMessages, formatCroupierMessages } from './functions.js';
 import { encoding_for_model } from "tiktoken";
-import { promiseHooks } from "v8";
 
 const mongoUri = "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri);
@@ -626,12 +625,12 @@ async function continueAdventure(adventure_id){
       openAiResponse.adventure_id = adventure_id;
       openAiResponse.owner_id = adventure.owner_id;
       openAiResponse.created = Math.round(new Date(openAiResponse.date).getTime()/1000);
-      io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',openAiResponse);
       try {
-        gameDataCollection.insertOne(openAiResponse,{safe: true});
+        await gameDataCollection.insertOne(openAiResponse,{safe: true});
       } catch (error) {
         console.error('Error saving response to MongoDB:', error);
       }
+      io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',openAiResponse);
 
 
       if (settings.doSummary) {
