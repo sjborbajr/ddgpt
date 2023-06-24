@@ -47,6 +47,7 @@
       </select>
       <input type="checkbox" id="all_characters" onclick="showCharsOption()">Show All</input>
       <button id="saveChar" >Save</button>
+      <button id="newChar" onclick="newChar()">New</button>
     </div>
     <br>
     <input type="hidden" id="character_id" disabled>
@@ -327,6 +328,10 @@
     </div>
     <div id="adventure-history-container">
       <h2>Adventure History</h2>
+      <button id=mySidepanel-btn class="openbtn refreshButton" onclick="toggleNav()" hidden>&#9776;</button>
+      <div id="mySidepanel" class="sidepanel">
+        <div id="adventurers"></div>
+      </div>
       <div id="adventure-history" style="height: 500px; overflow-y: scroll; border: 1px solid #ddd;"></div>
     </div>
     <div id="player-input-container">

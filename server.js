@@ -91,24 +91,30 @@ io.on('connection', async (socket) => {
   });
   socket.on('saveChar', async data => {
     console.log('['+new Date().toUTCString()+'] Player '+playerName+' saving char '+data.data.name);
-    //socket.to('System').emit('settings', data)
-    let charData = await gameDataCollection.findOne({_id:new ObjectId(data._id)});
-    if (charData) {
-      if (playerData.admin || charData.owner_id.toString() == playerData._id.toString()){
-        try {
-          data.data.owner_id = new ObjectId(data.owner_id);
-          gameDataCollection.updateOne({_id:new ObjectId(data._id)},{$set:data.data});
-          let message = {message:'Character '+data.data.name+' saved.',color:'green',timeout:1500};
-          socket.emit('alertMsg',message);
-        } catch(error) {
-          let message = {message:'Character '+data.data.name+' not saved!',color:'red',timeout:5000};
-          console.error('error saving',error);
-          socket.emit('alertMsg',message);
+    if (data._id.length == 24) {
+      try {
+      let charData = await gameDataCollection.findOne({_id:new ObjectId(data._id)});
+        if (charData) {
+          if (playerData.admin || charData.owner_id.toString() == playerData._id.toString()){
+            data.data.owner_id = new ObjectId(data.owner_id);
+            gameDataCollection.updateOne({_id:new ObjectId(data._id)},{$set:data.data});
+            let message = {message:'Character '+data.data.name+' saved.',color:'green',timeout:1500};
+            socket.emit('alertMsg',message);
+          } else {
+            let message = {message:'no access - Character '+data.data.name+' not saved!',color:'red',timeout:5000}
+            socket.emit('alertMsg',message);
+          }
         }
-      } else {
-        let message = {message:'no access - Character '+data.data.name+' not saved!',color:'red',timeout:5000}
+      } catch(error) {
+        let message = {message:'Character '+data.data.name+' not saved!',color:'red',timeout:5000};
+        console.error('error saving',error);
         socket.emit('alertMsg',message);
       }
+    } else if (data._id == '') {
+      data.data.type = 'character'
+      data.data.owner_id = playerData._id
+      await gameDataCollection.insertOne(data.data);
+      socket.emit('charData',data.data);
     }
   });
   socket.on('showCharOption', data =>{
@@ -184,8 +190,9 @@ io.on('connection', async (socket) => {
   });
   socket.on('fetchAllAdventureHistory',async adventure_id =>{
     if (adventure_id.length == 24){
-      sendAdventureData(adventure_id,socket);
       socket.join('Adventure-'+adventure_id);
+      sendAdventureData(adventure_id,socket);
+      sendAdventurers(adventure_id,socket);
     }
   });
   socket.on('approveAdventureInput',async UserInput =>{
@@ -212,10 +219,27 @@ io.on('connection', async (socket) => {
       continueAdventure(UserInput.adventure_id);
     }
   });
+  socket.on('bootAdventurer',async data =>{
+    if (playerData.admin) {
+      bootAdventurer(data);
+    } else {
+      try{
+        let [ adventure , character ] = await Promise.all([
+          gameDataCollection.findOne({type:'adventure',_id:data.adventure_id}),
+          gameDataCollection.findOne({type:'character',_id:data.character_id})
+        ]);
+        if (playerData._id == adventure.owner_id || character.owner_id == playerData._id){
+          bootAdventurer(data);
+        }
+      } finally {
+        //ok
+      }
+    }
+  });
   socket.on('deleteMessage',async message_id =>{
     if (playerData.admin) {
       try{
-        gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{type:'deleted-message'});
+        gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{$set:{type:'deleted-message'}});
       } catch (error) {
         console.log(error);
       }
@@ -223,7 +247,7 @@ io.on('connection', async (socket) => {
       let message = await gameDataCollection.findOne({type:'message',_id:new ObjectId(message_id)},{adventure_id:1});
       let adventure = await gameDataCollection.findOne({type:'adventure',_id:message.adventure_id},{owner_id:1});
       if (playerData._id == adventure.owner_id){
-        gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{type:'deleted-message'});
+        gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{$set:{type:'deleted-message'}});
       }
     }
   });
@@ -250,12 +274,16 @@ io.on('connection', async (socket) => {
     }
   });
   socket.on('joinParty',async adventure_id =>{
-    let adventure = await gameDataCollection.findOne({_id:new ObjectId(adventure_id),state:'forming',type:'adventure'});
+    let [ adventure , myCharacters, myCharactersData ] = await Promise.all([
+      gameDataCollection.findOne({_id:new ObjectId(adventure_id),state:'forming',type:'adventure'}),
+      gameDataCollection.find({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}}).project({_id:1,name:1}).toArray(),
+      gameDataCollection.find({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}}).toArray()
+    ]);
 
-    let myCharacters = await gameDataCollection.find({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}}).project({_id:1,name:1}).toArray();
-    await gameDataCollection.updateOne({_id:adventure._id,type:'adventure'},{$push:{characters:{$each:myCharacters}}});
+    gameDataCollection.updateOne({_id:adventure._id,type:'adventure'},{$push:{characters:{$each:myCharacters}}});
+    gameDataCollection.updateMany({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$push:{adventures:{name:adventure.name,_id:adventure._id}}});
 
-    await gameDataCollection.updateMany({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$push:{adventures:{name:adventure.name,_id:adventure._id}}});
+    io.sockets.in('Adventure-'+adventure._id).emit('AddAdventurer',myCharactersData);
 
     let message = {message:'Party Joined',color:'green',timeout:3000}
     socket.emit('alertMsg',message);    
@@ -515,14 +543,22 @@ async function getSetting(setting){
   return dbsetting
 }
 async function sendAdventureData(adventure_id,socket){
-  let adventureMessages = await gameDataCollection.find({type:'message',adventure_id:new ObjectId(adventure_id)}).sort({created:1}).toArray();
-  let adventureData = await gameDataCollection.findOne({type:'adventure',_id:new ObjectId(adventure_id)},{apiKey:-1});
+  let [ adventureMessages , adventureData ] = await Promise.all([
+    gameDataCollection.find({type:'message',adventure_id:new ObjectId(adventure_id)}).sort({created:1}).toArray(),
+    gameDataCollection.findOne({type:'adventure',_id:new ObjectId(adventure_id)},{apiKey:-1}),
+  ]);
   if (adventureData){
     adventureData.messages = adventureMessages;
   } else {
     adventureData = {messages:adventureMessages};
   }
   socket.emit('AllAdventureHistory',adventureData);
+}
+async function sendAdventurers(adventure_id,socket){
+  let adventurers = await gameDataCollection.find({type:'character','activeAdventure._id':new ObjectId(adventure_id)}).toArray();
+  if (adventurers.length > 0){
+    socket.emit('AllAdventurers',adventurers);
+  }
 }
 async function startAdventure(adventure){
   io.sockets.in('Adventure-'+adventure._id).emit('continueAdventure',true); //put the confidence builder dots in chat
@@ -608,6 +644,14 @@ async function completeAdventure(adventure_id){
     }
   }
   //level up character
+}
+async function bootAdventurer(data){
+  try {
+    gameDataCollection.updateOne({type:'adventure',_id:new ObjectId(data.adventure_id)},{$pull:{characters:{_id:data.character_id}}});
+    gameDataCollection.updateOne({type:'character',_id:new ObjectId(data.character_id)},{$unset:{activeAdventure:1}},{$pull:{adventures:{_id:data.adventure_id}}});
+  } catch (error) {
+    console.error('Error ending adventure:', error);
+  }
 }
 async function continueAdventure(adventure_id){
   io.sockets.in('Adventure-'+adventure_id).emit('continueAdventure',true); //put the confidence builder dots in chat

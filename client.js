@@ -214,10 +214,14 @@ socket.on('charData', (data) => {
       } else {
         document.getElementById('character_activeAdventure').value = '';
       }
-      document.getElementById('character_adventures').value = data.adventures[0].name;
-      for (let i = 1 ; i < data.adventures.length; i++){
-        document.getElementById('character_adventures').value += ','+data.adventures[i].name;
-      };
+      if (data.adventures) {
+        document.getElementById('character_adventures').value = data.adventures[0].name;
+        for (let i = 1 ; i < data.adventures.length; i++){
+          document.getElementById('character_adventures').value += ','+data.adventures[i].name;
+        };
+      } else {
+        document.getElementById('character_adventures').value = ''
+      }
       let attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
       for (let i = 0 ; i < attributes.length; i++){
         document.getElementById('character_'+attributes[i]).value = data.details[attributes[i]];
@@ -247,17 +251,36 @@ socket.on('AllAdventureHistory', (data) => {
     document.getElementById('adventureAction').disabled = false;
     document.getElementById('player-input-edit').disabled = false;
     document.getElementById('player-input-field').disabled = false;
+    document.getElementById('mySidepanel-btn').hidden = false;
   } else if (data.state == 'forming') {
     document.getElementById('player-input-end').disabled = false;
     document.getElementById('adventureAction').disabled = false;
     document.getElementById('adventureAction').innerText = 'Begin';
     document.getElementById('player-input-edit').disabled = true;
     document.getElementById('player-input-field').disabled = true;
+    document.getElementById('mySidepanel-btn').hidden = false;
   } else {
     document.getElementById('player-input-end').disabled = true;
     document.getElementById('adventureAction').disabled = true;
     document.getElementById('player-input-edit').disabled = true;
     document.getElementById('player-input-field').disabled = true;
+    document.getElementById('mySidepanel-btn').hidden = true;
+  }
+});
+socket.on('AllAdventurers', (data) => {
+  if (localStorage.getItem('currentTab') == 'Adventures') {
+    document.getElementById('mySidepanel-btn').hidden = false;
+    document.getElementById('adventurers').innerHTML = "";
+    for(let i = 0; i < data.length; i++){
+      AddAdventurer(data[i]);
+    }
+  }
+});
+socket.on('AddAdventurer', (data) => {
+  if (localStorage.getItem('currentTab') == 'Adventures') {
+    for(let i = 0; i < data.length; i++){
+      AddAdventurer(data[i]);
+    }
   }
 });
 socket.on('adventureEventSuggest', (data) => {
@@ -597,7 +620,7 @@ function addAdventureHistory(entry) {
   if (entry._id) {
     messageDiv.id = 'div-'+entry._id;
     let button = document.createElement('button');
-    button.className = 'deleteMessage';
+    button.className = 'delete';
     button.id = entry._id;
     button.onclick = function() {
       socket.emit('deleteMessage', this.id);
@@ -610,6 +633,54 @@ function addAdventureHistory(entry) {
   }
   adventureHistoryDiv.appendChild(messageDiv);
   adventureHistoryDiv.scrollTop = adventureHistoryDiv.scrollHeight;
+}
+function AddAdventurer(data) {
+  let list = document.getElementById('adventurers');
+
+  let entry=document.createElement('div');
+  entry.id = data.id = "div-"+data._id;
+  entry.className = 'sidepanel-item'
+  entry.onclick=function () {adventurerClick(this);};
+
+    let name = document.createElement('div');
+    name.innerText = "Name: " + data.name;
+    entry.appendChild(name);
+  
+    let Class = document.createElement('div');
+    Class.innerText = "Class: " + data.details.Class;
+    entry.appendChild(Class);
+  
+    let race = document.createElement('div');
+    race.innerText = "Race: " + data.details.Race;
+    entry.appendChild(race);
+
+    let table = document.createElement('table');
+    table.className = "hidden-table"
+    table.hidden = true;
+    table.id = "hide-"+data._id;
+    let tableHeaderRow = table.insertRow();
+    let tableHeaderCell1 = tableHeaderRow.insertCell(), tableHeaderCell2 = tableHeaderRow.insertCell();
+    tableHeaderCell1.innerText = 'Property';
+    tableHeaderCell2.innerText = 'Value';
+    for (var key in data.details) {
+      let tableRow = table.insertRow();
+      let tableCell1 = tableRow.insertCell(), tableCell2 = tableRow.insertCell();
+      tableCell1.innerText = key;
+      tableCell2.innerText = Array.isArray(data.details[key]) ? data.details[key].join(', ') : data.details[key];
+    }
+    entry.appendChild(table);
+
+    let button = document.createElement('button');
+    button.className = 'delete';
+    button.id = data._id;
+    button.onclick = function() {
+      socket.emit('bootAdventurer', {character_id:this.id,adventure_id:document.getElementById('adventure_list').value});
+      document.getElementById('div-'+this.id).remove();
+    }
+    button.textContent = 'x';
+
+  entry.appendChild(button);
+  list.appendChild(entry);
 }
 function editAdventureInput() {
   document.getElementById('player-input-field').disabled = false;
@@ -663,6 +734,14 @@ function listAdventureOption() {
   }
   document.getElementById('adventure-history').innerHTML = '';
 }
+function adventurerClick(item){
+  let div = document.getElementById('hide-'+item.id.replace("div-",""))
+  if (div.hidden){
+    div.hidden = false;
+  } else {
+    div.hidden = true;
+  }
+}
 function playerClick(listItem){
   if(listItem.tagName === 'LI') {
     selected= document.querySelector('li.selected');
@@ -688,5 +767,47 @@ function joinParty(){
     if (selected.value == 6){
       socket.emit('joinParty',selected.id)
     }
+  }
+}
+function newChar() {
+  let Classes = ["Barbarian","Bard","Cleric","Druid","Fighter","Monk","Paladin","Ranger","Rogue","Sorcerer","Warlock","Wizard"];
+  let Races = ["Dragonborn","Dwarf","Elf","Gnome","Half-Elf","Half-Orc","Halfling","Human"]
+  document.getElementById('character1').style.display = 'inline';
+  document.getElementById('character2').style.display = 'inline';
+
+  let attributes = ["HP","AC","Weapon","Armor","Class","Inventory","Backstory","activeAdventure",'adventures','id','name']
+  for (let i = 0 ; i < attributes.length; i++){
+    document.getElementById('character_'+attributes[i]).value = '';
+  };
+
+  //fill the drop down with potential owners
+  if (document.getElementById('character_owner').options.length < 1) {
+    socket.emit('listOwners');
+  }
+  document.getElementById('character_state').value = 'alive';
+  document.getElementById('character_Lvl').value = '1';
+
+  document.getElementById('character_Race').value = Races[(Math.floor(Math.random() * Races.length))];
+  document.getElementById('character_Class').value = Classes[(Math.floor(Math.random() * Classes.length))];;
+
+  attributes = ["STR","DEX","CON","INT","WIS","CHA"];
+  for (let i = 0 ; i < attributes.length; i++){
+    document.getElementById('character_'+attributes[i]).value = rollStat();
+  };
+
+}
+function rollStat() {
+  let rolls = [ Math.floor(Math.random() * 6 + 1),
+                Math.floor(Math.random() * 6 + 1),
+                Math.floor(Math.random() * 6 + 1),
+                Math.floor(Math.random() * 6 + 1)
+              ]
+  rolls.sort(function(a, b){return a - b})
+  return (rolls[1]+rolls[2]+rolls[3])
+}
+function toggleNav() {  if (document.getElementById("mySidepanel").style.width < 1 || document.getElementById("mySidepanel").style.width == "0px") {
+    document.getElementById("mySidepanel").style.width = "33%";
+  } else {
+    document.getElementById("mySidepanel").style.width = "0";
   }
 }
