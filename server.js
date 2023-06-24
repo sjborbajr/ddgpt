@@ -215,12 +215,16 @@ io.on('connection', async (socket) => {
   socket.on('deleteMessage',async message_id =>{
     if (playerData.admin) {
       try{
-        gameDataCollection.deleteOne({type:'message',_id:new ObjectId(message_id)});
+        gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{type:'deleted-message'});
       } catch (error) {
         console.log(error);
       }
     } else {
-      gameDataCollection.deleteOne({type:'message',_id:new ObjectId(message_id),owner_id:playerData._id});
+      let message = await gameDataCollection.findOne({type:'message',_id:new ObjectId(message_id)},{adventure_id:1});
+      let adventure = await gameDataCollection.findOne({type:'adventure',_id:message.adventure_id},{owner_id:1});
+      if (playerData._id == adventure.owner_id){
+        gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{type:'deleted-message'});
+      }
     }
   });
   socket.on('suggestAdventureInput',async UserInput =>{
