@@ -9,6 +9,7 @@ import { MongoClient, ObjectId } from 'mongodb';
 import crypto from 'crypto';
 import { formatCroupierStartMessages, formatStartMessages, formatAdventureMessages, formatSummaryMessages, formatCroupierMessages } from './functions.js';
 import { encoding_for_model } from "tiktoken";
+import { promiseHooks } from "v8";
 
 const mongoUri = "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri,{ forceServerObjectId: true });
@@ -189,26 +190,28 @@ io.on('connection', async (socket) => {
     }
   });
   socket.on('approveAdventureInput',async UserInput =>{
-    let settings = await getSetting('');
-    let enc = encoding_for_model(settings.model);
+    if (UserInput.content.length > 1) {
+      let settings = await getSetting('');
+      let enc = encoding_for_model(settings.model);
 
-    UserInput.approverName = playerName;
-    UserInput.adventure_id = new ObjectId(UserInput.adventure_id);
-    UserInput.date = new Date().toUTCString();
-    UserInput.created = Math.round(new Date(UserInput.date).getTime()/1000);
-    UserInput.type = 'message';
-    UserInput.tokens = (enc.encode(UserInput.content)).length;
-    
-    if (settings.forReal){
-      try {
-        gameDataCollection.insertOne(UserInput,{safe: true});
-      } catch (error) {
-        console.error('Error saving response to MongoDB:', error);
+      UserInput.approverName = playerName;
+      UserInput.adventure_id = new ObjectId(UserInput.adventure_id);
+      UserInput.date = new Date().toUTCString();
+      UserInput.created = Math.round(new Date(UserInput.date).getTime()/1000);
+      UserInput.type = 'message';
+      UserInput.tokens = (enc.encode(UserInput.content)).length;
+      
+      if (settings.forReal){
+        try {
+          gameDataCollection.insertOne(UserInput,{safe: true});
+        } catch (error) {
+          console.error('Error saving response to MongoDB:', error);
+        }
       }
+      io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEvent',UserInput);
+      
+      continueAdventure(UserInput.adventure_id);
     }
-    io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEvent',UserInput);
-    
-    continueAdventure(UserInput.adventure_id);
   });
   socket.on('deleteMessage',async message_id =>{
     if (playerData.admin) {
@@ -217,12 +220,14 @@ io.on('connection', async (socket) => {
       } catch (error) {
         console.log(error);
       }
+    } else {
+      gameDataCollection.deleteOne({type:'message',_id:new ObjectId(message_id),owner_id:playerData._id});
     }
   });
   socket.on('suggestAdventureInput',async UserInput =>{
+    UserInput.content = UserInput.content.trim();
     if (UserInput.content.length > 1) {
       UserInput.playerName = playerName;
-      UserInput.content = UserInput.content.trim();
       io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEventSuggest',UserInput);
     }
   });
@@ -607,8 +612,11 @@ async function continueAdventure(adventure_id){
   let apiKey = settings.apiKey; //should this be by adventure?
   let openAiResponse;
 
-  let allMessages = await gameDataCollection.find({type:'message',adventure_id:adventure_id}).sort({created:1}).toArray();
-  let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
+  let [ adventure , allMessages, characters ] = await Promise.all([
+    gameDataCollection.findOne({type:'adventure',_id:adventure_id}),
+    gameDataCollection.find({type:'message',adventure_id:adventure_id}).sort({created:1}).toArray(),
+    gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray()
+  ]);
   let messages = formatAdventureMessages(settings,allMessages,characters)
 
   if (settings.forReal){
@@ -616,6 +624,7 @@ async function continueAdventure(adventure_id){
     if (openAiResponse.id) {
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure_id;
+      openAiResponse.owner_id = adventure.owner_id;
       openAiResponse.created = Math.round(new Date(openAiResponse.date).getTime()/1000);
       io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',openAiResponse);
       try {

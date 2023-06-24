@@ -592,18 +592,22 @@ function addAdventureHistory(entry) {
   if (!messageDiv){
     messageDiv = document.createElement('div');
   }
-  messageDiv.id = 'div-'+entry._id;
   messageDiv.className = 'message ' + (entry.role === 'user' ? 'player-message' : 'dm-message');
   messageDiv.textContent = entry.content;
-  let button = document.createElement('button');
-  button.className = 'deleteMessage';
-  button.id = entry._id;
-  button.onclick = function() {
-    socket.emit('deleteMessage', this.id);
-    document.getElementById('div-'+this.id).remove();
+  if (entry._id) {
+    messageDiv.id = 'div-'+entry._id;
+    let button = document.createElement('button');
+    button.className = 'deleteMessage';
+    button.id = entry._id;
+    button.onclick = function() {
+      socket.emit('deleteMessage', this.id);
+      document.getElementById('div-'+this.id).remove();
+    }
+    button.textContent = 'x';
+    messageDiv.appendChild(button);
+  } else {
+    messageDiv.id = '';
   }
-  button.textContent = 'x';
-  messageDiv.appendChild(button);
   adventureHistoryDiv.appendChild(messageDiv);
   adventureHistoryDiv.scrollTop = adventureHistoryDiv.scrollHeight;
 }
