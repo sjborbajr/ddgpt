@@ -12,7 +12,7 @@ import { encoding_for_model } from "tiktoken";
 import { promiseHooks } from "v8";
 
 const mongoUri = "mongodb://localhost/?retryWrites=true";
-const client = new MongoClient(mongoUri,{ forceServerObjectId: true });
+const client = new MongoClient(mongoUri);
 try {
   await client.connect();
 } catch (error) {
