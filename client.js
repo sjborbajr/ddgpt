@@ -19,6 +19,7 @@ document.getElementById('character2').style.display = 'none';
 document.getElementById('save').addEventListener('click', save);
 document.getElementById('rename').addEventListener('click', renameGptMessage);
 document.getElementById('scotRun').addEventListener('click', ScotRun);
+document.getElementById('replay').addEventListener('click', replay);
 document.getElementById('saveChar').addEventListener('click', saveChar);
 document.getElementById('connectButton').addEventListener('click', connectButton);
 document.getElementById('disconnectButton').addEventListener('click', disconnectButton);
@@ -27,6 +28,9 @@ document.getElementById('player-input-edit').addEventListener('click', editAdven
 document.getElementById('player-input-end').addEventListener('click', endAdventure);
 document.getElementById('create-party').addEventListener('click', createParty);
 document.getElementById('join-party').addEventListener('click', joinParty);
+
+document.getElementById('history_search').addEventListener('keyup',historySearch);
+
 
 // Attach event listeners to the buttons
 window.onload = function() {
@@ -330,6 +334,17 @@ socket.on('adventureList', (data) => {
     }
   }
 });
+socket.on('replayRan', (response) => {
+  if (localStorage.getItem('currentTab') == 'History') {
+    let list = document.getElementById('gpt-history-list');
+    let entry=document.createElement('li');
+    entry.onclick=function () {getResponseData(this);};
+    entry.innerText=response.date;
+    entry.id = response._id;
+    list.prepend(entry);
+    getResponseData(entry);
+  }
+});
 socket.on('historyList', (data) => {
   if (localStorage.getItem('currentTab') == 'History') {
     let list = document.getElementById('gpt-history-list');
@@ -343,6 +358,15 @@ socket.on('historyList', (data) => {
       list.appendChild(entry);
     }
   }
+});
+socket.on('partyForming', (data) => {
+  let list = document.getElementById('starting-parties');
+  let entry=document.createElement('li');
+  entry.onclick=function () {partyClick(this);};
+  entry.innerText=data.party_name;
+  entry.id = data._id;
+  entry.value = 6;
+  list.appendChild(entry);
 });
 socket.on('formingParties', (data) => {
   if (localStorage.getItem('currentTab') == 'Home') {
@@ -379,24 +403,28 @@ socket.on('historyData', (data) => {
     for (let i = 0 ; i < attributes.length; i++){
       document.getElementById('history_'+attributes[i]).value = data[attributes[i]];
     };
+    document.getElementById('history_model').disabled = false;
     document.getElementById('history_status').value = data.status.toString()+':'+data.statusText;
     let request = JSON.parse(data.request);
     document.getElementById('history_temperature').value = request.temperature;
+    document.getElementById('history_temperature').disabled = false;
     document.getElementById('history_maxTokens').value = request.max_tokens;
+    document.getElementById('history_maxTokens').disabled = false;
 
     let table = document.getElementById('history_table');
     while(table.rows[0]) table.deleteRow(0);
     for (let i = 0 ; i < request.messages.length; i++){
       let newrow = document.createElement('tr');
-      newrow.innerHTML = '<th>'+request.messages[i].role+'</th><td width="90%"><textarea class="textExpand" disabled>'+request.messages[i].content+'</textarea></td>';
+      newrow.innerHTML = '<th onclick="swapRole(this)" style="cursor: pointer;">'+request.messages[i].role+'</th><td width="90%" ><textarea style="height:180px;">'+request.messages[i].content+'</textarea></td>';
       table.append(newrow);
     };
     let newrow = document.createElement('tr');
-    newrow.innerHTML = '<th>Response</th><td width="90%"><textarea class="textExpand" disabled>'+data.response+'</textarea></td>';
+    newrow.innerHTML = '<th>Response</th><td width="90%"><textarea style="height:300px;" disabled>'+data.response+'</textarea></td>';
     table.append(newrow);
     newrow = document.createElement('tr');
-    newrow.innerHTML = '<th>raw</th><td width="90%"><textarea class="textExpand" disabled>'+JSON.stringify(data,null,2)+'</textarea></td>';
+    newrow.innerHTML = '<th>raw</th><td width="90%"><textarea style="height:500px;" disabled>'+JSON.stringify(data,null,2)+'</textarea></td>';
     table.append(newrow);
+    document.getElementById('gpt-history-messages').scrollTop = document.getElementById('gpt-history-messages').scrollHeight;
   }
 });
 socket.on('listedOwners', (data) => {
@@ -543,6 +571,41 @@ function showChar(id) {
   optionDoc.options[0].innerText = 'unowned';
   socket.emit('fetchCharData',id);
 }
+function replay() {
+  let messages = [], table = document.getElementById('history_table');;
+  for (var i = 0, row; row = table.rows[i]; i++) {
+    if (row.cells[0].innerText == 'system' || row.cells[0].innerText == 'user' || row.cells[0].innerText == 'assistant') {
+      messages.push({
+        role:row.cells[0].innerText,
+        content:row.cells[1].firstChild.value
+      })
+    } else if (row.cells[0].innerText == 'Response') {
+      row.cells[1].firstChild.remove();
+      row.cells[1].innerText = 'processing'
+      row.cells[1].className = 'loading';
+    } else {
+      row.remove();
+    }
+  }
+  let replayData = {
+    temperature:document.getElementById('history_temperature').value,
+    maxTokens:document.getElementById('history_maxTokens').value,
+    model:document.getElementById('history_model').value,
+    messages:messages
+  }
+  socket.emit("replay",replayData);
+}
+function swapRole(item) {
+  if (item.innerText == 'user'){
+    item.innerText = 'assistant';
+  } else {
+    item.innerText = 'user';
+  }
+}
+function historyFilterLimit(filterText) {
+  socket.emit('historyFilterLimit',filterText);
+  socket.emit('tab','History');
+}
 function connectButton() {
   let temp = document.getElementById('player-name').value
   document.getElementById('player-name').value = temp.trim().replace(/[^a-zA-Z0-9]/g,'');
@@ -566,8 +629,13 @@ function connectButton() {
 function disconnectButton() {
   socket.disconnect();
 }
+function historySearch(e){
+  if (e.key === 'Enter' || e.keyCode === 13) {
+    socket.emit("historyTextSearch",document.getElementById('history_search').value);
+    socket.emit('tab','History');
+  }
+}
 function ScotRun(){
-  //console.log('scotRun');
   let ScotData = {
     temperature:document.getElementById('temperatureScot').value,
     apikey:document.getElementById('keyScot').value,
@@ -770,8 +838,21 @@ function joinParty(){
   }
 }
 function newChar() {
+  let names = [{name:'Zephyr',gender:'Either'},{name:'Ember',gender:'Either'},{name:'Kairo',gender:'Either'},{name:'Vega',gender:'Either'},{name:'Astra',gender:'Female'},{name:'Riven',gender:'Either'},{name:'Azriel',gender:'Either'},{name:'Zenith',gender:'Either'},{name:'Zora',gender:'Female'},{name:'Blaze',gender:'Either'},{name:'Magna',gender:'Either'},{name:'Phoenix',gender:'Either'},{name:'Zaire',gender:'Either'},{name:'Caelum',gender:'Either'},{name:'Aegis',gender:'Either'},{name:'Valor',gender:'Either'},{name:'Zarael',gender:'Either'},{name:'Lyric',gender:'Either'},{name:'Orionis',gender:'Male'},{name:'Kael',gender:'Either'},{name:'Daxon',gender:'Male'},{name:'Zephyros',gender:'Male'},{name:'Cael',gender:'Either'},{name:'Zyra',gender:'Female'},{name:'Lyra',gender:'Female'},{name:'Nova',gender:'Female'},{name:'Selene',gender:'Female'},{name:'Zara',gender:'Female'},{name:'Nyx',gender:'Female'},{name:'Thalia',gender:'Female'},{name:'Calliope',gender:'Female'},{name:'Astrid',gender:'Female'},{name:'Lumi',gender:'Female'},{name:'Seraphina',gender:'Female'},{name:'Xyla',gender:'Female'},{name:'Zinnia',gender:'Female'},{name:'Zephyra',gender:'Female'},{name:'Nola',gender:'Female'},{name:'Aella',gender:'Female'},{name:'Zahara',gender:'Female'},{name:'Celestia',gender:'Female'},{name:'Zaria',gender:'Female'},{name:'Emberlyn',gender:'Female'},{name:'Nyssa',gender:'Female'},{name:'Zaira',gender:'Female'},{name:'Aria',gender:'Female'},{name:'Astraia',gender:'Female'},{name:'Zephyrine',gender:'Female'},{name:'Callista',gender:'Female'},{name:'Kyra',gender:'Female'},{name:'Elysia',gender:'Female'},{name:'Zariah',gender:'Female'},{name:'Astraea',gender:'Female'},{name:'Zafira',gender:'Female'},{name:'Selena',gender:'Female'},{name:'Xyliana',gender:'Female'},{name:'Orion',gender:'Male'},{name:'Xander',gender:'Male'},{name:'Ajax',gender:'Male'},{name:'Soren',gender:'Male'},{name:'Kellan',gender:'Male'},{name:'Jaxon',gender:'Male'},{name:'Daxton',gender:'Male'},{name:'Ronin',gender:'Male'},{name:'Draven',gender:'Male'},{name:'Zephyrus',gender:'Male'},{name:'Titan',gender:'Male'},{name:'Zoran',gender:'Male'},{name:'Evander',gender:'Male'},{name:'Xyler',gender:'Male'},{name:'Kian',gender:'Male'},{name:'Seraph',gender:'Male'},{name:'Ryker',gender:'Male'},{name:'Zyler',gender:'Male'},{name:'Superman',gender:'Male'},{name:'Batman',gender:'Male'},{name:'Spider-Man',gender:'Male'},{name:'Wonder Woman',gender:'Female'},{name:'Captain America',gender:'Male'},{name:'Iron Man',gender:'Male'},{name:'Thor',gender:'Male'},{name:'Hulk',gender:'Male'},{name:'Black Widow',gender:'Female'},{name:'Wolverine',gender:'Male'},{name:'Storm',gender:'Female'},{name:'Cyclops',gender:'Male'},{name:'Jean Grey',gender:'Female'},{name:'Deadpool',gender:'Male'},{name:'Aquaman',gender:'Male'},{name:'The Flash',gender:'Male'},{name:'Green Lantern',gender:'Male'},{name:'Supergirl',gender:'Female'},{name:'Nightcrawler',gender:'Male'},{name:'Black Panther',gender:'Male'},{name:'Hawkeye',gender:'Male'},{name:'Doctor Strange',gender:'Male'},{name:'Catwoman',gender:'Female'},{name:'Green Arrow',gender:'Male'},{name:'Robin',gender:'Male'},{name:'Batgirl',gender:'Female'},{name:'Rogue',gender:'Female'},{name:'Gambit',gender:'Male'},{name:'Harley Quinn',gender:'Female'},{name:'Joker',gender:'Male'},{name:'Rorschach',gender:'Male'},{name:'Spawn',gender:'Male'},{name:'Hellboy',gender:'Male'},{name:'Daredevil',gender:'Male'},{name:'Punisher',gender:'Male'},{name:'Venom',gender:'Male'},{name:'Black Canary',gender:'Female'},{name:'Luke Cage',gender:'Male'},{name:'Jessica Jones',gender:'Female'},{name:'Elektra',gender:'Female'},{name:'Green Goblin',gender:'Male'},{name:'Doctor Doom',gender:'Male'},{name:'Bane',gender:'Male'},{name:'Red Hood',gender:'Male'},{name:'Batwoman',gender:'Female'},{name:'Poison Ivy',gender:'Female'},{name:'Penguin',gender:'Male'},{name:'Black Adam',gender:'Male'},{name:'Robin Hood',gender:'Male'},{name:'Silver Surfer',gender:'Male'},{name:'Oracle',gender:'Female'},{name:'Falcon',gender:'Male'},{name:'Scarlet Witch',gender:'Female'},{name:'Vision',gender:'Male'},{name:'Black Cat',gender:'Female'},{name:'Ant-Man',gender:'Male'},{name:'Wasp',gender:'Female'},{name:'Star-Lord',gender:'Male'},{name:'Gamora',gender:'Female'},{name:'Drax the Destroyer',gender:'Male'},{name:'Rocket Raccoon',gender:'Male'},{name:'Groot',gender:'Male'},{name:'Captain Marvel',gender:'Female'},{name:'Winter Soldier',gender:'Male'},{name:'Martian Manhunter',gender:'Male'},{name:'Batwing',gender:'Male'},{name:'Hawkgirl',gender:'Female'},{name:'Zatanna',gender:'Female'},{name:'Power Girl',gender:'Female'},{name:'Firestorm',gender:'Male'},{name:'Vixen',gender:'Female'},{name:'Blue Beetle',gender:'Male'},{name:'Huntress',gender:'Female'},{name:'Nightwing',gender:'Male'},{name:'The Thing',gender:'Male'},{name:'Human Torch',gender:'Male'},{name:'Invisible Woman',gender:'Female'},{name:'Mr. Fantastic',gender:'Male'},{name:'The Hulkling',gender:'Male'},{name:'She-Hulk',gender:'Female'},{name:'Robin (Damian Wayne)',gender:'Male'},{name:'Spider-Woman',gender:'Female'},{name:'Iron Fist',gender:'Male'},{name:'Moon Knight',gender:'Male'},{name:'Shazam',gender:'Male'},{name:'Black Lightning',gender:'Male'},{name:'Ghost Rider',gender:'Male'},{name:'Batwing (Luke Fox)',gender:'Male'},{name:'Green Lantern (Jessica Cruz)',gender:'Female'},{name:'Ms. Marvel',gender:'Female'},{name:'Red Hulk',gender:'Male'},{name:'Firestar',gender:'Female'},{name:'Cable',gender:'Male'},{name:'Squirrel Girl',gender:'Female'},{name:'Silver Sable',gender:'Female'},{name:'Deathstroke',gender:'Male'},{name:'Zatara',gender:'Male'},{name:'Sinestro',gender:'Male'},{name:'Jessica Drew',gender:'Female'}];
   let Classes = ["Barbarian","Bard","Cleric","Druid","Fighter","Monk","Paladin","Ranger","Rogue","Sorcerer","Warlock","Wizard"];
-  let Races = ["Dragonborn","Dwarf","Elf","Gnome","Half-Elf","Half-Orc","Halfling","Human"]
+  let Races = ["Dragonborn","Dwarf","Elf","Gnome","Half-Elf","Half-Orc","Halfling","Human","Tiefling"];
+  let raceBonuses = {
+    "Dragonborn": {"CHA": 1, "STR": 2},
+    "Dwarf": {"CON": 2},
+    "Elf": {"DEX": 2},
+    "Gnome": {"INT": 2},
+    "Half-Elf": {"CHA": 2},
+    "Half-Orc": {"CON": 1, "STR": 2},
+    "Halfling": {"DEX": 2},
+    "Human": {"CHA": 1, "CON": 1, "DEX": 1, "INT": 1, "STR": 1, "WIS": 1},
+    "Tiefling": {"CHA": 2, "INT": 1}
+  };
+
   document.getElementById('character1').style.display = 'inline';
   document.getElementById('character2').style.display = 'inline';
 
@@ -787,12 +868,25 @@ function newChar() {
   document.getElementById('character_state').value = 'alive';
   document.getElementById('character_Lvl').value = '1';
 
-  document.getElementById('character_Race').value = Races[(Math.floor(Math.random() * Races.length))];
+  let selectedRace = Races[(Math.floor(Math.random() * Races.length))];
+  document.getElementById('character_Race').value = selectedRace;
   document.getElementById('character_Class').value = Classes[(Math.floor(Math.random() * Classes.length))];;
+
+  // Select a random character from the array and assign the name and gender
+  let randomName = names[Math.floor(Math.random() * names.length)];
+  document.getElementById('character_name').value = randomName.name;
+  if (randomName.gender == 'Either'){
+    let genders = ['Male','Female','not specified']
+    randomName.gender = genders[Math.floor(Math.random() * genders.length)];
+  }
+  document.getElementById('character_Gender').value = randomName.gender;
 
   attributes = ["STR","DEX","CON","INT","WIS","CHA"];
   for (let i = 0 ; i < attributes.length; i++){
     document.getElementById('character_'+attributes[i]).value = rollStat();
+    if (raceBonuses[selectedRace][attributes[i]]) {
+      attributeValue += raceBonuses[selectedRace][attributes[i]];
+    }
   };
 
 }
@@ -805,7 +899,8 @@ function rollStat() {
   rolls.sort(function(a, b){return a - b})
   return (rolls[1]+rolls[2]+rolls[3])
 }
-function toggleNav() {  if (document.getElementById("mySidepanel").style.width < 1 || document.getElementById("mySidepanel").style.width == "0px") {
+function toggleNav() {
+  if (document.getElementById("mySidepanel").style.width < 1 || document.getElementById("mySidepanel").style.width == "0px") {
     document.getElementById("mySidepanel").style.width = "33%";
   } else {
     document.getElementById("mySidepanel").style.width = "0";

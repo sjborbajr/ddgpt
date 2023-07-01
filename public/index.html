@@ -269,54 +269,65 @@
       </div>
       <div id="gpt-history-resize-bar"></div>
       <div id="gpt-history-right-column">
-        <label for="history_limit">
-          <span>Display:</span>
-          <select id="history_limit" onChange="listHistory(this.value)">
-            <option value="all">all</option>
-            <option value="game">game</option>
-            <option value="adventureStart">adventureStart</option>
-            <option value="croupier">croupier</option>
-            <option value="ScotGPT">ScotGPT</option>
-          </select>
-        </label>
-        <label for="history_temperature">
-          <span>Temperature:</span>
-          <input type="number" id="history_temperature"  min=1 max="100" disabled></input>
-        </label>
-        <label for="history_maxTokens">
-          <span>Max Tokens:</span>
-          <input type="number" id="history_maxTokens"  min=1 max="100" disabled></input>
-        </label>
-        <label for="history_model">
-          <span>Model:</span>
-          <input type="text" id="history_model" disabled></input>
-        </label>
-        <label for="history_completion_tokens">
-          <span>completion_tokens:</span>
-          <input type="text" id="history_completion_tokens" disabled></input>
-        </label>
-        <label for="history_duration">
-          <span>duration:</span>
-          <input type="text" id="history_duration" disabled></input>
-        </label>
-        <label for="history_finish_reason">
-          <span>finish_reason:</span>
-          <input type="text" id="history_finish_reason" disabled></input>
-        </label>
-        <label for="history_prompt_tokens">
-          <span>prompt_tokens:</span>
-          <input type="text" id="history_prompt_tokens" disabled></input>
-        </label>
-        <label for="history_status">
-          <span>status:</span>
-          <input type="text" id="history_status" disabled></input>
-        </label>
-        <label for="history_url">
-          <span>status:</span>
-          <input type="text" id="history_url" disabled></input>
-        </label>
-        <table id="history_table">
-        </table>
+        <div id="gpt-history-settings">
+          <label for="history_limit">
+            <span>Display:</span>
+            <select id="history_limit" onChange="historyFilterLimit(this.value)">
+              <option value="all">all</option>
+              <option value="game">game</option>
+              <option value="adventureStart">adventureStart</option>
+              <option value="croupier">croupier</option>
+              <option value="summary">summary</option>
+              <option value="ScotGPT">ScotGPT</option>
+              <option value="Replay">Replay</option>
+            </select>
+          </label>
+          <label for="history_search">
+            <span>Search:</span>
+            <input type="text" id="history_search"></input>
+          </label>
+          <label for="history_temperature">
+            <span>Temperature:</span>
+            <input type="number" id="history_temperature"  min=1 max="100" disabled></input>
+          </label>
+          <label for="history_maxTokens">
+            <span>Max Tokens:</span>
+            <input type="number" id="history_maxTokens"  min=1 max="100" disabled></input>
+          </label>
+          <label for="history_model">
+            <span>Model:</span>
+            <input type="text" id="history_model" disabled></input>
+          </label>
+          <label for="history_completion_tokens">
+            <span>completion_tokens:</span>
+            <input type="text" id="history_completion_tokens" disabled></input>
+          </label>
+          <label for="history_duration">
+            <span>duration:</span>
+            <input type="text" id="history_duration" disabled></input>
+          </label>
+          <label for="history_finish_reason">
+            <span>finish_reason:</span>
+            <input type="text" id="history_finish_reason" disabled></input>
+          </label>
+          <label for="history_prompt_tokens">
+            <span>prompt_tokens:</span>
+            <input type="text" id="history_prompt_tokens" disabled></input>
+          </label>
+          <label for="history_status">
+            <span>status:</span>
+            <input type="text" id="history_status" disabled></input>
+          </label>
+          <label for="history_url">
+            <span>status:</span>
+            <input type="text" id="history_url" disabled></input>
+          </label>
+          <button id="replay">Replay</button>
+        </div>
+        <div id="gpt-history-messages">
+          <table id="history_table">
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -374,6 +385,33 @@
     }
 
     function stopDrag() {
+      document.removeEventListener('mousemove', doDrag);
+      document.removeEventListener('mouseup', stopDrag);
+    }
+  </script>
+  <script>
+    var resizeBar = document.getElementById('gpt-history-resize-bar');
+    var leftColumn = document.getElementById('gpt-history-left-column');
+    var rightColumn = document.getElementById('gpt-history-right-column');
+    var container = document.getElementById('gpt-history');
+    var startX, initialLeftWidth;
+     resizeBar.addEventListener('mousedown', initDrag);
+     function initDrag(e) {
+      startX = e.clientX;
+      initialLeftWidth = leftColumn.offsetWidth;
+       document.addEventListener('mousemove', doDrag);
+      document.addEventListener('mouseup', stopDrag);
+    }
+     function doDrag(e) {
+      var deltaX = e.clientX - startX;
+      var newLeftWidth = initialLeftWidth + deltaX;
+      var containerWidth = container.offsetWidth;
+      var leftWidthPercentage = (newLeftWidth / containerWidth) * 100;
+      var rightWidthPercentage = 100 - leftWidthPercentage;
+       leftColumn.style.width = leftWidthPercentage + '%';
+      rightColumn.style.width = rightWidthPercentage + '%';
+    }
+     function stopDrag() {
       document.removeEventListener('mousemove', doDrag);
       document.removeEventListener('mouseup', stopDrag);
     }

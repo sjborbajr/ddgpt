@@ -277,6 +277,8 @@ textarea {
 #gpt-history-left-column ul {
   list-style-type: none;
   padding: 0;
+  overflow-y: auto;
+  height: 800px;
 }
 #gpt-history-left-column li {
   cursor: pointer;
@@ -288,7 +290,15 @@ textarea {
   width: 80%;
   padding: 0;
   padding-left: 4px;
-}    
+}
+#gpt-history-settings {
+  width: 100%;
+}
+#gpt-history-messages {
+  width: 100%;
+  overflow-y: auto;
+  height: 800px;
+}
 #gpt-history-resize-bar {
   width: 2px;
   background-color: #ddd;

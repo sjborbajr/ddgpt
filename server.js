@@ -41,7 +41,7 @@ gameDataCollection.updateMany({type:'player'},{$set:{connected:false}});
 io.on('connection', async (socket) => {
   // Get the user id, auth token and IP from handshake
   let playerName = socket.handshake.auth.playerName || '', clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address, authNonce = socket.handshake.auth.authNonce || '';
-  let showCharacters = 'Own', showActiveAdventures = true;
+  let showCharacters = 'Own', showActiveAdventures = true, historyFilterLimit='all', historyTextSearch='';
   playerName = playerName.trim().replace(/[^a-zA-Z0-9]/g,'');
   console.log('['+new Date().toUTCString()+'] User connected: '+playerName+' From: '+clientIp);
 
@@ -152,16 +152,24 @@ io.on('connection', async (socket) => {
       }
     }
   });
+  socket.on('historyFilterLimit', async limit => {
+    historyFilterLimit = limit;
+  });
   socket.on('fetchHistory', async id => {
-    let query = ''
-    if (playerData.admin) {
-      query = {_id:new ObjectId(id)};
-      let history = await responseCollection.findOne(query);
-      if (history){
-        socket.emit('historyData',history);
-      } else {
-        socket.emit('error','could not find history with ID: '+id);
-      }    
+    try {
+
+      let query = ''
+      if (playerData.admin) {
+        query = {_id:new ObjectId(id)};
+        let history = await responseCollection.findOne(query);
+        if (history){
+          socket.emit('historyData',history);
+        } else {
+          socket.emit('error','could not find history with ID: '+id);
+        }    
+      }
+    } catch (error){
+      console.log('error',error);
     }
   });
   socket.on('fetchCharData', async id => {
@@ -187,6 +195,12 @@ io.on('connection', async (socket) => {
                    ]
     let response = await openaiCall(messages,data.model,Number(data.temperature),Number(data.maxTokens),data.apikey,'ScotGPT')
     socket.emit('ScotRan',response.content);
+  });
+  socket.on('replay',async data =>{
+    let message = {message:'replay recieved, running!',color:'green',timeout:10000}
+    socket.emit('alertMsg',message);
+    let response = await openaiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_key,'Replay')
+    socket.emit('replayRan',{date:response.date,_id:response.allResponse_id});
   });
   socket.on('fetchAllAdventureHistory',async adventure_id =>{
     if (adventure_id.length == 24){
@@ -244,10 +258,16 @@ io.on('connection', async (socket) => {
         console.log(error);
       }
     } else {
-      let message = await gameDataCollection.findOne({type:'message',_id:new ObjectId(message_id)},{adventure_id:1});
-      let adventure = await gameDataCollection.findOne({type:'adventure',_id:message.adventure_id},{owner_id:1});
-      if (playerData._id == adventure.owner_id){
-        gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{$set:{type:'deleted-message'}});
+      try{
+        let message = await gameDataCollection.findOne({type:'message',_id:new ObjectId(message_id)},{adventure_id:1});
+        if (message){
+          let adventure = await gameDataCollection.findOne({type:'adventure',_id:message.adventure_id},{owner_id:1});
+          if (playerData._id == adventure.owner_id){
+            gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{$set:{type:'deleted-message'}});
+          }
+        }
+      } catch (error) {
+        console.log(error);
       }
     }
   });
@@ -288,22 +308,31 @@ io.on('connection', async (socket) => {
     let message = {message:'Party Joined',color:'green',timeout:3000}
     socket.emit('alertMsg',message);    
   });
+  socket.on('historyTextSearch',async data =>{
+    historyTextSearch = data;
+  });
   socket.on('createParty',async NewName =>{
-    let character_ids = await gameDataCollection.find({type:'character',owner_id:playerData._id}).project({_id:1,name:1}).toArray();
-    let document = {
-      type:'adventure',
-      party_name:NewName,
-      name:(NewName+': <forming>'),
-      state:'forming',
-      characters:character_ids,
-      owner_id:playerData._id
+    let document, character_ids = await gameDataCollection.find({type:'character',owner_id:playerData._id}).project({_id:1,name:1}).toArray();
+    if (character_ids.length > 0) {
+      document = {
+        type:'adventure',
+        party_name:NewName,
+        name:(NewName+': <forming>'),
+        state:'forming',
+        characters:character_ids,
+        owner_id:playerData._id
+      }
+      await gameDataCollection.updateOne({owner_id:playerData._id,state:'forming',type:'adventure'},{$set:document},{ upsert: true });
+      let adventure = await gameDataCollection.findOne({owner_id:playerData._id,state:'forming',type:'adventure'});
+      await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$pull:{adventures:{_id:adventure._id}}});
+      await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$push:{adventures:{name:adventure.name,_id:adventure._id}}});
+      let message = {message:'Party Forming',color:'green',timeout:3000}
+      socket.emit('alertMsg',message);
+      io.emit("partyForming",{party_name:adventure.party_name, _id:adventure._id})
+    } else {
+      let message = {message:"You don't have any available characters!",color:'red',timeout:5000}
+      socket.emit('alertMsg',message);
     }
-    await gameDataCollection.updateOne({owner_id:playerData._id,state:'forming',type:'adventure'},{$set:document},{ upsert: true });
-    let adventure = await gameDataCollection.findOne({owner_id:playerData._id,state:'forming',type:'adventure'});
-    await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$pull:{adventures:{_id:adventure._id}}});
-    await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$push:{adventures:{name:adventure.name,_id:adventure._id}}});
-    let message = {message:'Party Forming',color:'green',timeout:3000}
-    socket.emit('alertMsg',message);
 
   });
   socket.on('tab',async tabName =>{
@@ -363,7 +392,15 @@ io.on('connection', async (socket) => {
     } else if (tabName == 'History' && playerData.admin) {
       //console.log('History');
       socket.join('Tab-'+tabName);
-      let history = await responseCollection.find({}).project({date:1,_id:1,created:1}).sort({created:-1}).toArray()
+      let historyFilter = {};
+      if (historyFilterLimit != 'all' && historyTextSearch != '') {
+        historyFilter = {$and:[{function:historyFilterLimit},{$or:[{response:{$regex:historyTextSearch,$options:'i'}},{request:{$regex:historyTextSearch,$options:'i'}}]}]}
+      } else if (historyFilterLimit != 'all') {
+        historyFilter = {function:historyFilterLimit}
+      } else if (historyTextSearch != '') {
+        historyFilter = {$or:[{response:{$regex:historyTextSearch,$options:'i'}},{request:{$regex:historyTextSearch,$options:'i'}}]}
+      }
+      let history = await responseCollection.find(historyFilter).project({date:1,_id:1,created:1}).sort({created:-1}).toArray()
       socket.emit('historyList',history)
     } else {
       console.log('unknown tabName',tabName);
@@ -488,6 +525,7 @@ async function saveResponse(responseRaw,call_function){
   }
   try {
     await responseCollection.insertOne(response);
+    return response._id;
   } catch (error) {
     console.error('Error saving response to MongoDB:', error);
   }
@@ -505,14 +543,15 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey,call_f
       max_tokens: maxTokens
     });
     
-    saveResponse(response);
+    let allResponse_id = await saveResponse(response,call_function);
     // Extract the generated response from the API
     const generatedResponse = {
       content:response.data.choices[0].message.content,
       date:response.headers.date,
       role:response.data.choices[0].message.role,
       id:response.data.id,
-      tokens:response.data.usage.completion_tokens
+      tokens:response.data.usage.completion_tokens,
+      allResponse_id:allResponse_id
     }
     
     return generatedResponse;
