@@ -298,6 +298,9 @@ socket.on('adventureEventSuggest', (data) => {
   }
   document.getElementById("player-input-header").innerText = "Player Input - "+data.playerName;
 });
+socket.on('adventureEventDelete', (message_id) => {
+  document.getElementById('div-'+message_id).remove();
+});
 socket.on('adventureEvent', (data) => {
   addAdventureHistory(data);
   document.getElementById('player-input-field').value = '';
@@ -692,7 +695,6 @@ function addAdventureHistory(entry) {
     button.id = entry._id;
     button.onclick = function() {
       socket.emit('deleteMessage', this.id);
-      document.getElementById('div-'+this.id).remove();
     }
     button.textContent = 'x';
     messageDiv.appendChild(button);

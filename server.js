@@ -239,10 +239,10 @@ io.on('connection', async (socket) => {
     } else {
       try{
         let [ adventure , character ] = await Promise.all([
-          gameDataCollection.findOne({type:'adventure',_id:data.adventure_id}),
-          gameDataCollection.findOne({type:'character',_id:data.character_id})
+          gameDataCollection.findOne({type:'adventure',_id:new ObjectId(data.adventure_id),owner_id:playerData._id}),
+          gameDataCollection.findOne({type:'character',_id:new ObjectId(data.character_id),owner_id:playerData._id})
         ]);
-        if (playerData._id == adventure.owner_id || character.owner_id == playerData._id){
+        if (adventure || character){
           bootAdventurer(data);
         }
       } finally {
@@ -251,19 +251,21 @@ io.on('connection', async (socket) => {
     }
   });
   socket.on('deleteMessage',async message_id =>{
+    let message = await gameDataCollection.findOne({type:'message',_id:new ObjectId(message_id)},{adventure_id:1});
     if (playerData.admin) {
       try{
         gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{$set:{type:'deleted-message'}});
+        io.sockets.in('Adventure-'+message.adventure_id).emit('adventureEventDelete',message_id);
       } catch (error) {
         console.log(error);
       }
     } else {
       try{
-        let message = await gameDataCollection.findOne({type:'message',_id:new ObjectId(message_id)},{adventure_id:1});
         if (message){
-          let adventure = await gameDataCollection.findOne({type:'adventure',_id:message.adventure_id},{owner_id:1});
-          if (playerData._id == adventure.owner_id){
-            gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{$set:{type:'deleted-message'}});
+          let adventure = await gameDataCollection.findOne({type:'adventure',_id:message.adventure_id,owner_id:playerData._id},{owner_id:1});
+          if (adventure){
+            gameDataCollection.updateOne({type:'message',_id:message._id},{$set:{type:'deleted-message'}});
+            io.sockets.in('Adventure-'+message.adventure_id).emit('adventureEventDelete',message_id);
           }
         }
       } catch (error) {
