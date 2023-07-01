@@ -688,8 +688,9 @@ async function completeAdventure(adventure_id){
 }
 async function bootAdventurer(data){
   try {
-    gameDataCollection.updateOne({type:'adventure',_id:new ObjectId(data.adventure_id)},{$pull:{characters:{_id:data.character_id}}});
-    gameDataCollection.updateOne({type:'character',_id:new ObjectId(data.character_id)},{$unset:{activeAdventure:1}},{$pull:{adventures:{_id:data.adventure_id}}});
+    gameDataCollection.updateOne({type:'adventure',_id:new ObjectId(data.adventure_id)},{$pull:{characters:{_id:new ObjectId(data.character_id)}}});
+    gameDataCollection.updateOne({type:'character',_id:new ObjectId(data.character_id)},{$unset:{activeAdventure:1}});
+    gameDataCollection.updateOne({type:'character',_id:new ObjectId(data.character_id)},{$pull:{adventures:{_id:new ObjectId(data.adventure_id)}}});
   } catch (error) {
     console.error('Error ending adventure:', error);
   }
