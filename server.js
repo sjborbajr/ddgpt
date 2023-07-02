@@ -215,6 +215,7 @@ io.on('connection', async (socket) => {
     if (adventure_id.length == 24){
       socket.join('Adventure-'+adventure_id);
       sendAdventureData(adventure_id,socket);
+      //need more data than what is in the adventure data
       sendAdventurers(adventure_id,socket);
     }
   });
@@ -594,7 +595,7 @@ async function getSetting(setting){
 async function sendAdventureData(adventure_id,socket){
   let [ adventureMessages , adventureData ] = await Promise.all([
     gameDataCollection.find({type:'message',adventure_id:new ObjectId(adventure_id)}).sort({created:1}).toArray(),
-    gameDataCollection.findOne({type:'adventure',_id:new ObjectId(adventure_id)},{apiKey:-1}),
+    gameDataCollection.findOne({type:'adventure',_id:new ObjectId(adventure_id)},{api_key:-1,apiKey:-1}),
   ]);
   if (adventureData){
     adventureData.messages = adventureMessages;
@@ -604,7 +605,11 @@ async function sendAdventureData(adventure_id,socket){
   socket.emit('AllAdventureHistory',adventureData);
 }
 async function sendAdventurers(adventure_id,socket){
-  let adventurers = await gameDataCollection.find({type:'character','activeAdventure._id':new ObjectId(adventure_id)}).toArray();
+  let charIds = [], adventure = await gameDataCollection.findOne({type:'adventure',_id:new ObjectId(adventure_id)},{'characters._id':1})
+  for (let i = 0 ; i < adventure.characters.length; i++) {
+    charIds.push(adventure.characters[i]._id)
+  }
+  let adventurers = await gameDataCollection.find({type:'character','_id':{$in:charIds}}).toArray();
   if (adventurers.length > 0){
     socket.emit('AllAdventurers',adventurers);
   }
