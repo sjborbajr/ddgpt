@@ -90,14 +90,14 @@ io.on('connection', async (socket) => {
     }
   });
   socket.on('saveChar', async data => {
-    console.log('['+new Date().toUTCString()+'] Player '+playerName+' saving char '+data.data.name);
-    if (data._id.length == 24) {
-      try {
-        let charData = await gameDataCollection.findOne({_id:new ObjectId(data._id)});
+    try{
+      console.log('['+new Date().toUTCString()+'] Player '+playerName+' saving char '+data.data.name);
+      if (data._id.length == 24) {
+        let charData = await gameDataCollection.findOne({type:"character",_id:new ObjectId(data._id)});
         if (charData) {
           if (playerData.admin || charData.owner_id.toString() == playerData._id.toString()){
             data.data.owner_id = new ObjectId(data.owner_id);
-            gameDataCollection.updateOne({_id:new ObjectId(data._id)},{$set:data.data});
+            await gameDataCollection.updateOne({type:"character",_id:new ObjectId(data._id)},{$set:data.data});
             let message = {message:'Character '+data.data.name+' saved.',color:'green',timeout:1500};
             socket.emit('alertMsg',message);
           } else {
@@ -105,16 +105,16 @@ io.on('connection', async (socket) => {
             socket.emit('alertMsg',message);
           }
         }
-      } catch(error) {
-        let message = {message:'Character '+data.data.name+' not saved!',color:'red',timeout:5000};
-        console.error('error saving',error);
-        socket.emit('alertMsg',message);
+      } else if (data._id == '') {
+        data.data.type = 'character'
+        data.data.owner_id = playerData._id
+        await gameDataCollection.insertOne(data.data);
+        socket.emit('charData',data.data);
       }
-    } else if (data._id == '') {
-      data.data.type = 'character'
-      data.data.owner_id = playerData._id
-      await gameDataCollection.insertOne(data.data);
-      socket.emit('charData',data.data);
+    } catch(error) {
+      let message = {message:'Character '+data.data.name+' not saved!',color:'red',timeout:5000};
+      console.error('error saving',error);
+      socket.emit('alertMsg',message);
     }
   });
   socket.on('showCharOption', data =>{
@@ -751,6 +751,10 @@ async function continueAdventure(adventure_id){
         let summaryResponse = openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'summary');
         summaryResponse.then((response) => {
           if (response.id){
+            if (response.content.substring(0,8) = "Summary:") {
+              response.content = response.content.substring(8,response.content.length-8).trim()
+              response.tokens - 1
+            }
             let savings = openAiResponse.tokens - response.tokens
             try {
               gameDataCollection.updateOne({type:'message',id:openAiResponse.id},{$set:{summary:response.content,summary_tokens:response.tokens,tokens_savings:savings}});

@@ -333,8 +333,11 @@
   </div>
   <div id="Adventures" class="tabcontent">
     <div>
-      <label for="adventure_list">Adventures:</label>
-      <select id="adventure_list" onChange="fetchAdventure()"></select>
+      <button id="player-input-end">End</button>
+      <label for="adventure_list">
+        <span>Adventures:</span>
+        <select id="adventure_list" onChange="fetchAdventure()"></select>
+      </label>
       <input type="checkbox" id="active_only" onclick="listAdventureOption()" checked>Show Active</input>
     </div>
     <div id="adventure-history-container">
@@ -350,7 +353,6 @@
       <textarea id="player-input-field" placeholder="Enter your action"></textarea>
       <button id="adventureAction">Suggest</button>
       <button id="player-input-edit" hidden="true">Edit</button><br><br>
-      <button id="player-input-end">End</button>
     </div>
   </div>
   <script src="/socket.io/socket.io.js"></script>
