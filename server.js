@@ -136,20 +136,25 @@ io.on('connection', async (socket) => {
     gameDataCollection.updateOne({type:'player',name:playerName},{$set:{connected:false}});
   });
   socket.on('changeName', async newName => {
-    console.log('Player changing name from '+playerName+' to '+newName);
-    let test = await fetchPlayerData(newName)
-    //console.log(test)
-    if (test) {
-      socket.emit("error","player name already taken");
-    } else {
-      let rc = await updatePlayer(playerName,{$set:{name:newName}})
-      if (rc == 'success') {
-        socket.emit("nameChanged",newName);
-        playerName = newName;
-        playerData.name = playerName;
+    if (newName == newName.trim().replace(/[^a-zA-Z0-9]/g,'')){
+      console.log('Player changing name from '+playerName+' to '+newName);
+      let test = await fetchPlayerData(newName)
+      //console.log(test)
+      if (test) {
+        socket.emit("error","player name already taken");
       } else {
-        socket.emit("error","error changing name");
+        let rc = await updatePlayer(playerName,{$set:{name:newName}})
+        if (rc == 'success') {
+          socket.emit("nameChanged",newName);
+          playerName = newName;
+          playerData.name = playerName;
+        } else {
+          socket.emit("error","error changing name");
+        }
       }
+    } else {
+      let message = {message:'New name appeared to have invalid chars, not changing!',color:'red',timeout:5000}
+      socket.emit('alertMsg',message);      
     }
   });
   socket.on('historyFilterLimit', async limit => {
