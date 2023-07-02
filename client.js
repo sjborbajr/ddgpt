@@ -288,7 +288,7 @@ socket.on('AddAdventurer', (data) => {
   }
 });
 socket.on('adventureEventSuggest', (data) => {
-  if (!document.getElementById('adventureAction').disabled && document.getElementById('player-input-field').value.length > 0 && data.playerName != playerName){
+  if (!document.getElementById('player-input-field').disabled && document.getElementById('player-input-field').value.length > 0 && data.playerName != playerName){
     document.getElementById('player-input-field').value = data.content+"\n"+document.getElementById('player-input-field').value;
   } else {
     document.getElementById('player-input-field').value = data.content;
