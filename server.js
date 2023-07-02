@@ -93,7 +93,7 @@ io.on('connection', async (socket) => {
     console.log('['+new Date().toUTCString()+'] Player '+playerName+' saving char '+data.data.name);
     if (data._id.length == 24) {
       try {
-      let charData = await gameDataCollection.findOne({_id:new ObjectId(data._id)});
+        let charData = await gameDataCollection.findOne({_id:new ObjectId(data._id)});
         if (charData) {
           if (playerData.admin || charData.owner_id.toString() == playerData._id.toString()){
             data.data.owner_id = new ObjectId(data.owner_id);
@@ -122,12 +122,12 @@ io.on('connection', async (socket) => {
     if (data == 'All' || data == 'Own') {
       showCharacters = data;
     } else {
-      let message = {message:'Invalid response!',color:'red',timeout:5000}
+      let message = {message:'Invalid option!',color:'red',timeout:5000}
       socket.emit('alertMsg',message);
     }
   });
   socket.on('listOwners', async () => {
-    //TODO limit the owner list for non-admins
+    //TODO limit list owner for non-admins
     let owners = await gameDataCollection.find({type:'player'}).project({name:1,_id:1}).toArray();
     socket.emit('listedOwners',owners);
   });
@@ -156,20 +156,21 @@ io.on('connection', async (socket) => {
     historyFilterLimit = limit;
   });
   socket.on('fetchHistory', async id => {
-    try {
-
-      let query = ''
-      if (playerData.admin) {
-        query = {_id:new ObjectId(id)};
-        let history = await responseCollection.findOne(query);
-        if (history){
-          socket.emit('historyData',history);
-        } else {
-          socket.emit('error','could not find history with ID: '+id);
-        }    
+    if (playerData.admin){
+      try {
+        let query = ''
+        if (playerData.admin) {
+          query = {_id:new ObjectId(id)};
+          let history = await responseCollection.findOne(query);
+          if (history){
+            socket.emit('historyData',history);
+          } else {
+            socket.emit('error','could not find history with ID: '+id);
+          }    
+        }
+      } catch (error){
+        console.log('error',error);
       }
-    } catch (error){
-      console.log('error',error);
     }
   });
   socket.on('fetchCharData', async id => {
@@ -187,20 +188,25 @@ io.on('connection', async (socket) => {
     }
   });
   socket.on('scotRun',async data =>{
-    let message = {message:'Message recieved, running!',color:'green',timeout:10000}
-    socket.emit('alertMsg',message);
-    let messages = [{role:'system',content:data.systemmessage},
-                    {role:'assistant',content:data.assistantmessage},
-                    {role:'user',content:data.user}
-                   ]
-    let response = await openaiCall(messages,data.model,Number(data.temperature),Number(data.maxTokens),data.apikey,'ScotGPT')
-    socket.emit('ScotRan',response.content);
+    if (playerData.admin) {
+      let message = {message:'Message recieved, running!',color:'green',timeout:10000}
+      socket.emit('alertMsg',message);
+      let messages = [
+        {role:'system',content:data.systemmessage},
+        {role:'assistant',content:data.assistantmessage},
+        {role:'user',content:data.user}
+      ]
+      let response = await openaiCall(messages,data.model,Number(data.temperature),Number(data.maxTokens),data.apikey,'ScotGPT')
+      socket.emit('ScotRan',response.content);
+    }
   });
   socket.on('replay',async data =>{
-    let message = {message:'replay recieved, running!',color:'green',timeout:10000}
-    socket.emit('alertMsg',message);
-    let response = await openaiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_key,'Replay')
-    socket.emit('replayRan',{date:response.date,_id:response.allResponse_id});
+    if (playerData.admin) {
+      let message = {message:'replay recieved, running!',color:'green',timeout:10000}
+      socket.emit('alertMsg',message);
+      let response = await openaiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_key,'Replay')
+      socket.emit('replayRan',{date:response.date,_id:response.allResponse_id});
+    }
   });
   socket.on('fetchAllAdventureHistory',async adventure_id =>{
     if (adventure_id.length == 24){
@@ -245,32 +251,36 @@ io.on('connection', async (socket) => {
         if (adventure || character){
           bootAdventurer(data);
         }
-      } finally {
-        //ok
+      } catch (error) {
+        console.log(error);
       }
     }
   });
   socket.on('deleteMessage',async message_id =>{
-    let message = await gameDataCollection.findOne({type:'message',_id:new ObjectId(message_id)},{adventure_id:1});
-    if (playerData.admin) {
-      try{
-        gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{$set:{type:'deleted-message'}});
-        io.sockets.in('Adventure-'+message.adventure_id).emit('adventureEventDelete',message_id);
-      } catch (error) {
-        console.log(error);
-      }
-    } else {
-      try{
-        if (message){
-          let adventure = await gameDataCollection.findOne({type:'adventure',_id:message.adventure_id,owner_id:playerData._id},{owner_id:1});
-          if (adventure){
-            gameDataCollection.updateOne({type:'message',_id:message._id},{$set:{type:'deleted-message'}});
-            io.sockets.in('Adventure-'+message.adventure_id).emit('adventureEventDelete',message_id);
-          }
+    try {
+      let message = await gameDataCollection.findOne({type:'message',_id:new ObjectId(message_id)},{adventure_id:1});
+      if (playerData.admin) {
+        try{
+          gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{$set:{type:'deleted-message'}});
+          io.sockets.in('Adventure-'+message.adventure_id).emit('adventureEventDelete',message_id);
+        } catch (error) {
+          console.log(error);
         }
-      } catch (error) {
-        console.log(error);
+      } else {
+        try{
+          if (message){
+            let adventure = await gameDataCollection.findOne({type:'adventure',_id:message.adventure_id,owner_id:playerData._id},{owner_id:1});
+            if (adventure){
+              gameDataCollection.updateOne({type:'message',_id:message._id},{$set:{type:'deleted-message'}});
+              io.sockets.in('Adventure-'+message.adventure_id).emit('adventureEventDelete',message_id);
+            }
+          }
+        } catch (error) {
+          console.log(error);
+        }
       }
+    } catch (error){
+      console.log(error);
     }
   });
   socket.on('suggestAdventureInput',async UserInput =>{
@@ -287,36 +297,44 @@ io.on('connection', async (socket) => {
     showActiveAdventures = data;
   });
   socket.on('beginAdventure',async adventure_id =>{
-    adventure_id = new ObjectId(adventure_id);
-    let adventure = await gameDataCollection.findOne({_id:adventure_id,state:'forming',type:'adventure'});
-    if (adventure.owner_id.toString() == playerData._id.toString() || playerData.admin) {
-      await gameDataCollection.updateOne({_id:adventure_id,type:'adventure'},{$set:{state:'discovery'}});
-      await startAdventure(adventure);
-      await gameDataCollection.updateOne({_id:adventure_id,type:'adventure'},{$set:{state:'active'}});
+    try {
+      adventure_id = new ObjectId(adventure_id);
+      let adventure = await gameDataCollection.findOne({_id:adventure_id,state:'forming',type:'adventure'});
+      if (adventure.owner_id.toString() == playerData._id.toString() || playerData.admin) {
+        await gameDataCollection.updateOne({_id:adventure_id,type:'adventure'},{$set:{state:'discovery'}});
+        await startAdventure(adventure);
+        await gameDataCollection.updateOne({_id:adventure_id,type:'adventure'},{$set:{state:'active'}});
+      }
+    } catch (error){
+      console.log(error);
     }
   });
   socket.on('joinParty',async adventure_id =>{
-    let [ adventure , myCharacters, myCharactersData ] = await Promise.all([
-      gameDataCollection.findOne({_id:new ObjectId(adventure_id),state:'forming',type:'adventure'}),
-      gameDataCollection.find({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}}).project({_id:1,name:1}).toArray(),
-      gameDataCollection.find({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}}).toArray()
-    ]);
-
-    gameDataCollection.updateOne({_id:adventure._id,type:'adventure'},{$push:{characters:{$each:myCharacters}}});
-    gameDataCollection.updateMany({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$push:{adventures:{name:adventure.name,_id:adventure._id}}});
-
-    io.sockets.in('Adventure-'+adventure._id).emit('AddAdventurer',myCharactersData);
-
-    let message = {message:'Party Joined',color:'green',timeout:3000}
-    socket.emit('alertMsg',message);    
+    try {
+      let [ adventure , myCharacters, myCharactersData ] = await Promise.all([
+        gameDataCollection.findOne({_id:new ObjectId(adventure_id),state:'forming',type:'adventure'}),
+        gameDataCollection.find({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}}).project({_id:1,name:1}).toArray(),
+        gameDataCollection.find({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}}).toArray()
+      ]);
+      
+      gameDataCollection.updateOne({_id:adventure._id,type:'adventure'},{$push:{characters:{$each:myCharacters}}});
+      gameDataCollection.updateMany({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$push:{adventures:{name:adventure.name,_id:adventure._id}}});
+      
+      io.sockets.in('Adventure-'+adventure._id).emit('AddAdventurer',myCharactersData);
+      
+      let message = {message:'Party Joined',color:'green',timeout:3000}
+      socket.emit('alertMsg',message);    
+    } catch (error) {
+      console.log(error);
+    }
   });
   socket.on('historyTextSearch',async data =>{
     historyTextSearch = data;
   });
   socket.on('createParty',async NewName =>{
-    let document, character_ids = await gameDataCollection.find({type:'character',owner_id:playerData._id}).project({_id:1,name:1}).toArray();
-    if (character_ids.length > 0) {
-      document = {
+    let character_ids = await gameDataCollection.find({type:'character',owner_id:playerData._id,activeAdventure:{$exists:false}}).project({_id:1,name:1}).toArray();
+    if (character_ids.length > 0 && NewName.length > 0) {
+      let document = {
         type:'adventure',
         party_name:NewName,
         name:(NewName+': <forming>'),
@@ -611,7 +629,7 @@ async function startAdventure(adventure){
   let messages = formatStartMessages(settings,characters)
 
   if (settings.forReal){
-    let openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game')
+    let openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'adventureStart')
     if (openAiResponse.id) {
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure._id;
@@ -627,7 +645,7 @@ async function startAdventure(adventure){
       
       messages = formatCroupierStartMessages(settings,adventure,openAiResponse.content);
       
-      let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'adventureStart');
+      let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'croupier');
       if (croupierResponse.id){
         let responseJson = JSON.parse(croupierResponse.content)
         if (responseJson){
@@ -709,7 +727,7 @@ async function continueAdventure(adventure_id){
   let messages = formatAdventureMessages(settings,allMessages,characters)
 
   if (settings.forReal){
-    openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'adventureStart')
+    openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game')
     if (openAiResponse.id) {
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure_id;
