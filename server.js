@@ -164,15 +164,13 @@ io.on('connection', async (socket) => {
     if (playerData.admin){
       try {
         let query = ''
-        if (playerData.admin) {
-          query = {_id:new ObjectId(id)};
-          let history = await responseCollection.findOne(query);
-          if (history){
-            socket.emit('historyData',history);
-          } else {
-            socket.emit('error','could not find history with ID: '+id);
-          }    
-        }
+        query = {_id:new ObjectId(id)};
+        let history = await responseCollection.findOne(query);
+        if (history){
+          socket.emit('historyData',history);
+        } else {
+          socket.emit('error','could not find history with ID: '+id);
+        }    
       } catch (error){
         console.log('error',error);
       }
