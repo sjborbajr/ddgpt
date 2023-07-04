@@ -10,7 +10,7 @@ import crypto from 'crypto';
 import { formatCroupierStartMessages, formatStartMessages, formatAdventureMessages, formatSummaryMessages, formatCroupierMessages } from './functions.js';
 import { encoding_for_model } from "tiktoken";
 
-const mongoUri = "mongodb://localhost/?retryWrites=true";
+const mongoUri = process.env.MONGODB || "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri);
 try {
   await client.connect();
