@@ -63,8 +63,10 @@ textarea {
   height: fit-content;
   left:0px;
   right:0px;
-  top:0px;
+  top:36px;
   position: absolute;
+  font-size: 20px;
+  font-weight: bold;
 }
 .message {
   position: relative;

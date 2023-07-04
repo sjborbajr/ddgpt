@@ -109,7 +109,9 @@ io.on('connection', async (socket) => {
         data.data.owner_id = playerData._id
         await gameDataCollection.insertOne(data.data);
         socket.emit('charData',data.data);
-      }
+        let message = {message:'Character '+data.data.name+' created.',color:'green',timeout:5000};
+        socket.emit('alertMsg',message);
+  }
     } catch(error) {
       let message = {message:'Character '+data.data.name+' not saved!',color:'red',timeout:5000};
       console.error('error saving',error);
