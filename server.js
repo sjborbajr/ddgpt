@@ -396,7 +396,9 @@ io.on('connection', async (socket) => {
       }
       //send forming parties - need to figure out how to limit who can see which parties
       let formingParties = await gameDataCollection.find({type:'adventure',state:'forming'}).project({party_name:1,_id:-1}).toArray();
-      socket.emit('formingParties',formingParties);
+      if (formingParties.length > 0 ) {
+        socket.emit('formingParties',formingParties);
+      }
 
     } else if (tabName == 'Characters'){
       socket.join('Tab-'+tabName);
