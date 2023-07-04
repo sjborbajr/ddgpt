@@ -287,6 +287,13 @@ socket.on('AddAdventurer', (data) => {
     }
   }
 });
+socket.on('RemoveAdventurer', (data) => {
+  if (localStorage.getItem('currentTab') == 'Adventures') {
+    for(let i = 0; i < data.length; i++){
+      document.getElementById('div-'+data._id).remove();
+    }
+  }
+});
 socket.on('adventureEventSuggest', (data) => {
   if (!document.getElementById('player-input-field').disabled && document.getElementById('player-input-field').value.length > 0 && data.playerName != playerName){
     document.getElementById('player-input-field').value = data.content+"\n"+document.getElementById('player-input-field').value;
@@ -750,7 +757,6 @@ function AddAdventurer(data) {
     button.id = data._id;
     button.onclick = function() {
       socket.emit('bootAdventurer', {character_id:this.id,adventure_id:document.getElementById('adventure_list').value});
-      document.getElementById('div-'+this.id).remove();
     }
     button.textContent = 'x';
 
