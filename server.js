@@ -81,7 +81,6 @@ io.on('connection', async (socket) => {
   socket.on('save', data => {
     if (playerData.admin){
       console.log('['+new Date().toUTCString()+'] Player '+playerName+' saved');
-      socket.to('System').emit('settings', data)
       saveSettings(data,socket);
     } else {
       console.log('['+new Date().toUTCString()+'] Player '+playerName+' tried to save');
@@ -244,20 +243,16 @@ io.on('connection', async (socket) => {
     }
   });
   socket.on('bootAdventurer',async data =>{
-    if (playerData.admin) {
-      bootAdventurer(data);
-    } else {
-      try{
-        let [ adventure , character ] = await Promise.all([
-          gameDataCollection.findOne({type:'adventure',_id:new ObjectId(data.adventure_id),owner_id:playerData._id}),
-          gameDataCollection.findOne({type:'character',_id:new ObjectId(data.character_id),owner_id:playerData._id})
-        ]);
-        if (adventure || character){
-          bootAdventurer(data);
-        }
-      } catch (error) {
-        console.log(error);
+    try{
+      let [ adventure , character ] = await Promise.all([
+        gameDataCollection.findOne({type:'adventure',_id:new ObjectId(data.adventure_id)}),
+        gameDataCollection.findOne({type:'character',_id:new ObjectId(data.character_id),owner_id:playerData._id})
+      ]);
+      if (adventure.state == "forming" && (adventure.owner_id.toString() == playerData._id.toString() || character || playerData.admin)){
+        bootAdventurer(data,socket);
       }
+    } catch (error) {
+      console.log(error);
     }
   });
   socket.on('deleteMessage',async message_id =>{
@@ -339,7 +334,7 @@ io.on('connection', async (socket) => {
       await gameDataCollection.updateMany({owner_id:playerData._id,type:'character'},{$push:{adventures:{name:adventure.name,_id:adventure._id}}});
       let message = {message:'Party Forming',color:'green',timeout:3000}
       socket.emit('alertMsg',message);
-      io.emit("partyForming",{party_name:adventure.party_name, _id:adventure._id})
+      io.sockets.in("Tab-Home").emit("partyForming",{party_name:adventure.party_name, _id:adventure._id})
     } else {
       let message = {message:"You don't have any available characters!",color:'red',timeout:5000}
       socket.emit('alertMsg',message);
@@ -434,6 +429,7 @@ async function saveSettings(data,socket){
     await settingsCollection.updateOne({}, { $set: data }, { upsert: true });
     let message = {message:'Settings saved.',color:'green',timeout:3000}
     socket.emit('alertMsg',message);
+    //This is the data that came from the client, don't need to hide sensitive data
     io.sockets.in('Tab-System').emit('settings',data);
   } catch (error) {
     console.error('Error updating settings:', error);
@@ -699,13 +695,19 @@ async function completeAdventure(adventure_id){
   }
   //level up character
 }
-async function bootAdventurer(data){
+async function bootAdventurer(data,socket){
   try {
-    gameDataCollection.updateOne({type:'adventure',_id:new ObjectId(data.adventure_id)},{$pull:{characters:{_id:new ObjectId(data.character_id)}}});
-    gameDataCollection.updateOne({type:'character',_id:new ObjectId(data.character_id)},{$unset:{activeAdventure:1}});
-    gameDataCollection.updateOne({type:'character',_id:new ObjectId(data.character_id)},{$pull:{adventures:{_id:new ObjectId(data.adventure_id)}}});
+    let adventure = await db.gameDataCollection.findOne({type:'adventure',_id:new ObjectId(data.adventure_id),state:'forming'});
+    if (adventure) {
+      gameDataCollection.updateOne({type:'adventure',_id:new ObjectId(data.adventure_id)},{$pull:{characters:{_id:new ObjectId(data.character_id)}}});
+      gameDataCollection.updateOne({type:'character',_id:new ObjectId(data.character_id)},{$unset:{activeAdventure:1}});
+      gameDataCollection.updateOne({type:'character',_id:new ObjectId(data.character_id)},{$pull:{adventures:{_id:new ObjectId(data.adventure_id)}}});
+    } else {
+      let message = {message:"Adventure is no longer forming, can't boot.",color:'red',timeout:3000}
+      socket.emit('alertMsg',message);
+    }
   } catch (error) {
-    console.error('Error ending adventure:', error);
+    console.error('Error booting adventurer:', error);
   }
 }
 async function continueAdventure(adventure_id){
