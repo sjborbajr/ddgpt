@@ -202,16 +202,23 @@ socket.on('charList', (data) => {
 });
 socket.on('charData', (data) => {
   if (localStorage.getItem('currentTab') == 'Characters') {
-    if (document.getElementById('characters_list').value == data._id) {
+    if (document.getElementById('characters_list').value == data._id || data.name == document.getElementById('character_name').value) {
+      document.getElementById('characters_list').value = data._id;
+      if (document.getElementById('characters_list').value != data._id.toString()){
+        document.getElementById('characters_list').options[document.getElementById('characters_list').options.length] = new Option(data.name, data._id);
+        document.getElementById('characters_list').value = data._id;
+      }
       document.getElementById('character1').style.display = 'inline';
       document.getElementById('character2').style.display = 'inline';
       document.getElementById('character_name').value = data.name;
       document.getElementById('character_id').value = data._id;
-      document.getElementById('character_owner').options[0].value = data.owner_id;
-      document.getElementById('character_owner').options[0].innerText = 'resolving...';
-      document.getElementById('character_owner').value = data.owner_id;
-      //fill the drop down with potential owners
-      socket.emit('listOwners');
+      if (document.getElementById('character_owner').value != data.owner_id.toString()){
+        document.getElementById('character_owner').options[0].value = data.owner_id;
+        document.getElementById('character_owner').options[0].innerText = 'resolving...';
+        document.getElementById('character_owner').value = data.owner_id;
+        //fill the drop down with potential owners
+        socket.emit('listOwners');
+      }
       document.getElementById('character_state').value = data.state;
       if (data.activeAdventure) {
         document.getElementById('character_activeAdventure').value = data.activeAdventure.name;
@@ -581,9 +588,8 @@ function showChar(id) {
       //optionDoc.remove(i);
     }
   }
-  optionDoc.disabled = true;
-  optionDoc.options[0].value = 'unowned';
-  optionDoc.options[0].innerText = 'unowned';
+  optionDoc.options[0].value = 'resolving';
+  optionDoc.options[0].innerText = 'resolving';
   socket.emit('fetchCharData',id);
 }
 function replay() {
@@ -896,10 +902,11 @@ function newChar() {
 
   attributes = ["STR","DEX","CON","INT","WIS","CHA"];
   for (let i = 0 ; i < attributes.length; i++){
-    document.getElementById('character_'+attributes[i]).value = rollStat();
+    let attributeValue = rollStat();
     if (raceBonuses[selectedRace][attributes[i]]) {
       attributeValue += raceBonuses[selectedRace][attributes[i]];
     }
+    document.getElementById('character_'+attributes[i]).value = attributeValue;
   };
 
 }
