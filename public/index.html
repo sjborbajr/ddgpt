@@ -342,8 +342,25 @@
     </div>
     <div id="adventure-history-container">
       <h2>Adventure History</h2>
-      <button id=mySidepanel-btn class="openbtn refreshButton" onclick="toggleNav()" hidden>&#9776;</button>
+      <button id=mySidepanel-btn class="openbtn refreshButton" onclick="toggleNav()">&#9776;</button>
       <div id="mySidepanel" class="sidepanel">
+        <div style="width: 100%; text-align: center;">
+          <label for="adventure-model">
+            <span>Model:</span>
+            <select id="adventure-model" onChange="adventureModel(this.value)">
+              <option value="unset">default</option>
+              <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
+              <option value="gpt-3.5-turbo-0613">gpt-3.5-turbo-0613</option>
+              <option value="gpt-3.5-turbo-16k">gpt-3.5-turbo-16k</option>
+              <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+              <option value="gpt-4">gpt-4</option>
+              <option value="gpt-4-0314">gpt-4-0314</option>
+              <option value="gpt-4-0613">gpt-4-0613</option>
+              <option value="gpt-4-32k">gpt-4-32k</option>
+              <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
+            </select>
+          </label>
+        </div>
         <div id="adventurers"></div>
       </div>
       <div id="adventure-history" style="height: 500px; overflow-y: scroll; border: 1px solid #ddd;"></div>

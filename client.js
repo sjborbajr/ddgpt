@@ -258,25 +258,23 @@ socket.on('nonce', (nonce) => {
 socket.on('AllAdventureHistory', (data) => {
   //addAllAdventureHistory(data);
   if (data.messages) {addAllAdventureHistory(data.messages);};
+  if (data.model) {document.getElementById('adventure-model').value = data.model;} else {document.getElementById('adventure-model').value = 'unset'}
   if (data.state == 'active'){
     document.getElementById('player-input-end').disabled = false;
     document.getElementById('adventureAction').disabled = false;
     document.getElementById('player-input-edit').disabled = false;
     document.getElementById('player-input-field').disabled = false;
-    document.getElementById('mySidepanel-btn').hidden = false;
   } else if (data.state == 'forming') {
     document.getElementById('player-input-end').disabled = false;
     document.getElementById('adventureAction').disabled = false;
     document.getElementById('adventureAction').innerText = 'Begin';
     document.getElementById('player-input-edit').disabled = true;
     document.getElementById('player-input-field').disabled = true;
-    document.getElementById('mySidepanel-btn').hidden = false;
   } else {
     document.getElementById('player-input-end').disabled = true;
     document.getElementById('adventureAction').disabled = true;
     document.getElementById('player-input-edit').disabled = true;
     document.getElementById('player-input-field').disabled = true;
-    document.getElementById('mySidepanel-btn').hidden = true;
   }
 });
 socket.on('AllAdventurers', (data) => {
@@ -795,6 +793,9 @@ function editAdventureInput() {
 function endAdventure() {
   socket.emit('endAdventure',document.getElementById('adventure_list').value);
   showTab('Home',document.getElementById('HomeBtn'),'green')
+}
+function adventureModel(model) {
+  socket.emit("setAdventureModel",{model:model,adventure_id:document.getElementById('adventure_list').value});
 }
 function adventureAction() {
   if (document.getElementById('adventureAction').innerText == 'Suggest') {

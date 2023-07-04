@@ -282,6 +282,21 @@ io.on('connection', async (socket) => {
       io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEventSuggest',UserInput);
     }
   });
+  socket.on('setAdventureModel',async data =>{
+    console.log('['+new Date().toUTCString()+'] Player '+playerName+' requested to set model to '+data.model)
+    try {
+      data.adventure_id = new ObjectId(data.adventure_id);
+      if (data.model == 'unset'){
+        await gameDataCollection.updateOne({type:'adventure',_id:data.adventure_id},{$unset:{model:1}});
+      } else {
+        await gameDataCollection.updateOne({type:'adventure',_id:data.adventure_id},{$set:{model:data.model}});
+      }
+      let message = {message:'model updated',color:'green',timeout:3000}
+      socket.emit('alertMsg',message);
+    } catch (error) {
+      console.log(error)
+    }
+  });
   socket.on('endAdventure',async adventure_id =>{
     completeAdventure(new ObjectId(adventure_id));
   });
@@ -645,12 +660,13 @@ async function startAdventure(adventure){
 
   let settings = await getSetting('');
   let apiKey = adventure.api_key;
+  let model = adventure.model || settings.model
 
   let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure._id}).toArray();
   let messages = formatStartMessages(settings,characters)
 
   if (settings.forReal){
-    let openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'adventureStart')
+    let openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'adventureStart')
     if (openAiResponse.id) {
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure._id;
@@ -699,7 +715,7 @@ async function startAdventure(adventure){
       //something went wrong getting creating adventure
     }
   } else {
-    console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
+    console.log(messages,model,Number(settings.temperature),Number(settings.maxTokens));
     setTimeout(()=> {io.sockets.in('Adventure-'+adventure._id).emit('adventureEvent',{role:'assistent',content:'fake'})}, 3000);
   }  
 }
@@ -754,9 +770,11 @@ async function continueAdventure(adventure_id){
   ]);
   let messages = formatAdventureMessages(settings,allMessages,characters)
   let apiKey = adventure.api_key;
+  let model = adventure.model || settings.model
+
 
   if (settings.forReal){
-    openAiResponse = await openaiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game')
+    openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game')
     if (openAiResponse.id) {
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure_id;
@@ -819,11 +837,11 @@ async function continueAdventure(adventure_id){
       //something went wrong getting adventure message
     }
   } else {
-    console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
+    console.log(messages,model,Number(settings.temperature),Number(settings.maxTokens));
     setTimeout(()=> {io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',{role:'assistent',content:'fake'})}, 3000);
     if (settings.doSummary) {
       messages = formatSummaryMessages(settings,"Fake response from Previous fake")
-      console.log(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens));
+      console.log(messages,settings.cru_model,Number(settings.temperature),Number(settings.maxTokens));
     }
   }
 }
