@@ -36,7 +36,8 @@ textarea {
   border: none;
   outline: none;
   cursor: pointer;
-  padding: 14px 16px;
+  padding-top: 8px;
+  padding-bottom: 8px;
   font-size: 17px;
   width: 33.3%;
 }
@@ -169,7 +170,7 @@ textarea {
   cursor: pointer;
   background-color: #555;
   color: white;
-  padding: 10px 15px;
+  padding: 4px 4px;
   border: none;
 }
 .openbtn:hover {
