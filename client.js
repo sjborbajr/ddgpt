@@ -167,9 +167,6 @@ socket.on('connect', () => {
   document.getElementById('alertMsg').style.display = 'inline';
   setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',1500);
 });
-socket.on('slap', (playerName) => {
-  // are you alive message?
-});
 socket.on('charList', (data) => {
   let optionDoc = document.getElementById('characters_list'), curChar = document.getElementById('characters_list').value;
   if (optionDoc.options.length > 0) {
