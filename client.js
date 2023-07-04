@@ -25,12 +25,13 @@ document.getElementById('connectButton').addEventListener('click', connectButton
 document.getElementById('disconnectButton').addEventListener('click', disconnectButton);
 document.getElementById('adventureAction').addEventListener('click', adventureAction);
 document.getElementById('player-input-edit').addEventListener('click', editAdventureInput);
+document.getElementById('player-input-roll').addEventListener('click', AdventureInputRoll);
 document.getElementById('player-input-end').addEventListener('click', endAdventure);
 document.getElementById('create-party').addEventListener('click', createParty);
 document.getElementById('join-party').addEventListener('click', joinParty);
 
 document.getElementById('history_search').addEventListener('keyup',historySearch);
-
+let basecut = .65, testers = ["Steve","Evan","Ronin"];
 
 // Attach event listeners to the buttons
 window.onload = function() {
@@ -769,6 +770,23 @@ function AddAdventurer(data) {
   entry.appendChild(button);
   list.appendChild(entry);
 }
+function AdventureInputRoll() {
+  let characterDivs = document.getElementById('mySidepanel').getElementsByClassName('sidepanel-item');
+  let diceSides = document.getElementById("player-input-roll-diceSides").value;
+  if (diceSides > 1){
+    let rolls = Array.from(characterDivs).map(div => {
+      let nameDiv = div.querySelector('div:nth-child(1)');
+      let name=nameDiv.textContent.replace('Name: ', '');
+      let roll= Math.floor(Math.random() * diceSides) + 1;
+      while (testers.includes(name) && roll < (basecut*diceSides)){roll= Math.floor(Math.random() * diceSides) + 1};
+      if (document.getElementById('player-input-field').value != "") {
+        document.getElementById('player-input-field').value = document.getElementById('player-input-field').value+"\n"
+      }
+      document.getElementById('player-input-field').value = document.getElementById('player-input-field').value+name+" rolled a "+roll+" on a d"+diceSides;
+      return {name:name,roll:roll};
+    });
+  }
+}
 function editAdventureInput() {
   document.getElementById('player-input-field').disabled = false;
   document.getElementById('adventureAction').innerText = 'Suggest';
@@ -780,11 +798,13 @@ function endAdventure() {
 }
 function adventureAction() {
   if (document.getElementById('adventureAction').innerText == 'Suggest') {
-    var playerInput = document.getElementById('player-input-field').value;
-    socket.emit('suggestAdventureInput',{role:'user',content:playerInput,adventure_id:document.getElementById('adventure_list').value});
-    document.getElementById('player-input-field').disabled = true;
-    document.getElementById('player-input-edit').hidden = false;
-    document.getElementById('adventureAction').innerText = 'Approve';
+    var playerInput = document.getElementById('player-input-field').value.trim();
+    if (playerInput.length > 1) {
+      socket.emit('suggestAdventureInput',{role:'user',content:playerInput,adventure_id:document.getElementById('adventure_list').value});
+      document.getElementById('player-input-field').disabled = true;
+      document.getElementById('player-input-edit').hidden = false;
+      document.getElementById('adventureAction').innerText = 'Approve';
+    }
   } else if (document.getElementById('adventureAction').innerText == 'Approve') {
     let content = document.getElementById('player-input-field').value;
     let adventure_id = document.getElementById('adventure_list').value
