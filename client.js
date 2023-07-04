@@ -795,7 +795,9 @@ function endAdventure() {
   showTab('Home',document.getElementById('HomeBtn'),'green')
 }
 function adventureModel(model) {
-  socket.emit("setAdventureModel",{model:model,adventure_id:document.getElementById('adventure_list').value});
+  if (document.getElementById('player-input-end').disabled == false) {
+    socket.emit("setAdventureModel",{model:model,adventure_id:document.getElementById('adventure_list').value});
+  }
 }
 function adventureAction() {
   if (document.getElementById('adventureAction').innerText == 'Suggest') {
