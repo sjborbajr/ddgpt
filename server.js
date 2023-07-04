@@ -306,12 +306,12 @@ io.on('connection', async (socket) => {
         gameDataCollection.find({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}}).project({_id:1,name:1}).toArray(),
         gameDataCollection.find({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}}).toArray()
       ]);
-      
-      gameDataCollection.updateOne({_id:adventure._id,type:'adventure'},{$push:{characters:{$each:myCharacters}}});
-      gameDataCollection.updateMany({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$push:{adventures:{name:adventure.name,_id:adventure._id}}});
-      
+      await Promise.all([
+        gameDataCollection.updateOne({_id:adventure._id,type:'adventure'},{$push:{characters:{$each:myCharacters}}}),
+        gameDataCollection.updateMany({owner_id:playerData._id,type:'character',activeAdventure:{$exists: false}},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$push:{adventures:{name:adventure.name,_id:adventure._id}}})
+      ])
       io.sockets.in('Adventure-'+adventure._id).emit('AddAdventurer',myCharactersData);
-      
+      socket.emit('partyJoined',{_id:adventure._id,name:adventure.name});
       let message = {message:'Party Joined',color:'green',timeout:3000}
       socket.emit('alertMsg',message);    
     } catch (error) {
@@ -340,7 +340,7 @@ io.on('connection', async (socket) => {
                 owner_id:playerData._id,
                 api_key:playerData.api_key
               }
-              await gameDataCollection.InsertOne(adventure);
+              await gameDataCollection.insertOne(adventure);
               //TODO Let player select characters
               await gameDataCollection.updateMany({owner_id:playerData._id,type:'character',activeAdventure:{$exists:false}},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$push:{adventures:{name:adventure.name,_id:adventure._id}}});
               socket.emit('partyJoined',{_id:adventure._id,name:adventure.name});

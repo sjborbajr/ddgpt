@@ -363,12 +363,9 @@ socket.on('historyList', (data) => {
   }
 });
 socket.on('partyJoined', (data) => {
-  let optionDoc = document.getElementById('adventure_list');
-  if (!optionDoc.options.map(o => o.value).includes(data._id)) {
-    optionDoc.options[optionDoc.options.length] = new Option(data[i].name, data[i]._id);
-  }
-  document.getElementById('adventure_list').value = data[i]._id;
-  showTab('Adventure',document.getElementById('AdventureBtn'),'orange')
+  document.getElementById('adventure_list').options[0] = new Option(data.name, data._id);
+  document.getElementById('adventure_list').value = data._id;
+  showTab('Adventures',document.getElementById('AdventuresBtn'),'orange')
 });
 socket.on('partyForming', (data) => {
   let list = document.getElementById('starting-parties');
