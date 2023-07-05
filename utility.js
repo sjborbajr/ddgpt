@@ -16,6 +16,12 @@ const settingsCollection = database.collection('settings'), gameDataCollection =
 let settings = await getSetting('');
 
 
+if (1==1){
+  let response = {content:'Summary: something'}
+  console.log(response);
+  console.log(response.content.substring(0,8));
+}
+
 if (1==2){
   let adventure_id = new ObjectId("6495cecb002277145acc8c75");
   let allMessages = await gameDataCollection.find({type:'message',adventure_id:adventure_id}).sort({created:1}).toArray();

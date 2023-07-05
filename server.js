@@ -795,9 +795,9 @@ async function continueAdventure(adventure_id){
         let summaryResponse = openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'summary');
         summaryResponse.then((response) => {
           if (response.id){
-            if (response.content.substring(0,8) = "Summary:") {
-              response.content = response.content.substring(8,response.content.length-8).trim()
-              response.tokens - 1
+            if (response.content.substring(0,8) == "Summary:") {
+              response.content = response.content.substring(8,response.content.length-8).trim();
+              response.tokens = response.tokens - 1;
             }
             let savings = openAiResponse.tokens - response.tokens
             try {
