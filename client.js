@@ -292,9 +292,7 @@ socket.on('AddAdventurer', (data) => {
 });
 socket.on('RemoveAdventurer', (data) => {
   if (localStorage.getItem('currentTab') == 'Adventures') {
-    for(let i = 0; i < data.length; i++){
-      document.getElementById('div-'+data).remove();
-    }
+    document.getElementById('div-'+data).remove();
   }
 });
 socket.on('adventureEventSuggest', (data) => {
