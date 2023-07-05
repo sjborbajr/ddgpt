@@ -7,7 +7,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import crypto from 'crypto';
-import { formatCroupierStartMessages, formatStartMessages, formatAdventureMessages, formatSummaryMessages, formatCroupierMessages } from './functions.js';
+import { formatCroupierStartMessages, formatStartMessages, formatAdventureMessages, formatSummaryMessages, formatCroupierMessages, formatDoubleCheckMessages } from './functions.js';
 import { encoding_for_model } from "tiktoken";
 
 const mongoUri = process.env.MONGODB || "mongodb://localhost/?retryWrites=true";
@@ -771,14 +771,22 @@ async function continueAdventure(adventure_id){
     gameDataCollection.find({type:'message',adventure_id:adventure_id}).sort({created:1}).toArray(),
     gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray()
   ]);
-  let messages = formatAdventureMessages(settings,allMessages,characters)
+  let messages = formatAdventureMessages(settings,allMessages,characters);
   let apiKey = adventure.api_key;
-  let model = adventure.model || settings.model
+  let model = adventure.model || settings.model;
 
 
   if (settings.forReal){
-    openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game')
+    openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game');
     if (openAiResponse.id) {
+      if(settings.doubleCheck) {
+        let messages = formatDoubleCheckMessages(settings,openAiResponse.content,characters);
+        let tempOpenAiResponse = await openaiCall(messages,settings.cru_model,0,Number(settings.maxTokens),apiKey,'doubleCheck');
+        if (tempOpenAiResponse.id){
+          openAiResponse = tempOpenAiResponse;
+        }
+      }
+      
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure_id;
       openAiResponse.owner_id = adventure.owner_id;

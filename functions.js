@@ -164,3 +164,25 @@ export function formatCroupierMessages(settings,content,characters){
 
   return messages
 }
+export function formatDoubleCheckMessages(settings,content,characters){
+  let dbl_system = settings.messages.dbl_system;
+  let dbl_characters = settings.messages.dbl_char_list;
+  let dbl_end = settings.messages.dbl_check_last;
+
+  //the croupier needs to know information about the party to generate good responses
+  let character_info = characters[0].name+" is a "+characters[0].details.Class
+  for (let i = 1 ; i < characters.length; i++){
+    character_info += '\n'+characters[i].name+" is a "+characters[i].details.Class
+  }
+
+  dbl_characters.content = dbl_characters.content.replaceAll('${char_list}' ,character_info);
+
+  let messages = [
+    {content:dbl_system.content,role:dbl_system.role},
+    {content:dbl_characters.content,role:dbl_characters.role},
+    {content:content,role:'user'},
+    {content:dbl_end.content,role:dbl_end.role}
+  ];
+
+  return messages
+}
