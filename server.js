@@ -265,10 +265,12 @@ io.on('connection', async (socket) => {
     try {
       let message = await gameDataCollection.findOne({type:'message',_id:new ObjectId(message_id)},{adventure_id:1});
       if (message){
-        let adventure = await gameDataCollection.findOne({type:'adventure',_id:message.adventure_id},{owner_id:1});
-        if (playerData.admin || playerData._id.toString() == adventure.owner_id.toString()) {
-          await gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{$set:{type:'deleted-message'}});
-          io.sockets.in('Adventure-'+message.adventure_id).emit('adventureEventDelete',message_id);
+        if (!message.origin) {
+          let adventure = await gameDataCollection.findOne({type:'adventure',_id:message.adventure_id},{owner_id:1});
+          if (playerData.admin || playerData._id.toString() == adventure.owner_id.toString()) {
+            await gameDataCollection.updateOne({type:'message',_id:new ObjectId(message_id)},{$set:{type:'deleted-message'}});
+            io.sockets.in('Adventure-'+message.adventure_id).emit('adventureEventDelete',message_id);
+          }
         }
       }
     } catch (error){
