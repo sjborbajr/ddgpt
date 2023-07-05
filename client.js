@@ -293,7 +293,7 @@ socket.on('AddAdventurer', (data) => {
 socket.on('RemoveAdventurer', (data) => {
   if (localStorage.getItem('currentTab') == 'Adventures') {
     for(let i = 0; i < data.length; i++){
-      document.getElementById('div-'+data._id).remove();
+      document.getElementById('div-'+data).remove();
     }
   }
 });
@@ -768,17 +768,22 @@ function AddAdventurer(data) {
 function AdventureInputRoll() {
   let characterDivs = document.getElementById('mySidepanel').getElementsByClassName('sidepanel-item');
   let diceSides = document.getElementById("player-input-roll-diceSides").value;
-  if (diceSides > 1){
+  let diceCount = document.getElementById("player-input-roll-diceCount").value;
+  if (diceSides > 1 && diceCount > 0){
     let rolls = Array.from(characterDivs).map(div => {
       let nameDiv = div.querySelector('div:nth-child(1)');
       let name=nameDiv.textContent.replace('Name: ', '');
-      let roll= Math.floor(Math.random() * diceSides) + 1;
-      while (testers.includes(name) && roll < (basecut*diceSides)){roll= Math.floor(Math.random() * diceSides) + 1};
+      let rollSum = 0
+      for(let i = 0; i < diceCount; i++) {
+        let roll = Math.floor(Math.random() * diceSides) + 1;
+        while (testers.includes(name) && roll < (basecut*diceSides)){roll= Math.floor(Math.random() * diceSides) + 1};
+        rollSum = rollSum + roll;
+      }
       if (document.getElementById('player-input-field').value != "") {
         document.getElementById('player-input-field').value = document.getElementById('player-input-field').value+"\n"
       }
-      document.getElementById('player-input-field').value = document.getElementById('player-input-field').value+name+" rolled a "+roll+" on a d"+diceSides;
-      return {name:name,roll:roll};
+      document.getElementById('player-input-field').value = document.getElementById('player-input-field').value+name+" rolled "+diceCount+"d"+diceSides+" for "+rollSum;
+      return {name:name,roll:rollSum};
     });
   }
 }
@@ -878,7 +883,7 @@ function joinParty(){
 }
 function newChar() {
   let names = [{name:'Zephyr',gender:'Either'},{name:'Ember',gender:'Either'},{name:'Kairo',gender:'Either'},{name:'Vega',gender:'Either'},{name:'Astra',gender:'Female'},{name:'Riven',gender:'Either'},{name:'Azriel',gender:'Either'},{name:'Zenith',gender:'Either'},{name:'Zora',gender:'Female'},{name:'Blaze',gender:'Either'},{name:'Magna',gender:'Either'},{name:'Phoenix',gender:'Either'},{name:'Zaire',gender:'Either'},{name:'Caelum',gender:'Either'},{name:'Aegis',gender:'Either'},{name:'Valor',gender:'Either'},{name:'Zarael',gender:'Either'},{name:'Lyric',gender:'Either'},{name:'Orionis',gender:'Male'},{name:'Kael',gender:'Either'},{name:'Daxon',gender:'Male'},{name:'Zephyros',gender:'Male'},{name:'Cael',gender:'Either'},{name:'Zyra',gender:'Female'},{name:'Lyra',gender:'Female'},{name:'Nova',gender:'Female'},{name:'Selene',gender:'Female'},{name:'Zara',gender:'Female'},{name:'Nyx',gender:'Female'},{name:'Thalia',gender:'Female'},{name:'Calliope',gender:'Female'},{name:'Astrid',gender:'Female'},{name:'Lumi',gender:'Female'},{name:'Seraphina',gender:'Female'},{name:'Xyla',gender:'Female'},{name:'Zinnia',gender:'Female'},{name:'Zephyra',gender:'Female'},{name:'Nola',gender:'Female'},{name:'Aella',gender:'Female'},{name:'Zahara',gender:'Female'},{name:'Celestia',gender:'Female'},{name:'Zaria',gender:'Female'},{name:'Emberlyn',gender:'Female'},{name:'Nyssa',gender:'Female'},{name:'Zaira',gender:'Female'},{name:'Aria',gender:'Female'},{name:'Astraia',gender:'Female'},{name:'Zephyrine',gender:'Female'},{name:'Callista',gender:'Female'},{name:'Kyra',gender:'Female'},{name:'Elysia',gender:'Female'},{name:'Zariah',gender:'Female'},{name:'Astraea',gender:'Female'},{name:'Zafira',gender:'Female'},{name:'Selena',gender:'Female'},{name:'Xyliana',gender:'Female'},{name:'Orion',gender:'Male'},{name:'Xander',gender:'Male'},{name:'Ajax',gender:'Male'},{name:'Soren',gender:'Male'},{name:'Kellan',gender:'Male'},{name:'Jaxon',gender:'Male'},{name:'Daxton',gender:'Male'},{name:'Ronin',gender:'Male'},{name:'Draven',gender:'Male'},{name:'Zephyrus',gender:'Male'},{name:'Titan',gender:'Male'},{name:'Zoran',gender:'Male'},{name:'Evander',gender:'Male'},{name:'Xyler',gender:'Male'},{name:'Kian',gender:'Male'},{name:'Seraph',gender:'Male'},{name:'Ryker',gender:'Male'},{name:'Zyler',gender:'Male'},{name:'Superman',gender:'Male'},{name:'Batman',gender:'Male'},{name:'Spider-Man',gender:'Male'},{name:'Wonder Woman',gender:'Female'},{name:'Captain America',gender:'Male'},{name:'Iron Man',gender:'Male'},{name:'Thor',gender:'Male'},{name:'Hulk',gender:'Male'},{name:'Black Widow',gender:'Female'},{name:'Wolverine',gender:'Male'},{name:'Storm',gender:'Female'},{name:'Cyclops',gender:'Male'},{name:'Jean Grey',gender:'Female'},{name:'Deadpool',gender:'Male'},{name:'Aquaman',gender:'Male'},{name:'The Flash',gender:'Male'},{name:'Green Lantern',gender:'Male'},{name:'Supergirl',gender:'Female'},{name:'Nightcrawler',gender:'Male'},{name:'Black Panther',gender:'Male'},{name:'Hawkeye',gender:'Male'},{name:'Doctor Strange',gender:'Male'},{name:'Catwoman',gender:'Female'},{name:'Green Arrow',gender:'Male'},{name:'Robin',gender:'Male'},{name:'Batgirl',gender:'Female'},{name:'Rogue',gender:'Female'},{name:'Gambit',gender:'Male'},{name:'Harley Quinn',gender:'Female'},{name:'Joker',gender:'Male'},{name:'Rorschach',gender:'Male'},{name:'Spawn',gender:'Male'},{name:'Hellboy',gender:'Male'},{name:'Daredevil',gender:'Male'},{name:'Punisher',gender:'Male'},{name:'Venom',gender:'Male'},{name:'Black Canary',gender:'Female'},{name:'Luke Cage',gender:'Male'},{name:'Jessica Jones',gender:'Female'},{name:'Elektra',gender:'Female'},{name:'Green Goblin',gender:'Male'},{name:'Doctor Doom',gender:'Male'},{name:'Bane',gender:'Male'},{name:'Red Hood',gender:'Male'},{name:'Batwoman',gender:'Female'},{name:'Poison Ivy',gender:'Female'},{name:'Penguin',gender:'Male'},{name:'Black Adam',gender:'Male'},{name:'Robin Hood',gender:'Male'},{name:'Silver Surfer',gender:'Male'},{name:'Oracle',gender:'Female'},{name:'Falcon',gender:'Male'},{name:'Scarlet Witch',gender:'Female'},{name:'Vision',gender:'Male'},{name:'Black Cat',gender:'Female'},{name:'Ant-Man',gender:'Male'},{name:'Wasp',gender:'Female'},{name:'Star-Lord',gender:'Male'},{name:'Gamora',gender:'Female'},{name:'Drax the Destroyer',gender:'Male'},{name:'Rocket Raccoon',gender:'Male'},{name:'Groot',gender:'Male'},{name:'Captain Marvel',gender:'Female'},{name:'Winter Soldier',gender:'Male'},{name:'Martian Manhunter',gender:'Male'},{name:'Batwing',gender:'Male'},{name:'Hawkgirl',gender:'Female'},{name:'Zatanna',gender:'Female'},{name:'Power Girl',gender:'Female'},{name:'Firestorm',gender:'Male'},{name:'Vixen',gender:'Female'},{name:'Blue Beetle',gender:'Male'},{name:'Huntress',gender:'Female'},{name:'Nightwing',gender:'Male'},{name:'The Thing',gender:'Male'},{name:'Human Torch',gender:'Male'},{name:'Invisible Woman',gender:'Female'},{name:'Mr. Fantastic',gender:'Male'},{name:'The Hulkling',gender:'Male'},{name:'She-Hulk',gender:'Female'},{name:'Robin (Damian Wayne)',gender:'Male'},{name:'Spider-Woman',gender:'Female'},{name:'Iron Fist',gender:'Male'},{name:'Moon Knight',gender:'Male'},{name:'Shazam',gender:'Male'},{name:'Black Lightning',gender:'Male'},{name:'Ghost Rider',gender:'Male'},{name:'Batwing (Luke Fox)',gender:'Male'},{name:'Green Lantern (Jessica Cruz)',gender:'Female'},{name:'Ms. Marvel',gender:'Female'},{name:'Red Hulk',gender:'Male'},{name:'Firestar',gender:'Female'},{name:'Cable',gender:'Male'},{name:'Squirrel Girl',gender:'Female'},{name:'Silver Sable',gender:'Female'},{name:'Deathstroke',gender:'Male'},{name:'Zatara',gender:'Male'},{name:'Sinestro',gender:'Male'},{name:'Jessica Drew',gender:'Female'}];
-  let Classes = ["Barbarian","Bard","Cleric","Druid","Fighter","Monk","Paladin","Ranger","Rogue","Sorcerer","Warlock","Wizard"];
+  let Classes = ["Barbarian","Bard","Cleric","Druid","Fighter","Monk","Paladin","Ranger","Rogue","Sorcerer","Warlock","Wizard","Assassin"];
   let Races = ["Dragonborn","Dwarf","Elf","Gnome","Half-Elf","Half-Orc","Halfling","Human","Tiefling"];
   let raceBonuses = {
     "Dragonborn": {"CHA": 1, "STR": 2},

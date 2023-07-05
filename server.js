@@ -745,13 +745,13 @@ async function completeAdventure(adventure_id){
 }
 async function bootAdventurer(data,socket){
   try {
-    let adventure = await db.gameDataCollection.findOne({type:'adventure',_id:new ObjectId(data.adventure_id),state:'forming'});
+    let adventure = await gameDataCollection.findOne({type:'adventure',_id:new ObjectId(data.adventure_id),state:'forming'});
     if (adventure) {
       await Promise.all([
         gameDataCollection.updateOne({type:'adventure',_id:new ObjectId(data.adventure_id)},{$pull:{characters:{_id:new ObjectId(data.character_id)}}}),
         gameDataCollection.updateOne({type:'character',_id:new ObjectId(data.character_id)},{$unset:{activeAdventure:1},$pull:{adventures:{_id:new ObjectId(data.adventure_id)}}})
       ])
-      io.sockets.in('Adventure-'+adventure._id).emit('RemoveAdventurer',myCharactersData);
+      io.sockets.in('Adventure-'+adventure._id).emit('RemoveAdventurer',data.character_id);
     } else {
       let message = {message:"Adventure is no longer forming, can't boot.",color:'red',timeout:3000}
       socket.emit('alertMsg',message);
