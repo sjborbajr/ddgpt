@@ -200,47 +200,43 @@ socket.on('charList', (data) => {
   }
 });
 socket.on('charData', (data) => {
-  if (localStorage.getItem('currentTab') == 'Characters') {
-    if (document.getElementById('characters_list').value == data._id || data.name == document.getElementById('character_name').value) {
+  if (document.getElementById('characters_list').value == data._id || data.name == document.getElementById('character_name').value) {
+    document.getElementById('characters_list').value = data._id;
+    if (document.getElementById('characters_list').value != data._id.toString()){
+      document.getElementById('characters_list').options[document.getElementById('characters_list').options.length] = new Option(data.name, data._id);
       document.getElementById('characters_list').value = data._id;
-      if (document.getElementById('characters_list').value != data._id.toString()){
-        document.getElementById('characters_list').options[document.getElementById('characters_list').options.length] = new Option(data.name, data._id);
-        document.getElementById('characters_list').value = data._id;
-      }
-      document.getElementById('character1').style.display = 'inline';
-      document.getElementById('character2').style.display = 'inline';
-      document.getElementById('character_name').value = data.name;
-      document.getElementById('character_id').value = data._id;
-      if (document.getElementById('character_owner').value != data.owner_id.toString()){
-        document.getElementById('character_owner').options[0].value = data.owner_id;
-        document.getElementById('character_owner').options[0].innerText = 'resolving...';
-        document.getElementById('character_owner').value = data.owner_id;
-        //fill the drop down with potential owners
-        socket.emit('listOwners');
-      }
-      document.getElementById('character_state').value = data.state;
-      if (data.activeAdventure) {
-        document.getElementById('character_activeAdventure').value = data.activeAdventure.name;
-      } else {
-        document.getElementById('character_activeAdventure').value = '';
-      }
-      if (data.adventures) {
-        document.getElementById('character_adventures').value = data.adventures[0].name;
-        for (let i = 1 ; i < data.adventures.length; i++){
-          document.getElementById('character_adventures').value += ','+data.adventures[i].name;
-        };
-      } else {
-        document.getElementById('character_adventures').value = ''
-      }
-      let attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
-      for (let i = 0 ; i < attributes.length; i++){
-        document.getElementById('character_'+attributes[i]).value = data.details[attributes[i]];
+    }
+    document.getElementById('character1').style.display = 'inline';
+    document.getElementById('character2').style.display = 'inline';
+    document.getElementById('character_name').value = data.name;
+    document.getElementById('character_id').value = data._id;
+    if (document.getElementById('character_owner').value != data.owner_id.toString()){
+      document.getElementById('character_owner').options[0].value = data.owner_id;
+      document.getElementById('character_owner').options[0].innerText = 'resolving...';
+      document.getElementById('character_owner').value = data.owner_id;
+      //fill the drop down with potential owners
+      socket.emit('listOwners');
+    }
+    document.getElementById('character_state').value = data.state;
+    if (data.activeAdventure) {
+      document.getElementById('character_activeAdventure').value = data.activeAdventure.name;
+    } else {
+      document.getElementById('character_activeAdventure').value = '';
+    }
+    if (data.adventures) {
+      document.getElementById('character_adventures').value = data.adventures[0].name;
+      for (let i = 1 ; i < data.adventures.length; i++){
+        document.getElementById('character_adventures').value += ','+data.adventures[i].name;
       };
     } else {
-      console.log("recieved data for "+data._id+" but drop down set to "+document.getElementById('characters_list').value);
+      document.getElementById('character_adventures').value = ''
     }
+    let attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
+    for (let i = 0 ; i < attributes.length; i++){
+      document.getElementById('character_'+attributes[i]).value = data.details[attributes[i]];
+    };
   } else {
-    console.log('no longer on char tab');
+    console.log("recieved data for "+data._id+" but drop down set to "+document.getElementById('characters_list').value);
   }
 });
 socket.on('nameChanged', (name) => {
@@ -276,19 +272,14 @@ socket.on('AllAdventureHistory', (data) => {
   }
 });
 socket.on('AllAdventurers', (data) => {
-  if (localStorage.getItem('currentTab') == 'Adventures') {
-    document.getElementById('mySidepanel-btn').hidden = false;
-    document.getElementById('adventurers').innerHTML = "";
-    for(let i = 0; i < data.length; i++){
-      AddAdventurer(data[i]);
-    }
+  document.getElementById('adventurers').innerHTML = "";
+  for(let i = 0; i < data.length; i++){
+    AddAdventurer(data[i]);
   }
 });
 socket.on('AddAdventurer', (data) => {
-  if (localStorage.getItem('currentTab') == 'Adventures') {
-    for(let i = 0; i < data.length; i++){
-      AddAdventurer(data[i]);
-    }
+  for(let i = 0; i < data.length; i++){
+    AddAdventurer(data[i]);
   }
 });
 socket.on('adventureRename', (data) => {
@@ -297,9 +288,7 @@ socket.on('adventureRename', (data) => {
   }
 });
 socket.on('RemoveAdventurer', (data) => {
-  if (localStorage.getItem('currentTab') == 'Adventures') {
-    document.getElementById('div-'+data).remove();
-  }
+  document.getElementById('div-'+data).remove();
 });
 socket.on('adventureEventSuggest', (data) => {
   if (!document.getElementById('player-input-field').disabled && document.getElementById('player-input-field').value.length > 0 && data.playerName != playerName){
@@ -324,56 +313,50 @@ socket.on('adventureEvent', (data) => {
   document.getElementById('player-input-edit').hidden = true;
 });
 socket.on('adventureList', (data) => {
-  if (localStorage.getItem('currentTab') == 'Adventures') {
-    let optionDoc = document.getElementById('adventure_list'), curOption = document.getElementById('adventure_list').value, firstId = false;
-    if (optionDoc.options.length > 0) {
-      for(let i = (optionDoc.options.length - 1); i >= 0; i--) {
-        optionDoc.remove(i);
-      }
+  let optionDoc = document.getElementById('adventure_list'), curOption = document.getElementById('adventure_list').value, firstId = false;
+  if (optionDoc.options.length > 0) {
+    for(let i = (optionDoc.options.length - 1); i >= 0; i--) {
+      optionDoc.remove(i);
     }
-    if (data.length) {
-      for(let i = 0; i < data.length; i++){
-        optionDoc.options[i] = new Option(data[i].name, data[i]._id);
-      }
-      firstId = data[0]._id;
-    } else if (data) {
-      optionDoc.options[0] = new Option(data.name, data._id);
-      firstId = data._id;
+  }
+  if (data.length) {
+    for(let i = 0; i < data.length; i++){
+      optionDoc.options[i] = new Option(data[i].name, data[i]._id);
     }
-    
-    if (curOption == '') {
-      if (firstId) {
-        socket.emit('fetchAllAdventureHistory',firstId)
-      }
-    } else {
-      document.getElementById('adventure_list').value = curOption;
-      socket.emit('fetchAllAdventureHistory',curOption)
+    firstId = data[0]._id;
+  } else if (data) {
+    optionDoc.options[0] = new Option(data.name, data._id);
+    firstId = data._id;
+  }
+  
+  if (curOption == '') {
+    if (firstId) {
+      socket.emit('fetchAllAdventureHistory',firstId)
     }
+  } else {
+    document.getElementById('adventure_list').value = curOption;
+    socket.emit('fetchAllAdventureHistory',curOption)
   }
 });
 socket.on('replayRan', (response) => {
-  if (localStorage.getItem('currentTab') == 'History') {
-    let list = document.getElementById('gpt-history-list');
+  let list = document.getElementById('gpt-history-list');
+  let entry=document.createElement('li');
+  entry.onclick=function () {getResponseData(this);};
+  entry.innerText=response.date;
+  entry.id = response._id;
+  list.prepend(entry);
+  getResponseData(entry);
+});
+socket.on('historyList', (data) => {
+  let list = document.getElementById('gpt-history-list');
+  list.innerHTML = "";
+  for(let i = 0; i < data.length; i++){
+    let response=data[i];
     let entry=document.createElement('li');
     entry.onclick=function () {getResponseData(this);};
     entry.innerText=response.date;
     entry.id = response._id;
-    list.prepend(entry);
-    getResponseData(entry);
-  }
-});
-socket.on('historyList', (data) => {
-  if (localStorage.getItem('currentTab') == 'History') {
-    let list = document.getElementById('gpt-history-list');
-    list.innerHTML = "";
-    for(let i = 0; i < data.length; i++){
-      let response=data[i];
-      let entry=document.createElement('li');
-      entry.onclick=function () {getResponseData(this);};
-      entry.innerText=response.date;
-      entry.id = response._id;
-      list.appendChild(entry);
-    }
+    list.appendChild(entry);
   }
 });
 socket.on('partyJoined', (data) => {
@@ -391,83 +374,72 @@ socket.on('partyForming', (data) => {
   list.appendChild(entry);
 });
 socket.on('formingParties', (data) => {
-  if (localStorage.getItem('currentTab') == 'Home') {
-    let list = document.getElementById('starting-parties');
-    list.innerHTML = "";
-    for(let i = 0; i < data.length; i++){
-      let entry=document.createElement('li');
-      entry.onclick=function () {partyClick(this);};
-      entry.innerText=data[i].party_name;
-      entry.id = data[i]._id;
-      entry.value = 6;
-      list.appendChild(entry);
-    }
+  let list = document.getElementById('starting-parties');
+  list.innerHTML = "";
+  for(let i = 0; i < data.length; i++){
+    let entry=document.createElement('li');
+    entry.onclick=function () {partyClick(this);};
+    entry.innerText=data[i].party_name;
+    entry.id = data[i]._id;
+    entry.value = 6;
+    list.appendChild(entry);
   }
 });
 socket.on('connectedPlayers', (data) => {
-  if (localStorage.getItem('currentTab') == 'Home') {
-    let list = document.getElementById('home-users-connected');
-    list.innerHTML = "";
-    for(let i = 0; i < data.length; i++){
-      let user=data[i];
-      let entry=document.createElement('li');
-      entry.onclick=function () {playerClick(this);};
-      entry.innerText=user.name;
-      entry.id = user._id;
-      list.appendChild(entry);
-    }
+  let list = document.getElementById('home-users-connected');
+  list.innerHTML = "";
+  for(let i = 0; i < data.length; i++){
+    let user=data[i];
+    let entry=document.createElement('li');
+    entry.onclick=function () {playerClick(this);};
+    entry.innerText=user.name;
+    entry.id = user._id;
+    list.appendChild(entry);
   }
 });
 socket.on('historyData', (data) => {
-  if (localStorage.getItem('currentTab') == 'History') {
+  let attributes = ["model","completion_tokens","duration","finish_reason","prompt_tokens","url"];
+  for (let i = 0 ; i < attributes.length; i++){
+    document.getElementById('history_'+attributes[i]).value = data[attributes[i]];
+  };
+  document.getElementById('history_model').disabled = false;
+  document.getElementById('history_status').value = data.status.toString()+':'+data.statusText;
+  let request = JSON.parse(data.request);
+  document.getElementById('history_temperature').value = request.temperature;
+  document.getElementById('history_temperature').disabled = false;
+  document.getElementById('history_maxTokens').value = request.max_tokens;
+  document.getElementById('history_maxTokens').disabled = false;
 
-    let attributes = ["model","completion_tokens","duration","finish_reason","prompt_tokens","url"];
-    for (let i = 0 ; i < attributes.length; i++){
-      document.getElementById('history_'+attributes[i]).value = data[attributes[i]];
-    };
-    document.getElementById('history_model').disabled = false;
-    document.getElementById('history_status').value = data.status.toString()+':'+data.statusText;
-    let request = JSON.parse(data.request);
-    document.getElementById('history_temperature').value = request.temperature;
-    document.getElementById('history_temperature').disabled = false;
-    document.getElementById('history_maxTokens').value = request.max_tokens;
-    document.getElementById('history_maxTokens').disabled = false;
-
-    let table = document.getElementById('history_table');
-    while(table.rows[0]) table.deleteRow(0);
-    for (let i = 0 ; i < request.messages.length; i++){
-      let newrow = document.createElement('tr');
-      newrow.innerHTML = '<th onclick="swapRole(this)" style="cursor: pointer;">'+request.messages[i].role+'</th><td width="90%" ><textarea style="height:180px;">'+request.messages[i].content+'</textarea></td>';
-      table.append(newrow);
-    };
+  let table = document.getElementById('history_table');
+  while(table.rows[0]) table.deleteRow(0);
+  for (let i = 0 ; i < request.messages.length; i++){
     let newrow = document.createElement('tr');
-    newrow.innerHTML = '<th>Response</th><td width="90%"><textarea style="height:300px;" disabled>'+data.response+'</textarea></td>';
+    newrow.innerHTML = '<th onclick="swapRole(this)" style="cursor: pointer;">'+request.messages[i].role+'</th><td width="90%" ><textarea style="height:180px;">'+request.messages[i].content+'</textarea></td>';
     table.append(newrow);
-    newrow = document.createElement('tr');
-    newrow.innerHTML = '<th>raw</th><td width="90%"><textarea style="height:500px;" disabled>'+JSON.stringify(data,null,2)+'</textarea></td>';
-    table.append(newrow);
-    document.getElementById('gpt-history-messages').scrollTop = document.getElementById('gpt-history-messages').scrollHeight;
-  }
+  };
+  let newrow = document.createElement('tr');
+  newrow.innerHTML = '<th>Response</th><td width="90%"><textarea style="height:300px;" disabled>'+data.response+'</textarea></td>';
+  table.append(newrow);
+  newrow = document.createElement('tr');
+  newrow.innerHTML = '<th>raw</th><td width="90%"><textarea style="height:500px;" disabled>'+JSON.stringify(data,null,2)+'</textarea></td>';
+  table.append(newrow);
+  document.getElementById('gpt-history-messages').scrollTop = document.getElementById('gpt-history-messages').scrollHeight;
 });
 socket.on('listedOwners', (data) => {
-  if (localStorage.getItem('currentTab') == 'Characters') {
-    let optionDoc = document.getElementById('character_owner'), owner = optionDoc.options[0].value;
-    if (data.length) {
-      for(let i = 0; i < data.length; i++){
-        optionDoc.options[i] = new Option(data[i].name, data[i]._id);
-      }
-      optionDoc.value = owner;
-    } else if (data) {
-      if (data._id == optionDoc.options[0].value){
-        optionDoc.options[0].innerText = data.name
-      } else {
-        optionDoc.options[1] = new Option(data.name, data._id);
-      }
+  let optionDoc = document.getElementById('character_owner'), owner = optionDoc.options[0].value;
+  if (data.length) {
+    for(let i = 0; i < data.length; i++){
+      optionDoc.options[i] = new Option(data[i].name, data[i]._id);
     }
-    optionDoc.disabled = false;
-  } else {
-    console.log("recieved owner list but no longer on char tab");
+    optionDoc.value = owner;
+  } else if (data) {
+    if (data._id == optionDoc.options[0].value){
+      optionDoc.options[0].innerText = data.name
+    } else {
+      optionDoc.options[1] = new Option(data.name, data._id);
+    }
   }
+  optionDoc.disabled = false;
 });
 socket.on('ScotRan', (data) => {
   document.getElementById('response-messageScot').value = data;
