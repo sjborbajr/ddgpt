@@ -122,6 +122,7 @@ socket.on('settings', data => {
   document.getElementById('doSummary').checked = data.doSummary;
   document.getElementById('doCroupier').checked = data.doCroupier;
   document.getElementById('useSummary').checked = data.useSummary;
+  document.getElementById('useDoubleCheck').checked = data.doubleCheck;
   let array = []
   for (let messageName in systemSettings.messages) {
     array.push({name:messageName,section:messageName.substring(0,3),order:systemSettings.messages[messageName].order})
