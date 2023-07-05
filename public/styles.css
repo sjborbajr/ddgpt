@@ -39,7 +39,7 @@ textarea {
   padding-top: 8px;
   padding-bottom: 8px;
   font-size: 17px;
-  width: 33.3%;
+  width: 100%;
 }
 .tablink:hover {
   background-color: #777;

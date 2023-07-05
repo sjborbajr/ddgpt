@@ -1,20 +1,6 @@
 const socket = io({autoConnect: false});
 
 let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', systemSettings;
-if(document.getElementById(currentTab+'Btn')){
-  //console.log("currentTab",currentTab);
-  document.getElementById(currentTab+'Btn').click();
-} else {
-  //console.log("nocurrentTab");
-  document.getElementById("HomeBtn").click();
-}
-
-document.getElementById('alertMsg').style.display = 'none';
-document.getElementById('SystemBtn').style.display = 'none';
-document.getElementById('ScotGPTBtn').style.display = 'none';
-document.getElementById('HistoryBtn').style.display = 'none';
-document.getElementById('character1').style.display = 'none';
-document.getElementById('character2').style.display = 'none';
 
 document.getElementById('save').addEventListener('click', save);
 document.getElementById('rename').addEventListener('click', renameGptMessage);
@@ -33,14 +19,17 @@ document.getElementById('join-party').addEventListener('click', joinParty);
 document.getElementById('history_search').addEventListener('keyup',historySearch);
 let basecut = .65, testers = ["Steve","Evan","Ronin"];
 
-// Attach event listeners to the buttons
 window.onload = function() {
-  //do something?
   let playerNameRead = localStorage.getItem('playerName'); // get playerName from local storage
   if (playerNameRead) {
     document.getElementById('player-name').value = playerNameRead
     connectButton();
   };
+  if(document.getElementById(currentTab+'Btn')){
+    document.getElementById(currentTab+'Btn').click();
+  } else {
+    document.getElementById("HomeBtn").click();
+  }
 };
 function showGptMessage(messageName){
   if(systemSettings.messages){
@@ -167,6 +156,12 @@ socket.on('connect', () => {
   document.getElementById('alertMsg').innerText = "Connected to server";
   document.getElementById('alertMsg').style.display = 'inline';
   setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',1500);
+
+  document.getElementById('HomeBtn').style.width = '33.3%'
+  document.getElementById('AdventuresBtn').style.width = '33.3%'
+  document.getElementById('CharactersBtn').style.width = '33.3%'
+  document.getElementById('AdventuresBtn').style.display = 'inline';
+  document.getElementById('CharactersBtn').style.display = 'inline';
 });
 socket.on('charList', (data) => {
   let optionDoc = document.getElementById('characters_list'), curChar = document.getElementById('characters_list').value;
@@ -186,17 +181,11 @@ socket.on('charList', (data) => {
     displayChar = data._id;
   }
   if (curChar == '') {
-    document.getElementById('character1').style.display = 'none';
-    document.getElementById('character2').style.display = 'none';
     if(displayChar) {
       socket.emit('fetchCharData',displayChar)
     }
   } else {
     document.getElementById('characters_list').value = curChar;
-    if (document.getElementById('characters_list').value != curChar){
-      document.getElementById('character1').style.display = 'none';
-      document.getElementById('character2').style.display = 'none';
-    }
   }
 });
 socket.on('charData', (data) => {
@@ -206,8 +195,6 @@ socket.on('charData', (data) => {
       document.getElementById('characters_list').options[document.getElementById('characters_list').options.length] = new Option(data.name, data._id);
       document.getElementById('characters_list').value = data._id;
     }
-    document.getElementById('character1').style.display = 'inline';
-    document.getElementById('character2').style.display = 'inline';
     document.getElementById('character_name').value = data.name;
     document.getElementById('character_id').value = data._id;
     if (document.getElementById('character_owner').value != data.owner_id.toString()){
@@ -362,7 +349,7 @@ socket.on('historyList', (data) => {
 socket.on('partyJoined', (data) => {
   document.getElementById('adventure_list').options[0] = new Option(data.name, data._id);
   document.getElementById('adventure_list').value = data._id;
-  showTab('Adventures',document.getElementById('AdventuresBtn'),'orange')
+  document.getElementById('AdventuresBtn').click();
 });
 socket.on('partyForming', (data) => {
   let list = document.getElementById('starting-parties');
@@ -477,6 +464,12 @@ socket.on('disconnect', () => {
   document.getElementById('alertMsg').innerText = "Disconnected from server";
   document.getElementById('alertMsg').style.display = 'inline';
 
+  document.getElementById('HomeBtn').style.width = '100%'
+  document.getElementById('AdventuresBtn').style.display = 'none';
+  document.getElementById('CharactersBtn').style.display = 'none';
+  document.getElementById('SystemBtn').style.display = 'none';
+  document.getElementById('HistoryBtn').style.display = 'none';
+  document.getElementById('ScotGPTBtn').style.display = 'none';
 });
 function autoResize(textarea) {
   textarea.style.height = 'auto';
@@ -551,9 +544,6 @@ function showCharsOption() {
   }
 }
 function showChar(id) {
-  document.getElementById('character1').style.display = 'none';
-  document.getElementById('character2').style.display = 'none';
-  
   //remove all but the top owner 
   let optionDoc = document.getElementById('character_owner');
   if (optionDoc.options.length > 1) {
@@ -641,22 +631,30 @@ function ScotRun(){
   }
   socket.emit("scotRun",ScotData);
 }
-function showTab(pageName,elmnt,color) {
-  var i, tabcontent, tablinks;
-  tabcontent = document.getElementsByClassName("tabcontent");
+function showTab(elmnt) {
+  let pageName = elmnt.id.substring(0,elmnt.id.length-3)
+  let tabcontent = document.getElementsByClassName("tabcontent");
   //hide all content
-  for (i = 0; i < tabcontent.length; i++) {
+  for (let i = 0; i < tabcontent.length; i++) {
     tabcontent[i].style.display = "none";
   }
   //reset color
-  tablinks = document.getElementsByClassName("tablink");
-  for (i = 0; i < tablinks.length; i++) {
+  let tablinks = document.getElementsByClassName("tablink");
+  for (let i = 0; i < tablinks.length; i++) {
     tablinks[i].style.backgroundColor = "";
   }
   //show the right page
   document.getElementById(pageName).style.display = "block";
   //set tab color
-  elmnt.style.backgroundColor = color;
+  let colors = {
+    HomeBtn:'green',
+    CharactersBtn:'blue',
+    AdventuresBtn:'orange',
+    SystemBtn:'red',
+    HistoryBtn:'#008080',
+    ScotGPTBtn:'#008080'
+  }
+  elmnt.style.backgroundColor = colors[elmnt.id];
   //tell the server which tab was selected
   if (!document.getElementById('disconnectButton').disabled){
     socket.emit('tab',pageName);
@@ -771,7 +769,7 @@ function editAdventureInput() {
 }
 function endAdventure() {
   socket.emit('endAdventure',document.getElementById('adventure_list').value);
-  showTab('Home',document.getElementById('HomeBtn'),'green')
+  document.getElementById('HomeBtn').click();
 }
 function adventureModel(model) {
   if (document.getElementById('player-input-end').disabled == false) {
@@ -873,9 +871,6 @@ function newChar() {
     "Human": {"CHA": 1, "CON": 1, "DEX": 1, "INT": 1, "STR": 1, "WIS": 1},
     "Tiefling": {"CHA": 2, "INT": 1}
   };
-
-  document.getElementById('character1').style.display = 'inline';
-  document.getElementById('character2').style.display = 'inline';
 
   let attributes = ["HP","AC","Weapon","Armor","Class","Inventory","Backstory","activeAdventure",'adventures','id','name']
   for (let i = 0 ; i < attributes.length; i++){

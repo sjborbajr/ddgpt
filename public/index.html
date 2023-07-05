@@ -6,13 +6,13 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="alertMsg" role="alert" id="alertMsg"></div>
-  <button class="tablink" onclick="showTab('Home',       this, 'green')"   id="HomeBtn"      >Home</button>
-  <button class="tablink" onclick="showTab('Characters', this, 'blue')"    id="CharactersBtn">Characters</button>
-  <button class="tablink" onclick="showTab('Adventures', this, 'orange')"  id="AdventuresBtn">Adventures</button>
-  <button class="tablink" onclick="showTab('System',     this, 'red')"     id="SystemBtn"    >System</button>
-  <button class="tablink" onclick="showTab('History',    this, '#008080')" id="HistoryBtn"   >History</button>
-  <button class="tablink" onclick="showTab('ScotGPT',    this, '#008080')" id="ScotGPTBtn"   >ScotGPT</button>
+  <div class="alertMsg" role="alert" id="alertMsg" style="display: 'none';"></div>
+  <button class="tablink"               onclick="showTab(this)" id="HomeBtn"      >Home</button>
+  <button class="tablink" hidden="true" onclick="showTab(this)" id="CharactersBtn">Characters</button>
+  <button class="tablink" hidden="true" onclick="showTab(this)" id="AdventuresBtn">Adventures</button>
+  <button class="tablink" hidden="true" onclick="showTab(this)" id="SystemBtn"    >System</button>
+  <button class="tablink" hidden="true" onclick="showTab(this)" id="HistoryBtn"   >History</button>
+  <button class="tablink" hidden="true" onclick="showTab(this)" id="ScotGPTBtn"   >ScotGPT</button>
   <div id="Home" class="tabcontent" style="display: flex;">
     <label for="player-name">Player Name:</label>
     <input type="text" id="player-name" />
