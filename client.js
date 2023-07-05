@@ -536,6 +536,7 @@ function save() {
   systemSettings.doCroupier = document.getElementById('doCroupier').checked;
   systemSettings.doSummary = document.getElementById('doSummary').checked;
   systemSettings.useSummary = document.getElementById('useSummary').checked;
+  systemSettings.doubleCheck = document.getElementById('useDoubleCheck').checked;
   socket.emit("save",systemSettings)
 }
 function saveChar() {
