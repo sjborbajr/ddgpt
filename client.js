@@ -223,7 +223,7 @@ socket.on('charData', (data) => {
     } else {
       document.getElementById('character_activeAdventure').value = '';
     }
-    if (data.adventures) {
+    if (data.adventures.length > 0) {
       document.getElementById('character_adventures').value = data.adventures[0].name;
       for (let i = 1 ; i < data.adventures.length; i++){
         document.getElementById('character_adventures').value += ','+data.adventures[i].name;
