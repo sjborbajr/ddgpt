@@ -290,6 +290,11 @@ socket.on('AddAdventurer', (data) => {
     }
   }
 });
+socket.on('adventureRename', (data) => {
+  if (document.getElementById('adventure_list').value ==  data._id.toString()){
+    document.getElementById('adventure_list').innerText = data.name;
+  }
+});
 socket.on('RemoveAdventurer', (data) => {
   if (localStorage.getItem('currentTab') == 'Adventures') {
     document.getElementById('div-'+data).remove();

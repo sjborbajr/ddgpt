@@ -688,22 +688,23 @@ async function startAdventure(adventure){
       if (croupierResponse.id){
         let responseJson = JSON.parse(croupierResponse.content)
         if (responseJson){
+          io.sockets.in('Adventure-'+adventure._id).emit('adventureRename',{name:responseJson.adventure_name,_id:adventure._id});
           try {
-            gameDataCollection.updateOne({type:'message',id:openAiResponse.id},{$set:{croupier:responseJson}});
+            await gameDataCollection.updateOne({type:'message',id:openAiResponse.id},{$set:{croupier:responseJson}});
           } catch (error) {
             console.error('Error saving croupier response to MongoDB:', error);
           }
           
           if (responseJson.adventure_name) {
             try {
-              gameDataCollection.updateOne({type:'adventure',_id:adventure._id},{$set:{name:responseJson.adventure_name}});
+              await gameDataCollection.updateOne({type:'adventure',_id:adventure._id},{$set:{name:responseJson.adventure_name}});
             } catch (error) {
               console.error('Error updating adventure name in MongoDB:', error);
             }
             for (let i = 0 ; i < adventure.characters.length; i++) {
               try {
                 await gameDataCollection.updateOne({_id:adventure.characters[i]._id,type:'character'},{$set:{activeAdventure:{name:responseJson.adventure_name,_id:adventure._id}},$pull:{adventures:{_id:adventure._id}}});
-                gameDataCollection.updateOne({_id:adventure.characters[i]._id,type:'character'},{$push:{adventures:{name:responseJson.adventure_name,_id:adventure._id}}});
+                await gameDataCollection.updateOne({_id:adventure.characters[i]._id,type:'character'},{$push:{adventures:{name:responseJson.adventure_name,_id:adventure._id}}});
               } catch (error) {
                 console.error('Error saving croupier response to MongoDB:', error);
               }
