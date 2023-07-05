@@ -83,6 +83,7 @@ textarea {
 .player-message {
   background-color: #4CAF50;
   align-self: flex-end;
+  white-space:pre-wrap;
 }
 .delete {
   position: absolute;
