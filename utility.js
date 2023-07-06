@@ -16,10 +16,13 @@ const settingsCollection = database.collection('settings'), gameDataCollection =
 let settings = await getSetting('');
 
 
-if (1==1){
-  let response = {content:'Summary: something'}
-  console.log(response);
-  console.log(response.content.substring(0,8));
+if (1==2){
+  let characters = await gameDataCollection.find({type:'character'}).toArray()
+  for (let i = 0 ; i < characters.length; i++) {
+    let uniquename = characters[i].name.trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase();
+    gameDataCollection.updateOne({type:'character',_id:characters[i]._id},{$set:{uniquename:uniquename}});
+  }
+  
 }
 
 if (1==2){

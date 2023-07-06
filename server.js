@@ -91,6 +91,7 @@ io.on('connection', async (socket) => {
   socket.on('saveChar', async data => {
     try{
       console.log('['+new Date().toUTCString()+'] Player '+playerName+' saving char '+data.data.name);
+      data.data.uniquename = data.data.name.trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase();
       if (data._id.length == 24) {
         let charData = await gameDataCollection.findOne({type:"character",_id:new ObjectId(data._id)});
         if (charData) {
@@ -111,7 +112,7 @@ io.on('connection', async (socket) => {
         socket.emit('charData',data.data);
         let message = {message:'Character '+data.data.name+' created.',color:'green',timeout:5000};
         socket.emit('alertMsg',message);
-  }
+    }
     } catch(error) {
       let message = {message:'Character '+data.data.name+' not saved!',color:'red',timeout:5000};
       console.error('error saving',error);
