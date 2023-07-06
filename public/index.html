@@ -227,8 +227,6 @@
     <div class="item">
       <label for="temperatureScot">Temperature:</label>
       <input id="temperatureScot"></input>
-      <label for="keyScot">API Key:</label>
-      <input id="keyScot"></input>
       <label for="maxTokensScot">Max Tokens:</label>
       <input id="maxTokensScot"></input>
   
@@ -242,19 +240,13 @@
         <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
         <option value="gpt-4-32k-0314">gpt-4-32k-0613</option>
       </select>
-    </div> 
-    <div class="item">
-      <label for="system-messageScot">system-message:</label>
-      <textarea id="system-messageScot" oninput="autoResize(this)"></textarea>
-    </div> 
-    <div class="item">
-      <label for="assistant-messageScot">assistant-message:</label>
-      <textarea id="assistant-messageScot" oninput="autoResize(this)" cols="80"></textarea>
-    </div> 
-    <div class="item">
-      <label for="user-messageScot">user-message:</label>
-      <textarea id="user-messageScot" oninput="autoResize(this)" cols="80"></textarea>
-    </div> 
+      <button id="scotAdd" onclick="scotAdd()" >More</button>
+    </div>
+    <table id="scotMessages">
+      <tr><th>system<td width="94%"><textarea oninput="autoResize(this)"></textarea></td></th></tr>
+      <tr><th onclick="swapRole(this)" style="cursor: pointer;">assistant<td><textarea oninput="autoResize(this)"></textarea></td></th></tr>
+      <tr><th onclick="swapRole(this)" style="cursor: pointer;">user<td><textarea oninput="autoResize(this)"></textarea></td></th></tr>
+    </table>
     <button id="scotRun" >Run</button>
     <div class="item">
       <label for="response-messageScot">response:</label>
@@ -325,6 +317,7 @@
             <input type="text" id="history_url" disabled></input>
           </label>
           <button id="replay">Replay</button>
+          <button id="replayAdd" onclick="replayAdd()" >More</button>
         </div>
         <div id="gpt-history-messages">
           <table id="history_table">

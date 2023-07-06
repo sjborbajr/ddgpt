@@ -195,12 +195,7 @@ io.on('connection', async (socket) => {
     if (playerData.admin) {
       let message = {message:'Message recieved, running!',color:'green',timeout:10000}
       socket.emit('alertMsg',message);
-      let messages = [
-        {role:'system',content:data.systemmessage},
-        {role:'assistant',content:data.assistantmessage},
-        {role:'user',content:data.user}
-      ]
-      let response = await openaiCall(messages,data.model,Number(data.temperature),Number(data.maxTokens),data.apikey,'ScotGPT')
+      let response = await openaiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_key,'ScotGPT')
       socket.emit('ScotRan',response.content);
     }
   });

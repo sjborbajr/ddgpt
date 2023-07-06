@@ -30,6 +30,15 @@ window.onload = function() {
   } else {
     document.getElementById("HomeBtn").click();
   }
+  if (localStorage.getItem('temperatureScot')){
+    document.getElementById('temperatureScot').value = localStorage.getItem('temperatureScot');
+  }
+  if (localStorage.getItem('maxTokensScot')){
+    document.getElementById('maxTokensScot').value = localStorage.getItem('maxTokensScot');
+  }
+  if (localStorage.getItem('modelScot')){
+    document.getElementById('modelScot').value = localStorage.getItem('modelScot');
+  }
 };
 function showGptMessage(messageName){
   if(systemSettings.messages){
@@ -579,6 +588,12 @@ function replay() {
   }
   socket.emit("replay",replayData);
 }
+function replayAdd(){
+  let table = document.getElementById('history_table');
+  let newrow = document.createElement('tr');
+  newrow.innerHTML = '<th onclick="swapRole(this)" style="cursor: pointer;">user</th><td><textarea oninput="autoResize(this)"></textarea></td>';
+  table.append(newrow);
+}
 function swapRole(item) {
   if (item.innerText == 'user'){
     item.innerText = 'assistant';
@@ -619,17 +634,33 @@ function historySearch(e){
     socket.emit('tab','History');
   }
 }
+function scotAdd(){
+  let table = document.getElementById('scotMessages');
+  let newrow = document.createElement('tr');
+  newrow.innerHTML = '<th onclick="swapRole(this)" style="cursor: pointer;">user</th><td><textarea oninput="autoResize(this)"></textarea></td>';
+  table.append(newrow);
+}
 function ScotRun(){
+  let messages = [], table = document.getElementById('scotMessages');
+  for (var i = 0, row; row = table.rows[i]; i++) {
+    if (row.cells[0].innerText == 'system' || row.cells[0].innerText == 'user' || row.cells[0].innerText == 'assistant') {
+      messages.push({
+        role:row.cells[0].innerText,
+        content:row.cells[1].firstChild.value
+      })
+    }
+  }
   let ScotData = {
     temperature:document.getElementById('temperatureScot').value,
-    apikey:document.getElementById('keyScot').value,
     maxTokens:document.getElementById('maxTokensScot').value,
     model:document.getElementById('modelScot').value,
-    systemmessage:document.getElementById('system-messageScot').value,
-    assistantmessage:document.getElementById('assistant-messageScot').value,
-    user:document.getElementById('user-messageScot').value
+    messages:messages
   }
   socket.emit("scotRun",ScotData);
+  localStorage.setItem('temperatureScot',ScotData.temperature);
+  localStorage.setItem('maxTokensScot',ScotData.maxTokens);
+  localStorage.setItem('modelScot',ScotData.model);
+  document.getElementById('response-messageScot').value = "";
 }
 function showTab(elmnt) {
   let pageName = elmnt.id.substring(0,elmnt.id.length-3)
