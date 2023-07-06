@@ -594,6 +594,12 @@ function replayAdd(){
   newrow.innerHTML = '<th onclick="swapRole(this)" style="cursor: pointer;">user</th><td><textarea oninput="autoResize(this)"></textarea></td>';
   table.append(newrow);
 }
+function replayRemove(){
+  let table = document.getElementById('history_table');
+  if (table.rows.length > 4) {
+    table.rows[table.rows.length-3].remove();
+  }
+}
 function swapRole(item) {
   if (item.innerText == 'user'){
     item.innerText = 'assistant';
@@ -639,6 +645,12 @@ function scotAdd(){
   let newrow = document.createElement('tr');
   newrow.innerHTML = '<th onclick="swapRole(this)" style="cursor: pointer;">user</th><td><textarea oninput="autoResize(this)"></textarea></td>';
   table.append(newrow);
+}
+function scotRemove(){
+  let table = document.getElementById('scotMessages');
+  if (table.rows.length > 2) {
+    table.rows[table.rows.length-1].remove();
+  }
 }
 function ScotRun(){
   let messages = [], table = document.getElementById('scotMessages');

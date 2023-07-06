@@ -241,11 +241,12 @@
         <option value="gpt-4-32k-0314">gpt-4-32k-0613</option>
       </select>
       <button id="scotAdd" onclick="scotAdd()" >More</button>
+      <button id="scotRemove" onclick="scotRemove()" >Less</button>
     </div>
     <table id="scotMessages">
-      <tr><th>system<td width="94%"><textarea oninput="autoResize(this)"></textarea></td></th></tr>
-      <tr><th onclick="swapRole(this)" style="cursor: pointer;">assistant<td><textarea oninput="autoResize(this)"></textarea></td></th></tr>
-      <tr><th onclick="swapRole(this)" style="cursor: pointer;">user<td><textarea oninput="autoResize(this)"></textarea></td></th></tr>
+      <tr><th>system</th><td width="94%"><textarea oninput="autoResize(this)"></textarea></td></tr>
+      <tr><th onclick="swapRole(this)" style="cursor: pointer;">assistant</th><td><textarea oninput="autoResize(this)"></textarea></td></tr>
+      <tr><th onclick="swapRole(this)" style="cursor: pointer;">user<td></th><textarea oninput="autoResize(this)"></textarea></td></tr>
     </table>
     <button id="scotRun" >Run</button>
     <div class="item">
@@ -318,6 +319,7 @@
           </label>
           <button id="replay">Replay</button>
           <button id="replayAdd" onclick="replayAdd()" >More</button>
+          <button id="replayRemove" onclick="replayRemove()" >Less</button>
         </div>
         <div id="gpt-history-messages">
           <table id="history_table">
