@@ -469,7 +469,7 @@ async function fetchPlayerData(playerName) {
 }
 async function saveSettings(data,socket){
   try {
-    await settingsCollection.updateOne({}, { $set: data }, { upsert: true });
+    await settingsCollection.updateOne({type:'legacy'}, { $set: data }, { upsert: true });
     let message = {message:'Settings saved.',color:'green',timeout:3000}
     socket.emit('alertMsg',message);
     //This is the data that came from the client, don't need to hide sensitive data
@@ -625,7 +625,7 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey,call_f
 }
 async function getSetting(setting){
   //get setting from database
-  let dbsetting = await settingsCollection.findOne({});
+  let dbsetting = await settingsCollection.findOne({type:'legacy'});
   if (setting.length > 0) {
     dbsetting = dbsetting[setting];
   };
@@ -853,4 +853,14 @@ async function continueAdventure(adventure_id){
       console.log(messages,settings.cru_model,Number(settings.temperature),Number(settings.maxTokens));
     }
   }
+}
+async function formatMessages(functionName,realm,userMessages){
+  let allOrders = (await settingsCollection.distinct("order",{"function":functionName,$or:[{"realm":"<default>"},{"realm":realm}]}));
+  let messages = []
+  for (let i = 0 ; i < allOrders.length; i++) {
+    messages.push(settingsCollection.findOne({order:allOrders[i],"function":functionName,$or:[{"realm":"<default>"},{"realm":realm}]}))
+  }
+
+
+  return messages
 }

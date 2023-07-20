@@ -281,6 +281,7 @@
             <span>Search:</span>
             <input type="text" id="history_search"></input>
           </label>
+          <input type="text" id="history_search_sent" hidden></input>
           <label for="history_temperature">
             <span>Temperature:</span>
             <input type="number" id="history_temperature"  min=1 max="100" disabled></input>
@@ -288,6 +289,10 @@
           <label for="history_maxTokens">
             <span>Max Tokens:</span>
             <input type="number" id="history_maxTokens"  min=1 max="100" disabled></input>
+          </label>
+          <label for="history_function">
+            <span>function:</span>
+            <input type="text" id="history_function" disabled></input>
           </label>
           <label for="history_model">
             <span>Model:</span>

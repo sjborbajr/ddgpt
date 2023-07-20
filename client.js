@@ -89,7 +89,7 @@ function renameGptMessage(e){
   }
 }
 socket.onAny((event, ...args) => {
-  if (event != 'settings'){
+  if (event != 'settgings'){
     console.log(event, args);
   }
 });
@@ -354,6 +354,7 @@ socket.on('historyList', (data) => {
     entry.id = response._id;
     list.appendChild(entry);
   }
+  document.getElementById('history_search').value = document.getElementById('history_search_sent').value;
 });
 socket.on('partyJoined', (data) => {
   document.getElementById('adventure_list').options[0] = new Option(data.name, data._id);
@@ -405,6 +406,7 @@ socket.on('historyData', (data) => {
   document.getElementById('history_temperature').disabled = false;
   document.getElementById('history_maxTokens').value = request.max_tokens;
   document.getElementById('history_maxTokens').disabled = false;
+  document.getElementById('history_function').value = data.function;
 
   let table = document.getElementById('history_table');
   while(table.rows[0]) table.deleteRow(0);
@@ -637,6 +639,7 @@ function disconnectButton() {
 function historySearch(e){
   if (e.key === 'Enter' || e.keyCode === 13) {
     socket.emit("historyTextSearch",document.getElementById('history_search').value);
+    document.getElementById('history_search_sent').value = document.getElementById('history_search').value;
     socket.emit('tab','History');
   }
 }
