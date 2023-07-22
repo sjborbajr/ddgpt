@@ -7,7 +7,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import crypto from 'crypto';
-import { formatCroupierStartMessages, formatStartMessages, formatAdventureMessages, formatSummaryMessages, formatCroupierMessages, formatDoubleCheckMessages } from './functions.js';
+//import { formatCroupierStartMessages, formatStartMessages, formatAdventureMessages, formatSummaryMessages, formatCroupierMessages, formatDoubleCheckMessages } from './functions.js';
 import { encoding_for_model } from "tiktoken";
 
 const mongoUri = process.env.MONGODB || "mongodb://localhost/?retryWrites=true";
@@ -663,10 +663,12 @@ async function startAdventure(adventure){
   let model = adventure.model || settings.model
 
   let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure._id}).toArray();
-  let messages = formatStartMessages(settings,characters)
+  
+  //let messages = formatStartMessages(settings,characters);
+  let messages = await formatMessages("adventureStart",null,{"characters":characters});
 
   if (settings.forReal){
-    let openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'adventureStart')
+    let openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'adventureStart');
     if (openAiResponse.id) {
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure._id;
@@ -680,9 +682,10 @@ async function startAdventure(adventure){
         console.error('Error saving response to MongoDB:', error);
       }
       
-      messages = formatCroupierStartMessages(settings,adventure,openAiResponse.content);
+      //messages = formatCroupierStartMessages(settings,adventure,openAiResponse.content);
+      messages = await formatMessages("adventureName",[{role:"user",content:openAiResponse.content}],{party_name:adventure.party_name});
       
-      let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'croupier');
+      let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'adventureName');
       if (croupierResponse.id){
         let responseJson = JSON.parse(croupierResponse.content)
         if (responseJson){
@@ -769,7 +772,8 @@ async function continueAdventure(adventure_id){
     gameDataCollection.find({type:'message',adventure_id:adventure_id}).sort({created:1}).toArray(),
     gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray()
   ]);
-  let messages = formatAdventureMessages(settings,allMessages,characters);
+  //let messages = formatAdventureMessages(settings,allMessages,characters);
+  let messages = await formatMessages("game",allMessages,{characters:characters});
   let apiKey = adventure.api_key;
   let model = adventure.model || settings.model;
 
@@ -778,7 +782,8 @@ async function continueAdventure(adventure_id){
     openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game');
     if (openAiResponse.id) {
       if(settings.doubleCheck) {
-        let messages = formatDoubleCheckMessages(settings,openAiResponse.content,characters);
+        //let messages = formatDoubleCheckMessages(settings,openAiResponse.content,characters);
+        let messages = await formatMessages("doubleCheck",[{role:"user",content:openAiResponse.content}],{characters:characters});
         let tempOpenAiResponse = await openaiCall(messages,settings.cru_model,0,Number(settings.maxTokens),apiKey,'doubleCheck');
         if (tempOpenAiResponse.id){
           openAiResponse = tempOpenAiResponse;
@@ -798,7 +803,8 @@ async function continueAdventure(adventure_id){
 
 
       if (settings.doSummary) {
-        messages = formatSummaryMessages(settings,openAiResponse.content);
+        //messages = formatSummaryMessages(settings,openAiResponse.content);
+        messages = await formatMessages("summary",[{role:"user",content:openAiResponse.content}]);
         let summaryResponse = openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'summary');
         summaryResponse.then((response) => {
           if (response.id){
@@ -821,7 +827,8 @@ async function continueAdventure(adventure_id){
       //get system data and enhance the experiance
       if (settings.doCroupier){
         let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
-        messages = formatCroupierMessages(settings,openAiResponse.content,characters)
+        //messages = formatCroupierMessages(settings,openAiResponse.content,characters)
+        messages = await formatMessages("croupier",[{role:"user",content:openAiResponse.content}],{characters:characters})
         let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'croupier');
         if (croupierResponse.id){
           //we got data back, is it json?
@@ -849,18 +856,94 @@ async function continueAdventure(adventure_id){
     console.log(messages,model,Number(settings.temperature),Number(settings.maxTokens));
     setTimeout(()=> {io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',{role:'assistent',content:'fake'})}, 3000);
     if (settings.doSummary) {
-      messages = formatSummaryMessages(settings,"Fake response from Previous fake")
+      messages = await formatMessages("summary",[{role:"user",content:"Fake response from Previous fake"}])
       console.log(messages,settings.cru_model,Number(settings.temperature),Number(settings.maxTokens));
     }
   }
 }
-async function formatMessages(functionName,realm,userMessages){
-  let allOrders = (await settingsCollection.distinct("order",{"function":functionName,$or:[{"realm":"<default>"},{"realm":realm}]}));
-  let messages = []
+async function formatMessages(functionName,userMessages,additionData,realm){
+  if (!userMessages) {
+    userMessages = [];
+  }
+  let allOrders = await settingsCollection.distinct("order",{"function":functionName,$or:[{"realm":"<default>"},{"realm":realm}]});
+  let messages = [],userMessagesIx=1000, jsonData
   for (let i = 0 ; i < allOrders.length; i++) {
-    messages.push(settingsCollection.findOne({order:allOrders[i],"function":functionName,$or:[{"realm":"<default>"},{"realm":realm}]}))
+    while (allOrders[i] > userMessagesIx && userMessages.length > 0) {
+      let message = userMessages.shift()
+      messages.push({role:message.role,content:message.content});
+      userMessagesIx = userMessagesIx + 10;
+    }
+    let message = await settingsCollection.findOne({order:allOrders[i],"function":functionName,"realm":realm});
+    if (!message) {
+      message = await settingsCollection.findOne({order:allOrders[i],"function":functionName,"realm":"<default>"});
+    }
+    
+    if (!jsonData && message.json){
+      jsonData = message.json;
+    }
+    messages.push({role:message.role,content:message.content});
   }
 
+  while (userMessages.length > 0) {
+    let message = userMessages.shift()
+    messages.push({role:message.role,content:message.content});
+    userMessagesIx = userMessagesIx + 10;
+  }
+
+  messages = JSON.stringify(messages);
+  let regex = /(?<=\$\{)(.*?)(?=\})/g;
+  let match = messages.match(regex);
+  if (match){
+    for (let i = 0 ; i < match.length; i++) {
+      if (match[i] == 'json' && jsonData){
+        messages = messages.replaceAll('${json}',JSON.stringify(jsonData).replaceAll('"','\\\"').replaceAll("'","\\\'"));
+      } else if (match[i] == 'Party_Name') {
+        messages = messages.replaceAll('${Party_Name}',additionData.party_name);
+        jsonData = JSON.parse(JSON.stringify(jsonData).replaceAll('${Party_Name}',additionData.party_name));
+      } else if (match[i] == 'char_count' && additionData.characters) {
+        messages = messages.replaceAll('${char_count}',additionData.characters.length);
+      } else if (match[i] == 'next_level' && additionData.characters) {
+        let level = (additionData.characters.reduce((prev, curr) => prev.details.Lvl < curr.details.Lvl ? prev : curr)).details.Lvl;
+        messages = messages.replaceAll('${next_level}',level);
+      } else if (match[i] == 'CharTable' && additionData.characters) {
+        let charTable = CreateCharTable(additionData.characters);
+        messages = messages.replaceAll('${CharTable}',charTable);
+      } else if (match[i] == 'char_list' && additionData.characters) {
+        let character_info = additionData.characters[0].name+" is a "+additionData.characters[0].details.Class;
+        for (let i = 1 ; i < additionData.characters.length; i++){
+          character_info += '\\n'+additionData.characters[i].name+" is a "+additionData.characters[i].details.Class;
+        }
+        messages = messages.replaceAll('${char_list}',character_info);
+      } else {
+        console.log("message formatting error","found macro: '"+match[i]+"' but not valid or missing additionData");
+      }
+    }
+  }
+  messages = JSON.parse(messages);
 
   return messages
+}
+function CreateCharTable(characters){
+  let table = 'Name      ', attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
+  let attributesLen = [10,6,3,3,3,3,3,3,3,2,2,24,17,9,1,1], spaces = '                   ';
+  for (let i = 0 ; i < attributes.length; i++){
+    table+='|'+attributes[i];
+    if (attributes[i].length < attributesLen[i]){
+      table+=spaces.substring(0,attributesLen[i]-attributes[i].length);
+    };
+  };
+  table+=' or Abilities'
+  characters.forEach((CharData) => {
+    table+='\\n'+CharData.name;
+    if (CharData.name.length < 10){
+      table+=spaces.substring(0,10-CharData.name.length);
+    }
+    for (let i = 0 ; i < attributes.length; i++){
+      table+='|'+CharData.details[attributes[i]];
+      if ((''+CharData.details[attributes[i]]).length < attributesLen[i]){
+        table+=spaces.substring(0,attributesLen[i]-(''+CharData.details[attributes[i]]).length)
+      }
+    };
+  });
+  return table;
 }

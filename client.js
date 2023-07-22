@@ -89,7 +89,7 @@ function renameGptMessage(e){
   }
 }
 socket.onAny((event, ...args) => {
-  if (event != 'settgings'){
+  if (event != 'settings'){
     console.log(event, args);
   }
 });

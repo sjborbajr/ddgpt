@@ -90,11 +90,6 @@ if (1==2){
     gameDataCollection.updateOne({type:'message',_id:messages[i]._id},{$set:{tokens:tokens.length}});
   }
 }
-
-if (1==1){
-  await formatMessages("doubleCheck",[{role:"user",content:"testing"}])
-}
-
 if (1 == 2){
   //testing out new openai functions
   let message = await gameDataCollection.findOne({_id: new ObjectId("648a23b822b92b61b83a119c")});
@@ -195,48 +190,4 @@ async function openaiCall2(messages,functions, model, temperature, maxTokens, ap
     } catch (error2) {console.log(error2)}
     return {content:generatedResponse}
   }
-}
-async function formatMessages(functionName,userMessages,realm){
-  if (!userMessages) {
-    userMessages = [];
-  }
-  let allOrders = await settingsCollection.distinct("order",{"function":functionName,$or:[{"realm":"<default>"},{"realm":realm}]});
-  let messages = [],userMessagesIx=1000, jsonData
-  for (let i = 0 ; i < allOrders.length; i++) {
-    while (allOrders[i] > userMessagesIx && userMessages.length > 0) {
-      let message = userMessages.shift()
-      messages.push({role:message.role,content:message.content});
-      userMessagesIx = userMessagesIx + 10;
-    }
-    let message = await settingsCollection.findOne({order:allOrders[i],"function":functionName,"realm":realm});
-    if (!message) {
-      message = await settingsCollection.findOne({order:allOrders[i],"function":functionName,"realm":"<default>"});
-    }
-    
-    if (!jsonData && message.json){
-      jsonData = message.json;
-    }
-    messages.push({role:message.role,content:message.content});
-  }
-
-  while (userMessages.length > 0) {
-    let message = userMessages.shift()
-    messages.push({role:message.role,content:message.content});
-    userMessagesIx = userMessagesIx + 10;
-  }
-
-  messages = JSON.stringify(messages)
-  let regex = /(?<=\$\{)(.*?)(?=\})/g
-  let match = messages.match(regex)
-  console.log("match",match);
-  //find&replace stuff
-  //${json}
-  //${Party_Name}
-  //${char_count}
-  //${next_level}
-  //${CharTable}
-  //${char_list}
-  messages = JSON.parse(messages);
-
-  return messages
 }
