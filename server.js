@@ -78,7 +78,7 @@ io.on('connection', async (socket) => {
       console.log('['+new Date().toUTCString()+'] playerName('+playerName+'), socket('+event+')', args);
     }
   });
-  socket.on('save', data => {
+  socket.on('saveSettings', data => {
     if (playerData.admin){
       console.log('['+new Date().toUTCString()+'] Player '+playerName+' saved');
       saveSettings(data,socket);
@@ -206,6 +206,20 @@ io.on('connection', async (socket) => {
       socket.emit('alertMsg',message);
       let response = await openaiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_key,'Replay')
       socket.emit('replayRan',{date:response.date,_id:response.allResponse_id});
+    }
+  });
+  socket.on('fetchFunction',async functionName =>{
+    if (playerData.admin) try {
+      let [ functionSettings , functionMessage ] = await Promise.all([
+        getFunctionSettings(functionName),
+        settingsCollection.find({type:'message',"function":functionName}).toArray()
+      ]);
+      if (functionMessage){
+        functionSettings.messages = functionMessage;
+      }
+      socket.emit('functionSettings',functionSettings)
+    } catch (error) {
+      console.log(error);
     }
   });
   socket.on('fetchAllAdventureHistory',async adventure_id =>{
@@ -432,7 +446,8 @@ io.on('connection', async (socket) => {
       }
     } else if (tabName == 'System' && playerData.admin) {
       socket.join('Tab-'+tabName);
-      //todo - complete setting tab revamp
+      let allFunctions = await settingsCollection.distinct("function",{type:"function"});
+      socket.emit('functionList',allFunctions);
     } else if (tabName == 'ScotGPT' && playerData.admin) {
       socket.join('Tab-'+tabName);
     } else if (tabName == 'History' && playerData.admin) {
@@ -769,7 +784,7 @@ async function continueAdventure(adventure_id){
   ]);
   let apiKey = adventure.api_key;
   let model = adventure.model || settings.model;
-  let messages = await formatMessages("game",allMessages,{characters:characters,model:model});
+  let messages = await formatMessages("game",allMessages,{characters:characters,model:model,adventure_id:adventure_id});
 
   if (settings.active){
     openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game');
@@ -796,6 +811,7 @@ async function continueAdventure(adventure_id){
       if (sum_settings.active) {
         messages = await formatMessages("summary",[{role:"user",content:openAiResponse.content}]);
         let summaryResponse = openaiCall(messages,sum_settings.model,Number(sum_settings.temperature),Number(sum_settings.maxTokens),apiKey,'summary');
+        //using then(response) to allow asymetric processing
         summaryResponse.then((response) => {
           if (response.id){
             if (response.content.substring(0,8) == "Summary:") {
@@ -853,18 +869,19 @@ async function continueAdventure(adventure_id){
 }
 async function formatMessages(functionName,userMessages,additionData,realm){
   if (!userMessages) {
-    userMessages = [];
+    userMessages=[];
   }
 
   let allOrders = await settingsCollection.distinct("order",{"function":functionName,$or:[{"realm":"<default>"},{"realm":realm}]});
-  let messages = [],userMessagesIx=1000, jsonData
+  let messages=[], userMessagesIx=1000, jsonData;
 
-  let use_summary, always_summary = 10 * 2;
+  let use_summary, always_summary = 10 * 2, minimumSaving = 5;
   if (functionName = 'game'){
     use_summary = await getFunctionSettings('use_summary');
   }
 
   for (let i = 0 ; i < allOrders.length; i++) {
+    //game messages start at 1000, blend messages in the middle if there are messages > 1000
     while (allOrders[i] > userMessagesIx && userMessages.length > 0) {
       let message = userMessages.shift()
       if (use_summary.active && message.tokens_savings > 5 && userMessages.length > always_summary) {
@@ -887,10 +904,13 @@ async function formatMessages(functionName,userMessages,additionData,realm){
     messages.push({role:message.role,content:message.content});
   }
 
+  //Append the rest of the game messages
   while (userMessages.length > 0) {
     let message = userMessages.shift()
-    if(use_summary.active && message.summary) {
-      messages.push({role:message.role,content:message.content,tokens:message.tokens,summary:message.summary,tokens_savings:message.tokens_savings});
+    if (use_summary.active && message.tokens_savings > 5 && userMessages.length > always_summary) {
+      messages.push({role:message.role,content:message.summary});
+    } else if (use_summary.active & message.tokens_savings > minimumSaving) {
+      messages.push({role:message.role,content:message.content,summary:message.summary,tokens_savings:message.tokens_savings});
     } else {
       messages.push({role:message.role,content:message.content});
     }
@@ -930,11 +950,41 @@ async function formatMessages(functionName,userMessages,additionData,realm){
   messages = JSON.parse(messages);
 
   if(use_summary.active){
-    maxTokens = getMaxTokens(settings.model);
-    //todo more
+    let maxTokens = getMaxTokens(additionData.model);
+    let currentTokens = calcTokens(messages);
+    let sent = false;
+    for (let i = 0 ; i < messages.length; i++) {
+      if (currentTokens > maxTokens && messages[i].tokens_savings > minimumSaving) {
+        messages[i].content = messages[i].summary;
+        currentTokens = currentTokens - messages.tokens_savings;
+        if (!sent){
+          let message = {message:'Summary had to trim extra!',color:'red',timeout:10000};
+          io.sockets.in('alertMsg',message);
+        } 
+      }
+      //need to clean up before sending to openai
+      if (messages[i].summary) delete messages[i].summary
+      if (messages[i].tokens_savings) delete messages[i].tokens_savings
+    }
   }
 
   return messages
+}
+async function getMaxTokens(model){
+  let modeData = await settingsCollection.findOne({type:'model',model:model});
+  try {
+    return modeData.tokens;
+  } catch (error){}
+}
+function calcTokens(messages,model){
+  const enc = encoding_for_model(model);
+  let adjust = 5; //after multiple tests we found this adjustment ended up returning the right number of tokens based on "prompt_tokens" from historical api calls
+  let tokens = 0;
+  for (let i = 0 ; i < messages.length; i++) {
+    tokens = tokens + (enc.encode(messages[i].content)).length + adjust;
+  }
+  enc.free();
+  return tokens
 }
 function CreateCharTable(characters){
   let table = 'Name      ', attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
@@ -959,20 +1009,4 @@ function CreateCharTable(characters){
     };
   });
   return table;
-}
-async function getMaxTokens(model){
-  let modeData = await settingsCollection.findOne({type:'model',model:model});
-  try {
-    return modeData.tokens;
-  } catch (error){}
-}
-function calcTokens(messages,model){
-  const enc = encoding_for_model(model);
-  let adjust = 5; //after multiple tests we found this adjustment ended up returning the right number of tokens based on "prompt_tokens" from historical api calls
-  let tokens = 0;
-  for (let i = 0 ; i < messages.length; i++) {
-    tokens = tokens + (enc.encode(messages[i].content)).length + adjust;
-  }
-  enc.free();
-  return tokens
 }

@@ -1,9 +1,7 @@
 const socket = io({autoConnect: false});
 
-let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', systemSettings;
+let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', systemSettings, settingEditCell;
 
-document.getElementById('save').addEventListener('click', save);
-document.getElementById('rename').addEventListener('click', renameGptMessage);
 document.getElementById('scotRun').addEventListener('click', ScotRun);
 document.getElementById('replay').addEventListener('click', replay);
 document.getElementById('saveChar').addEventListener('click', saveChar);
@@ -106,39 +104,61 @@ socket.on('serverRole', role => {
     document.getElementById('ScotGPTBtn').style.width = '17%'
   };
 });
-socket.on('settings', data => {
-  //console.log('got game settings');
-  systemSettings = data
-  document.getElementById('temperature').value = data.temperature;
-  document.getElementById('maxTokens').value = data.maxTokens;
-  document.getElementById('model').value = data.model;
-  document.getElementById('cru_temperature').value = data.cru_temperature;
-  document.getElementById('cru_maxTokens').value = data.cru_maxTokens;
-  document.getElementById('cru_model').value = data.cru_model;
-  document.getElementById('gpt-messages-list').innerHTML = "";
-  document.getElementById('forReal').checked = data.forReal;
-  document.getElementById('doSummary').checked = data.doSummary;
-  document.getElementById('doCroupier').checked = data.doCroupier;
-  document.getElementById('useSummary').checked = data.useSummary;
-  document.getElementById('useDoubleCheck').checked = data.doubleCheck;
-  let array = []
-  for (let messageName in systemSettings.messages) {
-    array.push({name:messageName,section:messageName.substring(0,3),order:systemSettings.messages[messageName].order})
+socket.on('functionList', allFunctions => {
+  let optionDoc = document.getElementById('functionList'), curOption = document.getElementById('functionList').value,firstFunction;
+  while (optionDoc.length > 0) optionDoc.remove(0);
+  if (allFunctions.length) {
+    for(let i = 0; i < allFunctions.length; i++){
+      optionDoc.options[i] = new Option(allFunctions[i], allFunctions[i]);
+    }
+    firstFunction = allFunctions[0];
+  } else if (allFunctions) {
+    optionDoc.options[0] = new Option(allFunctions, allFunctions);
+    firstFunction = allFunctions;
   }
-  array.sort(function(a, b) {
-    return b.section.localeCompare(a.section)
-            || a.order - b.order
-  })
-  for(let i = 0; i < array.length; i++){
-    let messageName=array[i].name;
-    let entry=document.createElement('li');
-    entry.onclick=function () {showGptMessage(this.innerText);};
-    entry.innerText=messageName;
-    document.getElementById('gpt-messages-list').appendChild(entry);
+  
+  if (curOption == '') {
+    if (firstFunction) {
+      socket.emit('fetchFunction',firstFunction);
+    }
+  } else {
+    optionDoc.value = curOption;
+    socket.emit('fetchFunction',curOption);
   }
-  if (document.getElementById('croupier_name_hidden').value != ''){
-    showGptMessage(document.getElementById('croupier_name_hidden').value);
+});
+socket.on('functionSettings', async functionSettings => {
+  let div = document.getElementById('functionSettings'), table = document.getElementById('functionSettingsTable'), messageTable = document.getElementById('functionSettingsMessages')
+  while (table.rows.length > 1) table.deleteRow(1);
+  while (messageTable.rows.length > 1) messageTable.deleteRow(1);
+  for (let property in functionSettings) {
+    if (property != 'type' && property != 'messages' && property != '_id' && property != 'function') {
+      let row = table.insertRow(1);
+      let cell1 = row.insertCell(0), cell2 = row.insertCell(1);
+      cell1.innerHTML = property;
+      cell2.innerHTML = functionSettings[property]
+      cell2.addEventListener('dblclick',editCell);
+    }
   }
+  if (functionSettings.messages.length > 0) {
+    for (let i = 0; i < functionSettings.messages.length; i++) {
+      let row = messageTable.insertRow(1);
+      let cell1 = row.insertCell(0), cell2 = row.insertCell(1), cell3 = row.insertCell(2), cell4 = row.insertCell(3), cell5 = row.insertCell(4), cell6 = row.insertCell(5);
+      cell1.innerHTML = functionSettings.messages[i].order;
+      cell1.addEventListener('dblclick',editCell);
+      cell2.innerHTML = functionSettings.messages[i].role;
+      cell2.addEventListener('dblclick',editCell);
+      cell3.innerHTML = functionSettings.messages[i].content;
+      cell3.addEventListener('dblclick',editCell);
+      cell4.innerHTML = functionSettings.messages[i].name;
+      cell4.addEventListener('dblclick',editCell);
+      cell5.innerHTML = functionSettings.messages[i].realm;
+      cell5.addEventListener('dblclick',editCell);
+      cell6.innerHTML = functionSettings.messages[i].notes;
+      cell6.addEventListener('dblclick',editCell);
+    }
+    sortTable(0,'functionSettingsMessages');
+  }
+
 });
 socket.on('error', data => {
   alert (data);
@@ -485,6 +505,23 @@ socket.on('disconnect', () => {
 function autoResize(textarea) {
   textarea.style.height = 'auto';
   textarea.style.height = textarea.scrollHeight + 'px';
+}
+function saveEdit() {
+  var editField = document.getElementById("editField");
+  settingEditCell.textContent = editField.value;
+  settingEditCell = null;
+  editBox.style.display = "none";
+}
+function cancelEdit() {
+  settingEditInfo = null;
+  editBox.style.display = "none";
+}
+function editCell(event) {
+  settingEditCell = event.target;
+  var editField = document.getElementById("editField");
+  editField.value = settingEditCell.textContent;
+  editBox.style.display = "block";
+  editField.focus();
 }
 function save() {
   //console.log('save');

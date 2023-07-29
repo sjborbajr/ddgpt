@@ -132,94 +132,41 @@
     </table><br>
   </div>
   <div id="System" class="tabcontent">
-    <div class="item">
-      <span>Dungeon</span>
-      <label for="temperature">
-        <span>Temperature:</span>
-        <input type="number" id="temperature" min=0 max=2 step="0.05"></input>
-      </label>
-      <label for="maxTokens">
-        <span>Max Tokens:</span>
-        <input type="number" id="maxTokens" min=128 max=8296 step="128"></input>
-      </label>
-      <label for="model">
-        <span>Model:</span>
-        <select id="model">
-          <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
-          <option value="gpt-3.5-turbo-0613">gpt-3.5-turbo-0613</option>
-          <option value="gpt-3.5-turbo-16k">gpt-3.5-turbo-16k</option>
-          <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-          <option value="gpt-4">gpt-4</option>
-          <option value="gpt-4-0314">gpt-4-0314</option>
-          <option value="gpt-4-0613">gpt-4-0613</option>
-          <option value="gpt-4-32k">gpt-4-32k</option>
-          <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
-        </select>
-      </label>
-    </div><br>
-    <div class="item">
-      <span>Croupier</span>
-      <label for="cru_temperature">
-        Temperature:
-        <input type="number" id="cru_temperature" min=0 max=2 step="0.05"></input>
-      </label>
-      <label for="cru_maxTokens">
-        Max Tokens:
-        <input type="number" id="cru_maxTokens" min=128 max=8296 step="128"></input>
-      </label>
-      <label for="cru_model">
-        Model:
-        <select id="cru_model">
-          <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
-          <option value="gpt-3.5-turbo-0613">gpt-3.5-turbo-0613</option>
-          <option value="gpt-3.5-turbo-16k">gpt-3.5-turbo-16k</option>
-          <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-          <option value="gpt-4">gpt-4</option>
-          <option value="gpt-4-0314">gpt-4-0314</option>
-          <option value="gpt-4-0613">gpt-4-0613</option>
-          <option value="gpt-4-32k">gpt-4-32k</option>
-          <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
-        </select>
-      </label>
-    </div><br><br>
-    <button id="save" >Save</button>
-    <input type="checkbox" id="forReal" checked>For Real?</input>
-    <input type="checkbox" id="doCroupier" checked>Do Croupier?</input>
-    <input type="checkbox" id="doSummary" checked>Do Summary?</input>
-    <input type="checkbox" id="useSummary" checked>Use Summary?</input>
-    <input type="checkbox" id="useDoubleCheck" checked>Double Check?</input>
-    <h3>GPT Messages</h3>
-    <div id="gpt-messages">
-      <div id="gpt-messages-left-column">
-        <ul id="gpt-messages-list">
-        </ul>
-      </div>
-      <div id="gpt-messages-resize-bar"></div>
-      <div id="gpt-messages-right-column">
-        <div class="item">
-          <label for="croupier_role">role:</label>
-          <select  id="croupier_role">
-            <option value="system">system</option>
-            <option value="user">user</option>
-            <option value="assistant">assistant</option>
-          </select>
-          Order:<input type="number" id="croupier_order" min=0 max=9999>
-          Message Name:<input type="text" id="croupier_name">
-          <button id="rename" >Rename</button>
-          <input type="hidden" id="croupier_name_hidden" disabled>
-        </div>
-        <div class="item">
-          <label for="croupier_content">content:</label>
-          <textarea id="croupier_content"></textarea>
-        </div>
-        <div class="item">
-          <label for="croupier_notes">notes:</label>
-          <textarea id="croupier_notes"></textarea>
-        </div>
-        <div class="item">
-          <label for="croupier_json">json:</label>
-          <textarea id="croupier_json"></textarea>
-        </div>
+    <label for="functionList">
+      <span>Functions:</span>
+      <select id="functionList" onChange="socket.emit('fetchFunction',this.value)"></select>
+    </label>
+    Macros(?)
+    <br><br>Settings:<br>
+    <div id="functionSettings">
+      <table id="functionSettingsTable" class="systemTable">
+        <thead>
+          <tr>
+            <th onclick="sortTable(0,'functionSettingsTable')">Name</th>
+            <th onclick="sortTable(1,'functionSettingsTable')">Value</th>
+          </tr>
+          <tbody></tbody>
+        </thead>
+      </table>
+      <br>Messages:<br>
+      <table id="functionSettingsMessages" class="systemTable">
+        <thead>
+          <tr>
+            <th onclick="sortTable(0,'functionSettingsMessages')">Order</th>
+            <th onclick="sortTable(1,'functionSettingsMessages')">Role</th>
+            <th onclick="sortTable(2,'functionSettingsMessages')">Content</th>
+            <th onclick="sortTable(3,'functionSettingsMessages')">Name</th>
+            <th onclick="sortTable(4,'functionSettingsMessages')">Realm</th>
+            <th onclick="sortTable(5,'functionSettingsMessages')">Notes</th>
+          </tr>
+          <tbody></tbody>
+        </thead>
+      </table>
+      <div id="editBox" style="display: none;">
+        <textarea id="editField"></textarea>
+        <br>
+        <button onclick="saveEdit()">OK</button>
+        <button onclick="cancelEdit()">Cancel</button>
       </div>
     </div>
   </div>
@@ -380,37 +327,26 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="/client.js"></script>
   <script>
-    var resizeBar = document.getElementById('gpt-messages-resize-bar');
-    var leftColumn = document.getElementById('gpt-messages-left-column');
-    var rightColumn = document.getElementById('gpt-messages-right-column');
-    var container = document.getElementById('gpt-messages');
-    var startX;
-    var initialLeftWidth;
-
-    resizeBar.addEventListener('mousedown', initDrag);
-
-    function initDrag(e) {
-      startX = e.clientX;
-      initialLeftWidth = leftColumn.offsetWidth;
-
-      document.addEventListener('mousemove', doDrag);
-      document.addEventListener('mouseup', stopDrag);
-    }
-
-    function doDrag(e) {
-      var deltaX = e.clientX - startX;
-      var newLeftWidth = initialLeftWidth + deltaX;
-      var containerWidth = container.offsetWidth;
-      var leftWidthPercentage = (newLeftWidth / containerWidth) * 100;
-      var rightWidthPercentage = 100 - leftWidthPercentage;
-
-      leftColumn.style.width = leftWidthPercentage + '%';
-      rightColumn.style.width = rightWidthPercentage + '%';
-    }
-
-    function stopDrag() {
-      document.removeEventListener('mousemove', doDrag);
-      document.removeEventListener('mouseup', stopDrag);
+    function sortTable(n,tableName) {
+        var table = document.getElementById(tableName);
+        var rows = Array.from(table.rows).slice(1); // convert HTMLCollection to Array, exclude the header
+        var isNumber = !isNaN(+rows[0].children[n].textContent);
+        var sortedRows;
+        if (isNumber) {
+            sortedRows = rows.sort((a, b) => 
+                a.children[n].textContent - b.children[n].textContent
+            );
+        } else {
+            sortedRows = rows.sort((a, b) => 
+                a.children[n].textContent > b.children[n].textContent ? 1 : -1
+            );
+        }
+        while (table.rows.length > 1) {
+            table.deleteRow(1);
+        }
+        for (let row of sortedRows) {
+            table.tBodies[0].appendChild(row);
+        }
     }
   </script>
   <script>
