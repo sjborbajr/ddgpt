@@ -699,15 +699,11 @@ function replayRemove(){
 function swapRole(item) {
   if(item.target) {
     item = item.target;
-    console.log(item.innerText)
     if (item.innerText == 'user'){
-      console.log('system')
       item.innerText = 'system';
-    } else if (item.innerText = 'system') {
-      console.log('assistant')
+    } else if (item.innerText == 'system') {
       item.innerText = 'assistant';
     } else {
-      console.log('user')
       item.innerText = 'user';
     }
   } else {
