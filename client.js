@@ -127,36 +127,37 @@ socket.on('functionList', allFunctions => {
   }
 });
 socket.on('functionSettings', async functionSettings => {
-  let div = document.getElementById('functionSettings'), table = document.getElementById('functionSettingsTable'), messageTable = document.getElementById('functionSettingsMessages')
-  while (table.rows.length > 1) table.deleteRow(1);
-  while (messageTable.rows.length > 1) messageTable.deleteRow(1);
-  for (let property in functionSettings) {
-    if (property != 'type' && property != 'messages' && property != '_id' && property != 'function') {
-      let row = table.insertRow(1);
-      let cell1 = row.insertCell(0), cell2 = row.insertCell(1);
-      cell1.innerHTML = property;
-      cell2.innerHTML = functionSettings[property]
-      cell2.addEventListener('dblclick',editCell);
+  let optionDoc = document.getElementById('functionList'), table = document.getElementById('functionSettingsTable'), messageTable = document.getElementById('functionSettingsMessages')
+  if (optionDoc.value = functionSettings.function){
+    while (table.rows.length > 1) table.deleteRow(1);
+    while (messageTable.rows.length > 1) messageTable.deleteRow(1);
+    for (let property in functionSettings) {
+      if (property != 'type' && property != 'messages' && property != '_id' && property != 'function') {
+        let row = table.insertRow(1);
+        let cell1 = row.insertCell(0), cell2 = row.insertCell(1);
+        cell1.innerHTML = property;
+        cell2.innerHTML = functionSettings[property];
+        cell2.addEventListener('dblclick',editCell);
+      }
     }
-  }
-  if (functionSettings.messages.length > 0) {
-    for (let i = 0; i < functionSettings.messages.length; i++) {
-      let row = messageTable.insertRow(1);
-      let cell1 = row.insertCell(0), cell2 = row.insertCell(1), cell3 = row.insertCell(2), cell4 = row.insertCell(3), cell5 = row.insertCell(4), cell6 = row.insertCell(5);
-      cell1.innerHTML = functionSettings.messages[i].order;
-      cell1.addEventListener('dblclick',editCell);
-      cell2.innerHTML = functionSettings.messages[i].role;
-      cell2.addEventListener('dblclick',editCell);
-      cell3.innerHTML = functionSettings.messages[i].content;
-      cell3.addEventListener('dblclick',editCell);
-      cell4.innerHTML = functionSettings.messages[i].name;
-      cell4.addEventListener('dblclick',editCell);
-      cell5.innerHTML = functionSettings.messages[i].realm;
-      cell5.addEventListener('dblclick',editCell);
-      cell6.innerHTML = functionSettings.messages[i].notes;
-      cell6.addEventListener('dblclick',editCell);
+    if (functionSettings.messages.length > 0) {
+      for (let i = 0; i < functionSettings.messages.length; i++) {
+        let row = messageTable.insertRow(1);
+        let cell1 = row.insertCell(0), cell2 = row.insertCell(1), cell3 = row.insertCell(2), cell4 = row.insertCell(3), cell5 = row.insertCell(4), cell6 = row.insertCell(5);
+        cell1.innerHTML = '<input type="text" size="2" value="'+functionSettings.messages[i].order+'"/>';
+        cell2.innerHTML = functionSettings.messages[i].role;
+        cell2.addEventListener('click',swapRole);
+        cell3.innerHTML = functionSettings.messages[i].content;
+        cell3.addEventListener('dblclick',editCell);
+        cell4.innerHTML = functionSettings.messages[i].name;
+        cell4.addEventListener('dblclick',editCell);
+        cell5.innerHTML = functionSettings.messages[i].realm;
+        cell5.addEventListener('dblclick',editCell);
+        cell6.innerHTML = functionSettings.messages[i].notes;
+        cell6.addEventListener('dblclick',editCell);
+      }
+      sortTable(0,'functionSettingsMessages');
     }
-    sortTable(0,'functionSettingsMessages');
   }
 
 });
@@ -506,8 +507,39 @@ function autoResize(textarea) {
   textarea.style.height = 'auto';
   textarea.style.height = textarea.scrollHeight + 'px';
 }
+function addFunction() {
+  let optionDoc = document.getElementById('functionList'), table = document.getElementById('functionSettingsTable'), messageTable = document.getElementById('functionSettingsMessages')
+  let newFunction = prompt("New Function", '');
+  if (newFunction){
+    optionDoc.options[optionDoc.options.length] = new Option(newFunction, newFunction);
+    optionDoc.value = newFunction
+    while (table.rows.length > 1) table.deleteRow(1);
+    while (messageTable.rows.length > 1) messageTable.deleteRow(1);
+  }
+}
+function addFunctionSettings() {
+  let table = document.getElementById('functionSettingsTable')
+  let newSetting = prompt("New Setting Name", '');
+  if (newSetting){
+    let row = table.insertRow(table.rows.length);
+    let cell1 = row.insertCell(0), cell2 = row.insertCell(1);
+    cell1.innerHTML = newSetting;
+    cell2.addEventListener('dblclick',editCell);
+  }
+}
+function addFunctionSettingsMessages() {
+  let messageTable = document.getElementById('functionSettingsMessages')
+  let row = messageTable.insertRow(messageTable.rows.length);
+  let cell1 = row.insertCell(0), cell2 = row.insertCell(1), cell3 = row.insertCell(2), cell4 = row.insertCell(3), cell5 = row.insertCell(4), cell6 = row.insertCell(5);
+  cell1.addEventListener('dblclick',editCell);
+  cell2.addEventListener('dblclick',editCell);
+  cell3.addEventListener('dblclick',editCell);
+  cell4.addEventListener('dblclick',editCell);
+  cell5.addEventListener('dblclick',editCell);
+  cell6.addEventListener('dblclick',editCell);
+}
 function saveEdit() {
-  var editField = document.getElementById("editField");
+  let editField = document.getElementById("editField");
   settingEditCell.textContent = editField.value;
   settingEditCell = null;
   editBox.style.display = "none";
@@ -518,40 +550,65 @@ function cancelEdit() {
 }
 function editCell(event) {
   settingEditCell = event.target;
-  var editField = document.getElementById("editField");
+  let editField = document.getElementById("editField");
   editField.value = settingEditCell.textContent;
   editBox.style.display = "block";
   editField.focus();
 }
-function save() {
+function saveSettings() {
+  let userConfirmed = window.confirm("Are you sure you want to save this function?");
+  if (userConfirmed) {
+    // User clicked OK, perform the delete action
+    let optionDoc = document.getElementById('functionList'), table = document.getElementById('functionSettingsTable'), messageTable = document.getElementById('functionSettingsMessages')
+    let functionSettings = {function:optionDoc.value}
+    for (var i = 1, row; row = table.rows[i]; i++) {
+      functionSettings[row.cells[0].innerHTML] = row.cells[1].innerHTML;
+    }
+    let messages = []
+    for (var i = 1, row; row = messageTable.rows[i]; i++) {
+      let message = {type:"message",function:optionDoc.value}
+      if (row.cells[0].innerHTML) message.order = row.cells[0].innerHTML
+      if (row.cells[1].innerHTML) message.role = row.cells[1].innerHTML
+      if (row.cells[2].innerHTML) message.content = row.cells[2].innerHTML
+      if (row.cells[3].innerHTML) message.name = row.cells[3].innerHTML
+      if (row.cells[4].innerHTML) message.realm = row.cells[4].innerHTML
+      if (row.cells[5].innerHTML) message.notes = row.cells[5].innerHTML
+      messages.push(message)
+    }
+    functionSettings.messsage = messages;
+    console.log(functionSettings);
+    
+  } else {
+    // User clicked Cancel, do nothing or handle it as needed
+  }
   //console.log('save');
   //console.log('"'+document.getElementById('croupier_content').value+'"');
-  if (document.getElementById('croupier_name').value != '' && document.getElementById('croupier_content').value != ''){
-    systemSettings.messages[document.getElementById('croupier_name').value] = {content: document.getElementById('croupier_content').value,
-                                                                               role: document.getElementById('croupier_role').value
-                                                                              };
-    if (document.getElementById('croupier_order').value != '') {
-      systemSettings.messages[document.getElementById('croupier_name').value].order = document.getElementById('croupier_order').value;
-    }
-    if (document.getElementById('croupier_notes').value != '') {
-      systemSettings.messages[document.getElementById('croupier_name').value].notes = document.getElementById('croupier_notes').value;
-    }
-    if (document.getElementById('croupier_json').value != '') {
-      systemSettings.messages[document.getElementById('croupier_name').value].json = JSON.parse(document.getElementById('croupier_json').value);
-    }
-  }
-  systemSettings.temperature = document.getElementById('temperature').value;
-  systemSettings.maxTokens = document.getElementById('maxTokens').value;
-  systemSettings.model = document.getElementById('model').value;
-  systemSettings.cru_temperature = document.getElementById('cru_temperature').value;
-  systemSettings.cru_maxTokens = document.getElementById('cru_maxTokens').value;
-  systemSettings.cru_model = document.getElementById('cru_model').value;
-  systemSettings.forReal = document.getElementById('forReal').checked;
-  systemSettings.doCroupier = document.getElementById('doCroupier').checked;
-  systemSettings.doSummary = document.getElementById('doSummary').checked;
-  systemSettings.useSummary = document.getElementById('useSummary').checked;
-  systemSettings.doubleCheck = document.getElementById('useDoubleCheck').checked;
-  socket.emit("save",systemSettings)
+  //if (document.getElementById('croupier_name').value != '' && document.getElementById('croupier_content').value != ''){
+  //  systemSettings.messages[document.getElementById('croupier_name').value] = {content: document.getElementById('croupier_content').value,
+  //                                                                             role: document.getElementById('croupier_role').value
+  //                                                                            };
+  //  if (document.getElementById('croupier_order').value != '') {
+  //    systemSettings.messages[document.getElementById('croupier_name').value].order = document.getElementById('croupier_order').value;
+  //  }
+  //  if (document.getElementById('croupier_notes').value != '') {
+  //    systemSettings.messages[document.getElementById('croupier_name').value].notes = document.getElementById('croupier_notes').value;
+  //  }
+  //  if (document.getElementById('croupier_json').value != '') {
+  //    systemSettings.messages[document.getElementById('croupier_name').value].json = JSON.parse(document.getElementById('croupier_json').value);
+  //  }
+  //}
+  //systemSettings.temperature = document.getElementById('temperature').value;
+  //systemSettings.maxTokens = document.getElementById('maxTokens').value;
+  //systemSettings.model = document.getElementById('model').value;
+  //systemSettings.cru_temperature = document.getElementById('cru_temperature').value;
+  //systemSettings.cru_maxTokens = document.getElementById('cru_maxTokens').value;
+  //systemSettings.cru_model = document.getElementById('cru_model').value;
+  //systemSettings.forReal = document.getElementById('forReal').checked;
+  //systemSettings.doCroupier = document.getElementById('doCroupier').checked;
+  //systemSettings.doSummary = document.getElementById('doSummary').checked;
+  //systemSettings.useSummary = document.getElementById('useSummary').checked;
+  //systemSettings.doubleCheck = document.getElementById('useDoubleCheck').checked;
+  //socket.emit("save",systemSettings)
 }
 function saveChar() {
   //console.log('saveChar');
@@ -640,10 +697,25 @@ function replayRemove(){
   }
 }
 function swapRole(item) {
-  if (item.innerText == 'user'){
-    item.innerText = 'assistant';
+  if(item.target) {
+    item = item.target;
+    console.log(item.innerText)
+    if (item.innerText == 'user'){
+      console.log('system')
+      item.innerText = 'system';
+    } else if (item.innerText = 'system') {
+      console.log('assistant')
+      item.innerText = 'assistant';
+    } else {
+      console.log('user')
+      item.innerText = 'user';
+    }
   } else {
-    item.innerText = 'user';
+    if (item.innerText == 'user'){
+      item.innerText = 'assistant';
+    } else {
+      item.innerText = 'user';
+    }
   }
 }
 function historyFilterLimit(filterText) {

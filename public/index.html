@@ -135,6 +135,8 @@
     <label for="functionList">
       <span>Functions:</span>
       <select id="functionList" onChange="socket.emit('fetchFunction',this.value)"></select>
+      <button onclick="addFunction()">Add</button>
+      <button onclick="saveSettings()">Save</button>
     </label>
     Macros(?)
     <br><br>Settings:<br>
@@ -148,6 +150,7 @@
           <tbody></tbody>
         </thead>
       </table>
+      <button onclick="addFunctionSettings()">Add</button>
       <br>Messages:<br>
       <table id="functionSettingsMessages" class="systemTable">
         <thead>
@@ -162,6 +165,7 @@
           <tbody></tbody>
         </thead>
       </table>
+      <button onclick="addFunctionSettingsMessages()">Add</button>
       <div id="editBox" style="display: none;">
         <textarea id="editField"></textarea>
         <br>
