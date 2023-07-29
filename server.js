@@ -222,7 +222,7 @@ io.on('connection', async (socket) => {
   });
   socket.on('approveAdventureInput',async UserInput =>{
     if (UserInput.content.length > 1) {
-      let settings = await getSetting('');
+      let settings = await getFunctionSettings('game');
       let enc = encoding_for_model(settings.model);
 
       UserInput.approverName = playerName;
@@ -232,7 +232,7 @@ io.on('connection', async (socket) => {
       UserInput.type = 'message';
       UserInput.tokens = (enc.encode(UserInput.content)).length;
       
-      if (settings.forReal){
+      if (settings.active){
         try {
           gameDataCollection.insertOne(UserInput,{safe: true});
         } catch (error) {
@@ -432,10 +432,7 @@ io.on('connection', async (socket) => {
       }
     } else if (tabName == 'System' && playerData.admin) {
       socket.join('Tab-'+tabName);
-      let allSettings = await getSetting('');
-      delete allSettings.apiKey;
-      delete allSettings._id;
-      socket.emit('settings',allSettings);
+      //todo - complete setting tab revamp
     } else if (tabName == 'ScotGPT' && playerData.admin) {
       socket.join('Tab-'+tabName);
     } else if (tabName == 'History' && playerData.admin) {
@@ -623,13 +620,8 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey,call_f
     return {content:generatedResponse}
   }
 }
-async function getSetting(setting){
-  //get setting from database
-  let dbsetting = await settingsCollection.findOne({type:'legacy'});
-  if (setting.length > 0) {
-    dbsetting = dbsetting[setting];
-  };
-  return dbsetting
+async function getFunctionSettings(functionName){
+  return await settingsCollection.findOne({type:'function',"function":functionName});
 }
 async function sendAdventureData(adventure_id,socket){
   let [ adventureMessages , adventureData ] = await Promise.all([
@@ -658,7 +650,7 @@ async function sendAdventurers(adventure_id,socket){
 async function startAdventure(adventure){
   io.sockets.in('Adventure-'+adventure._id).emit('continueAdventure',true); //put the confidence builder dots in chat
 
-  let settings = await getSetting('');
+  let settings = await getFunctionSettings('adventureStart');
   let apiKey = adventure.api_key;
   let model = adventure.model || settings.model
 
@@ -667,7 +659,7 @@ async function startAdventure(adventure){
   //let messages = formatStartMessages(settings,characters);
   let messages = await formatMessages("adventureStart",null,{"characters":characters});
 
-  if (settings.forReal){
+  if (settings.active){
     let openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'adventureStart');
     if (openAiResponse.id) {
       openAiResponse.type = 'message';
@@ -682,10 +674,10 @@ async function startAdventure(adventure){
         console.error('Error saving response to MongoDB:', error);
       }
       
-      //messages = formatCroupierStartMessages(settings,adventure,openAiResponse.content);
       messages = await formatMessages("adventureName",[{role:"user",content:openAiResponse.content}],{party_name:adventure.party_name});
       
-      let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'adventureName');
+      let cru_settings = await getFunctionSettings('adventureName');
+      let croupierResponse = await openaiCall(messages,cru_settings.model,Number(cru_settings.temperature),Number(cru_settings.maxTokens),apiKey,'adventureName');
       if (croupierResponse.id){
         let responseJson = JSON.parse(croupierResponse.content)
         if (responseJson){
@@ -764,27 +756,27 @@ async function bootAdventurer(data,socket){
 }
 async function continueAdventure(adventure_id){
   io.sockets.in('Adventure-'+adventure_id).emit('continueAdventure',true); //put the confidence builder dots in chat
-  let settings = await getSetting('');
   let openAiResponse;
-
-  let [ adventure , allMessages, characters ] = await Promise.all([
+  //get all the info from database at the same time
+  let [ adventure , allMessages, characters, settings, cru_settings, dbl_settings, sum_settings] = await Promise.all([
     gameDataCollection.findOne({type:'adventure',_id:adventure_id}),
     gameDataCollection.find({type:'message',adventure_id:adventure_id}).sort({created:1}).toArray(),
-    gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray()
+    gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray(),
+    getFunctionSettings('game'),
+    getFunctionSettings('croupier'),
+    getFunctionSettings('doubleCheck'),
+    getFunctionSettings('summary')
   ]);
-  //let messages = formatAdventureMessages(settings,allMessages,characters);
-  let messages = await formatMessages("game",allMessages,{characters:characters});
   let apiKey = adventure.api_key;
   let model = adventure.model || settings.model;
+  let messages = await formatMessages("game",allMessages,{characters:characters,model:model});
 
-
-  if (settings.forReal){
+  if (settings.active){
     openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game');
     if (openAiResponse.id) {
-      if(settings.doubleCheck) {
-        //let messages = formatDoubleCheckMessages(settings,openAiResponse.content,characters);
+      if(dbl_settings.active) {
         let messages = await formatMessages("doubleCheck",[{role:"user",content:openAiResponse.content}],{characters:characters});
-        let tempOpenAiResponse = await openaiCall(messages,settings.cru_model,0,Number(settings.maxTokens),apiKey,'doubleCheck');
+        let tempOpenAiResponse = await openaiCall(messages,dbl_settings.model,dbl_settings.temperature,Number(dbl_settings.maxTokens),apiKey,'doubleCheck');
         if (tempOpenAiResponse.id){
           openAiResponse = tempOpenAiResponse;
         }
@@ -801,11 +793,9 @@ async function continueAdventure(adventure_id){
       }
       io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',openAiResponse);
 
-
-      if (settings.doSummary) {
-        //messages = formatSummaryMessages(settings,openAiResponse.content);
+      if (sum_settings.active) {
         messages = await formatMessages("summary",[{role:"user",content:openAiResponse.content}]);
-        let summaryResponse = openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'summary');
+        let summaryResponse = openaiCall(messages,sum_settings.model,Number(sum_settings.temperature),Number(sum_settings.maxTokens),apiKey,'summary');
         summaryResponse.then((response) => {
           if (response.id){
             if (response.content.substring(0,8) == "Summary:") {
@@ -825,11 +815,11 @@ async function continueAdventure(adventure_id){
       }
 
       //get system data and enhance the experiance
-      if (settings.doCroupier){
+      
+      if (cru_settings.active){
         let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
-        //messages = formatCroupierMessages(settings,openAiResponse.content,characters)
         messages = await formatMessages("croupier",[{role:"user",content:openAiResponse.content}],{characters:characters})
-        let croupierResponse = await openaiCall(messages,settings.cru_model,Number(settings.cru_temperature),Number(settings.cru_maxTokens),apiKey,'croupier');
+        let croupierResponse = await openaiCall(messages,cru_settings.model,Number(cru_settings.temperature),Number(cru_settings.maxTokens),apiKey,'croupier');
         if (croupierResponse.id){
           //we got data back, is it json?
           try {
@@ -855,9 +845,9 @@ async function continueAdventure(adventure_id){
   } else {
     console.log(messages,model,Number(settings.temperature),Number(settings.maxTokens));
     setTimeout(()=> {io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',{role:'assistent',content:'fake'})}, 3000);
-    if (settings.doSummary) {
+    if (sum_settings.active) {
       messages = await formatMessages("summary",[{role:"user",content:"Fake response from Previous fake"}])
-      console.log(messages,settings.cru_model,Number(settings.temperature),Number(settings.maxTokens));
+      console.log(messages,sum_settings.model,Number(sum_settings.temperature),Number(sum_settings.maxTokens));
     }
   }
 }
@@ -865,12 +855,25 @@ async function formatMessages(functionName,userMessages,additionData,realm){
   if (!userMessages) {
     userMessages = [];
   }
+
   let allOrders = await settingsCollection.distinct("order",{"function":functionName,$or:[{"realm":"<default>"},{"realm":realm}]});
   let messages = [],userMessagesIx=1000, jsonData
+
+  let use_summary, always_summary = 10 * 2;
+  if (functionName = 'game'){
+    use_summary = await getFunctionSettings('use_summary');
+  }
+
   for (let i = 0 ; i < allOrders.length; i++) {
     while (allOrders[i] > userMessagesIx && userMessages.length > 0) {
       let message = userMessages.shift()
-      messages.push({role:message.role,content:message.content});
+      if (use_summary.active && message.tokens_savings > 5 && userMessages.length > always_summary) {
+        messages.push({role:message.role,content:message.summary});
+      } else if (use_summary.active & message.tokens_savings > 5) {
+        messages.push({role:message.role,content:message.content,summary:message.summary,tokens_savings:message.tokens_savings});
+      } else {
+        messages.push({role:message.role,content:message.content});
+      }
       userMessagesIx = userMessagesIx + 10;
     }
     let message = await settingsCollection.findOne({order:allOrders[i],"function":functionName,"realm":realm});
@@ -886,10 +889,15 @@ async function formatMessages(functionName,userMessages,additionData,realm){
 
   while (userMessages.length > 0) {
     let message = userMessages.shift()
-    messages.push({role:message.role,content:message.content});
+    if(use_summary.active && message.summary) {
+      messages.push({role:message.role,content:message.content,tokens:message.tokens,summary:message.summary,tokens_savings:message.tokens_savings});
+    } else {
+      messages.push({role:message.role,content:message.content});
+    }
     userMessagesIx = userMessagesIx + 10;
   }
 
+  //message macros
   messages = JSON.stringify(messages);
   let regex = /(?<=\$\{)(.*?)(?=\})/g;
   let match = messages.match(regex);
@@ -921,6 +929,11 @@ async function formatMessages(functionName,userMessages,additionData,realm){
   }
   messages = JSON.parse(messages);
 
+  if(use_summary.active){
+    maxTokens = getMaxTokens(settings.model);
+    //todo more
+  }
+
   return messages
 }
 function CreateCharTable(characters){
@@ -946,4 +959,20 @@ function CreateCharTable(characters){
     };
   });
   return table;
+}
+async function getMaxTokens(model){
+  let modeData = await settingsCollection.findOne({type:'model',model:model});
+  try {
+    return modeData.tokens;
+  } catch (error){}
+}
+function calcTokens(messages,model){
+  const enc = encoding_for_model(model);
+  let adjust = 5; //after multiple tests we found this adjustment ended up returning the right number of tokens based on "prompt_tokens" from historical api calls
+  let tokens = 0;
+  for (let i = 0 ; i < messages.length; i++) {
+    tokens = tokens + (enc.encode(messages[i].content)).length + adjust;
+  }
+  enc.free();
+  return tokens
 }
