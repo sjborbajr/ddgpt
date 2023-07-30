@@ -1,6 +1,6 @@
 const socket = io({autoConnect: false});
 
-let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', systemSettings, settingEditCell;
+let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', systemSettings, settingEditCell, allRealms = ["<default>"];
 
 document.getElementById('scotRun').addEventListener('click', ScotRun);
 document.getElementById('replay').addEventListener('click', replay);
@@ -144,22 +144,40 @@ socket.on('functionSettings', async functionSettings => {
       for (let i = 0; i < functionSettings.messages.length; i++) {
         let row = messageTable.insertRow(1);
         let cell1 = row.insertCell(0), cell2 = row.insertCell(1), cell3 = row.insertCell(2), cell4 = row.insertCell(3), cell5 = row.insertCell(4), cell6 = row.insertCell(5);
-        cell1.innerHTML = '<input type="text" size="2" value="'+functionSettings.messages[i].order+'"/>';
+        cell1.innerHTML = functionSettings.messages[i].order;
+        cell1.addEventListener('dblclick',editCell);
         cell2.innerHTML = functionSettings.messages[i].role;
         cell2.addEventListener('click',swapRole);
         cell3.innerHTML = functionSettings.messages[i].content;
         cell3.addEventListener('dblclick',editCell);
         cell4.innerHTML = functionSettings.messages[i].name;
         cell4.addEventListener('dblclick',editCell);
-        cell5.innerHTML = functionSettings.messages[i].realm;
-        cell5.addEventListener('dblclick',editCell);
-        cell6.innerHTML = functionSettings.messages[i].notes;
+
+        let selectList = document.createElement("select");
+        for (let i = 0; i < allRealms.length; i++) {
+          let option = document.createElement("option");
+          option.value = allRealms[i];
+          option.text = allRealms[i];
+          selectList.appendChild(option);
+        }
+        let option = document.createElement("option");
+        option.value = "<new>";
+        option.text = "<new>";
+        selectList.appendChild(option);
+        selectList.addEventListener('change',realmChange)
+        selectList.value = functionSettings.messages[i].realm;
+        cell5.appendChild(selectList)
+
+        if (functionSettings.messages[i].notes) cell6.innerHTML = functionSettings.messages[i].notes;
         cell6.addEventListener('dblclick',editCell);
       }
       sortTable(0,'functionSettingsMessages');
     }
   }
 
+});
+socket.on('realmList', data => {
+  allRealms = data;
 });
 socket.on('error', data => {
   alert (data);
@@ -527,15 +545,42 @@ function addFunctionSettings() {
     cell2.addEventListener('dblclick',editCell);
   }
 }
+function realmChange(event) {
+  if (event.target.value == '<new>') {
+    let newRealm = prompt("New Realm", '');
+    newRealm = newRealm.trim().replace(/[^a-zA-Z0-9 &-]/g,'');
+    if (newRealm) {
+      event.target.options[event.target.options.length] = new Option(newRealm, newRealm);
+      event.target.value = newRealm;
+      socket.to('Tab-System').emit( 'addRealm',  newRealm);
+    } else {
+      event.target.value = '<default>'
+    }
+  }
+}
 function addFunctionSettingsMessages() {
   let messageTable = document.getElementById('functionSettingsMessages')
   let row = messageTable.insertRow(messageTable.rows.length);
   let cell1 = row.insertCell(0), cell2 = row.insertCell(1), cell3 = row.insertCell(2), cell4 = row.insertCell(3), cell5 = row.insertCell(4), cell6 = row.insertCell(5);
   cell1.addEventListener('dblclick',editCell);
-  cell2.addEventListener('dblclick',editCell);
+  cell2.addEventListener('click',swapRole);
   cell3.addEventListener('dblclick',editCell);
   cell4.addEventListener('dblclick',editCell);
-  cell5.addEventListener('dblclick',editCell);
+
+  let selectList = document.createElement("select");
+  for (let i = 0; i < allRealms.length; i++) {
+    let option = document.createElement("option");
+    option.value = allRealms[i];
+    option.text = allRealms[i];
+    selectList.appendChild(option);
+  }
+  let option = document.createElement("option");
+  option.value = "<new>";
+  option.text = "<new>";
+  selectList.appendChild(option);
+  selectList.value = "<default>";
+  cell5.appendChild(selectList)
+
   cell6.addEventListener('dblclick',editCell);
 }
 function saveEdit() {
@@ -571,12 +616,12 @@ function saveSettings() {
       if (row.cells[1].innerHTML) message.role = row.cells[1].innerHTML
       if (row.cells[2].innerHTML) message.content = row.cells[2].innerHTML
       if (row.cells[3].innerHTML) message.name = row.cells[3].innerHTML
-      if (row.cells[4].innerHTML) message.realm = row.cells[4].innerHTML
+      if (row.cells[4].innerHTML) message.realm = row.cells[4].firstChild.value
       if (row.cells[5].innerHTML) message.notes = row.cells[5].innerHTML
       messages.push(message)
     }
-    functionSettings.messsage = messages;
-    console.log(functionSettings);
+    functionSettings.messages = messages;
+    socket.emit('saveSettings',functionSettings);
     
   } else {
     // User clicked Cancel, do nothing or handle it as needed

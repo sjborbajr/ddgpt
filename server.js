@@ -72,6 +72,16 @@ io.on('connection', async (socket) => {
     socket.emit('serverRole','admin')
   }
 
+  let allrealms = settingsCollection.distinct("realm");
+  allrealms.then((response) => {
+    socket.emit('realmList',response);
+  })
+
+  //let allModels = settingsCollection.find({type:'model'}).toArray;
+  //allModels.then((response) => {
+  //  socket.emit('modelList',response);
+  //})
+
   socket.onAny((event, ...args) => {
     // Log all recieved events/data except settings save
     if (event != 'save' && event != 'listOwners' && event != 'saveChar'){
@@ -481,11 +491,26 @@ async function fetchPlayerData(playerName) {
 }
 async function saveSettings(data,socket){
   try {
-    await settingsCollection.updateOne({type:'legacy'}, { $set: data }, { upsert: true });
+    //clear previous saved messages
+    await settingsCollection.deleteMany({type:'message-delete','function':data.function})
+    //mark pre-existing 
+    await settingsCollection.updateMany({type:'message','function':data.function},{$set:{updated:'no'}})
+    
+    //update
+    for (let i = 0 ; i < data.messages.length; i++) {
+      data.messages[i].updated = 'yes';
+      data.messages[i].type = 'message';
+      data.messages[i].function = data.function;
+      console.log(data.messages[i])
+      await settingsCollection.updateOne({type:'message','function':data.function,name:data.messages[i].name},{$set:data.messages[i]},{upsert:true})
+    }
+    delete data.messages
+    await settingsCollection.updateOne({type:'function','function':data.function},{$set:data},{upsert:true})
+    settingsCollection.updateMany({type:'message','function':data.function,updated:'no'},{$set:{type:'message-delete'}})
+    settingsCollection.updateMany({type:'message','function':data.function,updated:'yes'},{$unset:{updated:''}})
+
     let message = {message:'Settings saved.',color:'green',timeout:3000}
     socket.emit('alertMsg',message);
-    //This is the data that came from the client, don't need to hide sensitive data
-    io.sockets.in('Tab-System').emit('settings',data);
   } catch (error) {
     console.error('Error updating settings:', error);
     socket.emit('error',error)
