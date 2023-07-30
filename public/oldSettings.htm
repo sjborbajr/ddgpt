@@ -153,3 +153,41 @@
     cursor: col-resize;
     padding-right: 4px;
   }
+  function renameGptMessage(e){
+    if (document.getElementById('croupier_name_hidden').value == document.getElementById('croupier_name').value) {
+      //show error alert
+      alert ("old and new names are the same");
+    } else {
+      delete systemSettings.messages[document.getElementById('croupier_name_hidden').value];
+      save();
+    }
+  }
+  function showGptMessage(messageName){
+    if(systemSettings.messages){
+      if(systemSettings.messages[messageName]) {
+        //console.log(systemSettings.messages[messageName]);
+        if(systemSettings.messages[messageName].role){
+          document.getElementById('croupier_role').value = systemSettings.messages[messageName].role;
+        } else {document.getElementById('croupier_role').value = ''}
+  
+        if(systemSettings.messages[messageName].order){
+          document.getElementById('croupier_order').value = systemSettings.messages[messageName].order;
+        } else {document.getElementById('croupier_order').value = ''}
+  
+        if(systemSettings.messages[messageName].content){
+          document.getElementById('croupier_content').value = systemSettings.messages[messageName].content;
+        } else {document.getElementById('croupier_content').value = ''}
+  
+        if(systemSettings.messages[messageName].notes){
+          document.getElementById('croupier_notes').value = systemSettings.messages[messageName].notes;
+        } else {document.getElementById('croupier_notes').value = ''}
+  
+        document.getElementById('croupier_name_hidden').value = messageName;
+        document.getElementById('croupier_name').value = messageName;
+  
+        if(systemSettings.messages[messageName].json){
+          document.getElementById('croupier_json').value = JSON.stringify(systemSettings.messages[messageName].json,null,2);
+        } else {document.getElementById('croupier_json').value = ''}
+      }
+    }
+  }

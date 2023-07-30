@@ -239,6 +239,35 @@ textarea {
   text-align: left;
 }
 
+.container {
+  position: relative;
+}
+
+.question-mark {
+  cursor: pointer;
+}
+
+.popup-box {
+  position: relative;
+  display: none;
+  width: 800px;
+  background-color: #f1f1f1;
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+}
+
+.popup-box::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-style: solid;
+  border-width: 0 8px 8px 8px;
+  border-color: transparent transparent #f1f1f1 transparent;
+}
+
 #editBox {
   position: absolute;
   top: 60px;

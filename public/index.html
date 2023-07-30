@@ -135,10 +135,21 @@
     <label for="functionList">
       <span>Functions:</span>
       <select id="functionList" onChange="socket.emit('fetchFunction',this.value)"></select>
-      <button onclick="addFunction()">Add</button>
-      <button onclick="saveSettings()">Save</button>
     </label>
-    Macros(?)
+    <button onclick="addFunction()">Add</button>
+    <button onclick="saveSettings()">Save</button>
+    <span id="question-mark-macro" class="question-mark" onclick="showHide(this)">Macros?</span>
+    <div id="question-mark-macro-box" class="popup-box">
+        <p>Current Macros:</p>
+        <table>
+          <tr><td>Party_Name</td><td>Party Names pulled from Adventure</td></tr>
+          <tr><td>char_count</td><td>Number or characters in the party</td></tr>
+          <tr><td>next_level</td><td>One level higher than the lowest level character</td></tr>
+          <tr><td>CharTable</td><td>A table of characters with D&D style stats</td></tr>
+          <tr><td>char_list</td><td>A list of characters and their class</td></tr>
+          <tr><td>json</td><td>(deprecating) JSON pieced together from prompts</td></tr>
+        </table>
+    </div>
     <br><br>Settings:<br>
     <div id="functionSettings">
       <table id="functionSettingsTable" class="systemTable">
@@ -378,6 +389,16 @@
      function stopDrag() {
       document.removeEventListener('mousemove', doDrag);
       document.removeEventListener('mouseup', stopDrag);
+    }
+  </script>
+  <script>
+    function showHide(element) {
+      let popupBox = document.getElementById(element.id+'-box');
+      if (popupBox.style.display === "block") {
+        popupBox.style.display = "none";
+      } else {
+        popupBox.style.display = "block";
+      }
     }
   </script>
 </body>

@@ -38,35 +38,6 @@ window.onload = function() {
     document.getElementById('modelScot').value = localStorage.getItem('modelScot');
   }
 };
-function showGptMessage(messageName){
-  if(systemSettings.messages){
-    if(systemSettings.messages[messageName]) {
-      //console.log(systemSettings.messages[messageName]);
-      if(systemSettings.messages[messageName].role){
-        document.getElementById('croupier_role').value = systemSettings.messages[messageName].role;
-      } else {document.getElementById('croupier_role').value = ''}
-
-      if(systemSettings.messages[messageName].order){
-        document.getElementById('croupier_order').value = systemSettings.messages[messageName].order;
-      } else {document.getElementById('croupier_order').value = ''}
-
-      if(systemSettings.messages[messageName].content){
-        document.getElementById('croupier_content').value = systemSettings.messages[messageName].content;
-      } else {document.getElementById('croupier_content').value = ''}
-
-      if(systemSettings.messages[messageName].notes){
-        document.getElementById('croupier_notes').value = systemSettings.messages[messageName].notes;
-      } else {document.getElementById('croupier_notes').value = ''}
-
-      document.getElementById('croupier_name_hidden').value = messageName;
-      document.getElementById('croupier_name').value = messageName;
-
-      if(systemSettings.messages[messageName].json){
-        document.getElementById('croupier_json').value = JSON.stringify(systemSettings.messages[messageName].json,null,2);
-      } else {document.getElementById('croupier_json').value = ''}
-    }
-  }
-}
 function getResponseData(listItem){
   socket.emit('fetchHistory',listItem.id);
   let table = document.getElementById('history_table');
@@ -75,15 +46,6 @@ function getResponseData(listItem){
     selected= document.querySelector('li.selected');                   // 2a.
     if(selected) selected.className= '';                               // "
     listItem.className= 'selected';                                    // 2b.
-  }
-}
-function renameGptMessage(e){
-  if (document.getElementById('croupier_name_hidden').value == document.getElementById('croupier_name').value) {
-    //show error alert
-    alert ("old and new names are the same");
-  } else {
-    delete systemSettings.messages[document.getElementById('croupier_name_hidden').value];
-    save();
   }
 }
 socket.onAny((event, ...args) => {
@@ -498,6 +460,7 @@ socket.on('continueAdventure', data => {
   }
 });
 socket.on('adventureEndFound', data => {
+  //this really isn't in use
   if (data){
     const adventureEnd = document.getElementById('player-input-end');
     adventureEnd.width = adventureEnd.width*2;
@@ -548,8 +511,8 @@ function addFunctionSettings() {
 function realmChange(event) {
   if (event.target.value == '<new>') {
     let newRealm = prompt("New Realm", '');
-    newRealm = newRealm.trim().replace(/[^a-zA-Z0-9 &-]/g,'');
     if (newRealm) {
+      newRealm = newRealm.trim().replace(/[^a-zA-Z0-9 &-]/g,'');
       event.target.options[event.target.options.length] = new Option(newRealm, newRealm);
       event.target.value = newRealm;
       socket.to('Tab-System').emit( 'addRealm',  newRealm);
@@ -739,6 +702,22 @@ function replayRemove(){
   let table = document.getElementById('history_table');
   if (table.rows.length > 4) {
     table.rows[table.rows.length-3].remove();
+  }
+}
+function swapTrueFalse(item) {
+  if(item.target) {
+    item = item.target;
+    if (item.innerText == 'true'){
+      item.innerText = 'false';
+    } else {
+      item.innerText = 'true';
+    }
+  } else {
+    if (item.innerText == 'false'){
+      item.innerText = 'true';
+    } else {
+      item.innerText = 'false';
+    }
   }
 }
 function swapRole(item) {
