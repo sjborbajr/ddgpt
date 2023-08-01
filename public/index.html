@@ -138,18 +138,6 @@
     </label>
     <button onclick="addFunction()">Add</button>
     <button onclick="saveSettings()">Save</button>
-    <span id="question-mark-macro" class="question-mark" onclick="showHide(this)">Macros?</span>
-    <div id="question-mark-macro-box" class="popup-box">
-        <p>Current Macros:</p>
-        <table>
-          <tr><td>Party_Name</td><td>Party Names pulled from Adventure</td></tr>
-          <tr><td>char_count</td><td>Number or characters in the party</td></tr>
-          <tr><td>next_level</td><td>One level higher than the lowest level character</td></tr>
-          <tr><td>CharTable</td><td>A table of characters with D&D style stats</td></tr>
-          <tr><td>char_list</td><td>A list of characters and their class</td></tr>
-          <tr><td>json</td><td>(deprecating) JSON pieced together from prompts</td></tr>
-        </table>
-    </div>
     <br><br>Settings:<br>
     <div id="functionSettings">
       <table id="functionSettingsTable" class="systemTable">
@@ -162,7 +150,18 @@
         </thead>
       </table>
       <button onclick="addFunctionSettings()">Add</button>
-      <br>Messages:<br>
+      <br>Messages:&nbsp;&nbsp;&nbsp;&nbsp;<span id="question-mark-macro" class="question-mark" onclick="showHide(this)">Macros?</span>
+      <div id="question-mark-macro-box" class="popup-box">
+          <p>Current Macros:</p>
+          <table>
+            <tr><td>Party_Name</td><td>Party Names pulled from Adventure</td></tr>
+            <tr><td>char_count</td><td>Number or characters in the party</td></tr>
+            <tr><td>next_level</td><td>One level higher than the lowest level character</td></tr>
+            <tr><td>CharTable</td><td>A table of characters with D&D style stats</td></tr>
+            <tr><td>char_list</td><td>A list of characters and their class</td></tr>
+            <tr><td>json</td><td>(deprecating) JSON pieced together from prompts</td></tr>
+          </table>
+      </div><br>
       <table id="functionSettingsMessages" class="systemTable">
         <thead>
           <tr>
@@ -193,15 +192,7 @@
       <input id="maxTokensScot"></input>
   
       <label for="modelScot">Model:</label>
-      <select id="modelScot">
-        <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
-        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-        <option value="gpt-4">gpt-4</option>
-        <option value="gpt-4-0314">gpt-4-0314</option>
-        <option value="gpt-4-32k">gpt-4-32k</option>
-        <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
-        <option value="gpt-4-32k-0314">gpt-4-32k-0613</option>
-      </select>
+      <select id="modelScot" class="modelList"></select>
       <button id="scotAdd" onclick="scotAdd()" >More</button>
       <button id="scotRemove" onclick="scotRemove()" >Less</button>
     </div>
@@ -259,7 +250,7 @@
           </label>
           <label for="history_model">
             <span>Model:</span>
-            <input type="text" id="history_model" disabled></input>
+            <select id="history_model" class="modelList"></select>
           </label>
           <label for="history_completion_tokens">
             <span>completion_tokens:</span>
@@ -288,6 +279,7 @@
           <button id="replay">Replay</button>
           <button id="replayAdd" onclick="replayAdd()" >More</button>
           <button id="replayRemove" onclick="replayRemove()" >Less</button>
+          <button id="historyDelete" onclick="historyDelete()" >Delete</button>
         </div>
         <div id="gpt-history-messages">
           <table id="history_table">
@@ -312,17 +304,8 @@
         <div style="width: 100%; text-align: center;">
           <label for="adventure-model">
             <span>Model:</span>
-            <select id="adventure-model" onChange="adventureModel(this.value)">
+            <select id="adventure-model" onChange="adventureModel(this.value)" class="modelList">
               <option value="unset">default</option>
-              <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
-              <option value="gpt-3.5-turbo-0613">gpt-3.5-turbo-0613</option>
-              <option value="gpt-3.5-turbo-16k">gpt-3.5-turbo-16k</option>
-              <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-              <option value="gpt-4">gpt-4</option>
-              <option value="gpt-4-0314">gpt-4-0314</option>
-              <option value="gpt-4-0613">gpt-4-0613</option>
-              <option value="gpt-4-32k">gpt-4-32k</option>
-              <option value="gpt-4-32k-0314">gpt-4-32k-0314</option>
             </select>
           </label>
         </div>
@@ -342,6 +325,40 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="/client.js"></script>
   <script>
+    var resizeBar = document.getElementById('gpt-history-resize-bar');
+    var leftColumn = document.getElementById('gpt-history-left-column');
+    var rightColumn = document.getElementById('gpt-history-right-column');
+    var container = document.getElementById('gpt-history');
+    var startX, initialLeftWidth;
+    resizeBar.addEventListener('mousedown', initDrag);
+    function initDrag(e) {
+      startX = e.clientX;
+      initialLeftWidth = leftColumn.offsetWidth;
+      document.addEventListener('mousemove', doDrag);
+      document.addEventListener('mouseup', stopDrag);
+    }
+    function doDrag(e) {
+      var deltaX = e.clientX - startX;
+      var newLeftWidth = initialLeftWidth + deltaX;
+      var containerWidth = container.offsetWidth;
+      var leftWidthPercentage = (newLeftWidth / containerWidth) * 100;
+      var rightWidthPercentage = 100 - leftWidthPercentage;
+       leftColumn.style.width = leftWidthPercentage + '%';
+      rightColumn.style.width = rightWidthPercentage + '%';
+    }
+    function stopDrag() {
+      document.removeEventListener('mousemove', doDrag);
+      document.removeEventListener('mouseup', stopDrag);
+    }
+    
+    function showHide(element) {
+      let popupBox = document.getElementById(element.id+'-box');
+      if (popupBox.style.display === "block") {
+        popupBox.style.display = "none";
+      } else {
+        popupBox.style.display = "block";
+      }
+    }
     function sortTable(n,tableName) {
         var table = document.getElementById(tableName);
         var rows = Array.from(table.rows).slice(1); // convert HTMLCollection to Array, exclude the header
@@ -362,43 +379,6 @@
         for (let row of sortedRows) {
             table.tBodies[0].appendChild(row);
         }
-    }
-  </script>
-  <script>
-    var resizeBar = document.getElementById('gpt-history-resize-bar');
-    var leftColumn = document.getElementById('gpt-history-left-column');
-    var rightColumn = document.getElementById('gpt-history-right-column');
-    var container = document.getElementById('gpt-history');
-    var startX, initialLeftWidth;
-     resizeBar.addEventListener('mousedown', initDrag);
-     function initDrag(e) {
-      startX = e.clientX;
-      initialLeftWidth = leftColumn.offsetWidth;
-       document.addEventListener('mousemove', doDrag);
-      document.addEventListener('mouseup', stopDrag);
-    }
-     function doDrag(e) {
-      var deltaX = e.clientX - startX;
-      var newLeftWidth = initialLeftWidth + deltaX;
-      var containerWidth = container.offsetWidth;
-      var leftWidthPercentage = (newLeftWidth / containerWidth) * 100;
-      var rightWidthPercentage = 100 - leftWidthPercentage;
-       leftColumn.style.width = leftWidthPercentage + '%';
-      rightColumn.style.width = rightWidthPercentage + '%';
-    }
-     function stopDrag() {
-      document.removeEventListener('mousemove', doDrag);
-      document.removeEventListener('mouseup', stopDrag);
-    }
-  </script>
-  <script>
-    function showHide(element) {
-      let popupBox = document.getElementById(element.id+'-box');
-      if (popupBox.style.display === "block") {
-        popupBox.style.display = "none";
-      } else {
-        popupBox.style.display = "block";
-      }
     }
   </script>
 </body>

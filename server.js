@@ -77,10 +77,8 @@ io.on('connection', async (socket) => {
     socket.emit('realmList',response);
   })
 
-  //let allModels = settingsCollection.find({type:'model'}).toArray;
-  //allModels.then((response) => {
-  //  socket.emit('modelList',response);
-  //})
+  let modelList = await settingsCollection.find({type:'model'}).toArray();
+  socket.emit('modelList',modelList);
 
   socket.onAny((event, ...args) => {
     // Log all recieved events/data except settings save
@@ -171,6 +169,13 @@ io.on('connection', async (socket) => {
   });
   socket.on('historyFilterLimit', async limit => {
     historyFilterLimit = limit;
+  });
+  socket.on('historyDelete', async id => {
+    if (playerData.admin) try {
+      await responseCollection.updateOne({_id:new ObjectId(id)},{$set:{deleted:true},$unset:{request:'',response:'',responseRaw:''}});
+    } catch (error){
+      console.log(error);
+    }
   });
   socket.on('fetchHistory', async id => {
     if (playerData.admin){
@@ -463,13 +468,13 @@ io.on('connection', async (socket) => {
     } else if (tabName == 'History' && playerData.admin) {
       //console.log('History');
       socket.join('Tab-'+tabName);
-      let historyFilter = {};
+      let historyFilter = {deleted:{$ne:true}};
       if (historyFilterLimit != 'all' && historyTextSearch != '') {
-        historyFilter = {$and:[{function:historyFilterLimit},{$or:[{response:{$regex:historyTextSearch,$options:'i'}},{request:{$regex:historyTextSearch,$options:'i'}}]}]}
+        historyFilter = {$and:[{function:historyFilterLimit,deleted:{$ne:true}},{$or:[{response:{$regex:historyTextSearch,$options:'i'}},{request:{$regex:historyTextSearch,$options:'i'}}]}]}
       } else if (historyFilterLimit != 'all') {
-        historyFilter = {function:historyFilterLimit}
+        historyFilter = {function:historyFilterLimit,deleted:{$ne:true}}
       } else if (historyTextSearch != '') {
-        historyFilter = {$or:[{response:{$regex:historyTextSearch,$options:'i'}},{request:{$regex:historyTextSearch,$options:'i'}}]}
+        historyFilter = {$and:[{deleted:{$ne:true}},{$or:[{response:{$regex:historyTextSearch,$options:'i'}},{request:{$regex:historyTextSearch,$options:'i'}}]}]}
       }
       let history = await responseCollection.find(historyFilter).project({date:1,_id:1,created:1}).sort({created:-1}).toArray()
       socket.emit('historyList',history)

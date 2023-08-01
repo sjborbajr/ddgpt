@@ -97,6 +97,18 @@ textarea {
   cursor: pointer;
   background-color: transparent;
 }
+.delete2 {
+  position: relative;
+  top: 0;
+  right: 0;
+  color: red;
+  font-weight: bold;
+  padding: 2px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  background-color: transparent;
+}
 .refreshButton {
   position: absolute;
   top: 0;

@@ -1,6 +1,6 @@
 const socket = io({autoConnect: false});
 
-let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', systemSettings, settingEditCell, allRealms = ["<default>"];
+let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', systemSettings, settingEditCell, allRealms = ["<default>"], modelList = [ 'gpt-4' ];
 
 document.getElementById('scotRun').addEventListener('click', ScotRun);
 document.getElementById('replay').addEventListener('click', replay);
@@ -98,8 +98,25 @@ socket.on('functionSettings', async functionSettings => {
         let row = table.insertRow(1);
         let cell1 = row.insertCell(0), cell2 = row.insertCell(1);
         cell1.innerHTML = property;
-        cell2.innerHTML = functionSettings[property];
-        cell2.addEventListener('dblclick',editCell);
+        if (property == 'active') {
+          cell2.innerHTML = functionSettings[property];
+          cell2.addEventListener('click',swapTrueFalse);
+        } else if (property == 'model') {
+          let selectList = document.createElement("select");
+          for (let i = 0; i < modelList.length; i++) {
+            let option = document.createElement("option");
+            option.value = modelList[i].model;
+            option.text = modelList[i].model;
+            selectList.appendChild(option);
+          }
+          selectList.value = functionSettings[property];
+          cell2.appendChild(selectList)
+        } else if (property == 'maxTokens' || property == 'temperature') {
+          cell2.innerHTML = '<input value = "'+functionSettings[property]+'"></input>';
+        } else {
+          cell2.innerHTML = functionSettings[property];
+          cell2.addEventListener('dblclick',editCell);
+        }
       }
     }
     if (functionSettings.messages.length > 0) {
@@ -132,6 +149,14 @@ socket.on('functionSettings', async functionSettings => {
 
         if (functionSettings.messages[i].notes) cell6.innerHTML = functionSettings.messages[i].notes;
         cell6.addEventListener('dblclick',editCell);
+
+        let button = document.createElement('button');
+        button.className = 'delete2';
+        button.onclick = function() {
+          this.parentElement.remove();
+        }
+        button.textContent = 'x';
+        row.append(button);
       }
       sortTable(0,'functionSettingsMessages');
     }
@@ -140,6 +165,20 @@ socket.on('functionSettings', async functionSettings => {
 });
 socket.on('realmList', data => {
   allRealms = data;
+});
+socket.on('modelList', data => {
+  modelList = data;
+  let modelLists = document.querySelectorAll(".modelList");
+  for(let i = 0; i < modelLists.length; i++) {
+    let saveSelect = modelLists[i].value
+    while (modelLists[i].options[0]) modelLists[i].remove(0);
+    for(let j = 0; j < data.length; j++) {
+      modelLists[i].options[j] = new Option(data[j].model, data[j].model);
+    }
+    if (modelLists[i].id == 'adventure-model') modelLists[i].options[data.length] = new Option('default', 'unset');
+    if (modelLists[i].id == 'modelScot') saveSelect = localStorage.getItem('modelScot');
+    modelLists[i].value = saveSelect;
+  }
 });
 socket.on('error', data => {
   alert (data);
@@ -570,7 +609,12 @@ function saveSettings() {
     let optionDoc = document.getElementById('functionList'), table = document.getElementById('functionSettingsTable'), messageTable = document.getElementById('functionSettingsMessages')
     let functionSettings = {function:optionDoc.value}
     for (var i = 1, row; row = table.rows[i]; i++) {
-      functionSettings[row.cells[0].innerHTML] = row.cells[1].innerHTML;
+      console.log(row.cells[1].firstChild)
+      if (row.cells[1].firstChild.value) {
+        functionSettings[row.cells[0].innerHTML] = row.cells[1].firstChild.value;
+      } else {
+        functionSettings[row.cells[0].innerHTML] = row.cells[1].innerHTML;
+      }
     }
     let messages = []
     for (var i = 1, row; row = messageTable.rows[i]; i++) {
@@ -585,38 +629,7 @@ function saveSettings() {
     }
     functionSettings.messages = messages;
     socket.emit('saveSettings',functionSettings);
-    
-  } else {
-    // User clicked Cancel, do nothing or handle it as needed
   }
-  //console.log('save');
-  //console.log('"'+document.getElementById('croupier_content').value+'"');
-  //if (document.getElementById('croupier_name').value != '' && document.getElementById('croupier_content').value != ''){
-  //  systemSettings.messages[document.getElementById('croupier_name').value] = {content: document.getElementById('croupier_content').value,
-  //                                                                             role: document.getElementById('croupier_role').value
-  //                                                                            };
-  //  if (document.getElementById('croupier_order').value != '') {
-  //    systemSettings.messages[document.getElementById('croupier_name').value].order = document.getElementById('croupier_order').value;
-  //  }
-  //  if (document.getElementById('croupier_notes').value != '') {
-  //    systemSettings.messages[document.getElementById('croupier_name').value].notes = document.getElementById('croupier_notes').value;
-  //  }
-  //  if (document.getElementById('croupier_json').value != '') {
-  //    systemSettings.messages[document.getElementById('croupier_name').value].json = JSON.parse(document.getElementById('croupier_json').value);
-  //  }
-  //}
-  //systemSettings.temperature = document.getElementById('temperature').value;
-  //systemSettings.maxTokens = document.getElementById('maxTokens').value;
-  //systemSettings.model = document.getElementById('model').value;
-  //systemSettings.cru_temperature = document.getElementById('cru_temperature').value;
-  //systemSettings.cru_maxTokens = document.getElementById('cru_maxTokens').value;
-  //systemSettings.cru_model = document.getElementById('cru_model').value;
-  //systemSettings.forReal = document.getElementById('forReal').checked;
-  //systemSettings.doCroupier = document.getElementById('doCroupier').checked;
-  //systemSettings.doSummary = document.getElementById('doSummary').checked;
-  //systemSettings.useSummary = document.getElementById('useSummary').checked;
-  //systemSettings.doubleCheck = document.getElementById('useDoubleCheck').checked;
-  //socket.emit("save",systemSettings)
 }
 function saveChar() {
   //console.log('saveChar');
@@ -691,6 +704,13 @@ function replay() {
     messages:messages
   }
   socket.emit("replay",replayData);
+}
+function historyDelete(){
+  let li = document.querySelector('li.selected')
+  socket.emit('historyDelete',li.id)
+  li.remove()
+  let table = document.getElementById('history_table');
+  while(table.rows[0]) table.deleteRow(0);
 }
 function replayAdd(){
   let table = document.getElementById('history_table');
