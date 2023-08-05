@@ -714,14 +714,18 @@ function historyDelete(){
 }
 function replayAdd(){
   let table = document.getElementById('history_table');
+  if (table.rows[table.rows.length-1].cells[0].innerHTML == 'raw') table.rows[table.rows.length-1].remove()
+  if (table.rows[table.rows.length-1].cells[0].innerHTML == 'Response') table.rows[table.rows.length-1].remove()
   let newrow = document.createElement('tr');
   newrow.innerHTML = '<th onclick="swapRole(this)" style="cursor: pointer;">user</th><td><textarea oninput="autoResize(this)"></textarea></td>';
   table.append(newrow);
 }
 function replayRemove(){
   let table = document.getElementById('history_table');
-  if (table.rows.length > 4) {
-    table.rows[table.rows.length-3].remove();
+  if (table.rows[table.rows.length-1].cells[0].innerHTML == 'raw') table.rows[table.rows.length-1].remove()
+  if (table.rows[table.rows.length-1].cells[0].innerHTML == 'Response') table.rows[table.rows.length-1].remove()
+  if (table.rows.length > 2) {
+    table.rows[table.rows.length-1].remove();
   }
 }
 function swapTrueFalse(item) {

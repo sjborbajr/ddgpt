@@ -20,8 +20,6 @@ try {
 const database = client.db('ddgpt');
 const settingsCollection = database.collection('settings'), gameDataCollection = database.collection('gameData'), responseCollection = database.collection('allResponses');
 
-const timers = {};
-
 // Set up the app/web/io server
 const app = express(), server = http.createServer(app), io = new SocketIO(server);
 const __filename = fileURLToPath(import.meta.url), __dirname = dirname(__filename);
@@ -261,7 +259,7 @@ io.on('connection', async (socket) => {
       UserInput.type = 'message';
       UserInput.tokens = (enc.encode(UserInput.content)).length;
       
-      if (settings.active){
+      if (settings.active == 'true'){
         try {
           gameDataCollection.insertOne(UserInput,{safe: true});
         } catch (error) {
@@ -702,9 +700,9 @@ async function startAdventure(adventure){
   let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure._id}).toArray();
   
   //let messages = formatStartMessages(settings,characters);
-  let messages = await formatMessages("adventureStart",null,{"characters":characters});
+  let messages = await formatMessages("adventureStart",null,{"characters":characters},adventure.realm);
 
-  if (settings.active){
+  if (settings.active == 'true'){
     let openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'adventureStart');
     if (openAiResponse.id) {
       openAiResponse.type = 'message';
@@ -814,12 +812,12 @@ async function continueAdventure(adventure_id){
   ]);
   let apiKey = adventure.api_key;
   let model = adventure.model || settings.model;
-  let messages = await formatMessages("game",allMessages,{characters:characters,model:model,adventure_id:adventure_id});
+  let messages = await formatMessages("game",allMessages,{characters:characters,model:model,maxTokens:settings.maxTokens,adventure_id:adventure_id},adventure.realm);
 
-  if (settings.active){
+  if (settings.active == 'true'){
     openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game');
     if (openAiResponse.id) {
-      if(dbl_settings.active) {
+      if(dbl_settings.active == 'true') {
         let messages = await formatMessages("doubleCheck",[{role:"user",content:openAiResponse.content}],{characters:characters});
         let tempOpenAiResponse = await openaiCall(messages,dbl_settings.model,dbl_settings.temperature,Number(dbl_settings.maxTokens),apiKey,'doubleCheck');
         if (tempOpenAiResponse.id){
@@ -838,8 +836,8 @@ async function continueAdventure(adventure_id){
       }
       io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',openAiResponse);
 
-      if (sum_settings.active) {
-        messages = await formatMessages("summary",[{role:"user",content:openAiResponse.content}]);
+      if (sum_settings.active == 'true') {
+        messages = await formatMessages("summary",[{role:"user",content:openAiResponse.content}],null,adventure.realm);
         let summaryResponse = openaiCall(messages,sum_settings.model,Number(sum_settings.temperature),Number(sum_settings.maxTokens),apiKey,'summary');
         //using then(response) to allow asymetric processing
         summaryResponse.then((response) => {
@@ -861,10 +859,9 @@ async function continueAdventure(adventure_id){
       }
 
       //get system data and enhance the experiance
-      
-      if (cru_settings.active){
+      if (cru_settings.active == 'true'){
         let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
-        messages = await formatMessages("croupier",[{role:"user",content:openAiResponse.content}],{characters:characters})
+        messages = await formatMessages("croupier",[{role:"user",content:openAiResponse.content}],{characters:characters},adventure.realm)
         let croupierResponse = await openaiCall(messages,cru_settings.model,Number(cru_settings.temperature),Number(cru_settings.maxTokens),apiKey,'croupier');
         if (croupierResponse.id){
           //we got data back, is it json?
@@ -891,8 +888,8 @@ async function continueAdventure(adventure_id){
   } else {
     console.log(messages,model,Number(settings.temperature),Number(settings.maxTokens));
     setTimeout(()=> {io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',{role:'assistent',content:'fake'})}, 3000);
-    if (sum_settings.active) {
-      messages = await formatMessages("summary",[{role:"user",content:"Fake response from Previous fake"}])
+    if (sum_settings.active == 'true') {
+      messages = await formatMessages("summary",[{role:"user",content:"Fake response from Previous fake"},null,adventure.realm])
       console.log(messages,sum_settings.model,Number(sum_settings.temperature),Number(sum_settings.maxTokens));
     }
   }
@@ -901,12 +898,18 @@ async function formatMessages(functionName,userMessages,additionData,realm){
   if (!userMessages) {
     userMessages=[];
   }
+  if (!additionData) {
+    additionData={};
+  }
+  if (!additionData.characters) {
+    additionData.characters={};
+  }
 
-  let allOrders = await settingsCollection.distinct("order",{"function":functionName,$or:[{"realm":"<default>"},{"realm":realm}]});
+  let allOrders = await settingsCollection.distinct("order",{"function":functionName,$or:[{realm:"<default>"},{realm:realm}]});
   let messages=[], userMessagesIx=1000, jsonData;
 
-  let use_summary, always_summary = 10 * 2, minimumSaving = 5;
-  if (functionName = 'game'){
+  let use_summary = {}, always_summary = 10 * 2, minimumSaving = 5;
+  if (functionName == 'game'){
     use_summary = await getFunctionSettings('use_summary');
   }
 
@@ -914,9 +917,9 @@ async function formatMessages(functionName,userMessages,additionData,realm){
     //game messages start at 1000, blend messages in the middle if there are messages > 1000
     while (allOrders[i] > userMessagesIx && userMessages.length > 0) {
       let message = userMessages.shift()
-      if (use_summary.active && message.tokens_savings > 5 && userMessages.length > always_summary) {
+      if (use_summary.active == 'true' && message.tokens_savings > 5 && userMessages.length > always_summary) {
         messages.push({role:message.role,content:message.summary});
-      } else if (use_summary.active & message.tokens_savings > 5) {
+      } else if (use_summary.active == 'true' & message.tokens_savings > 5) {
         messages.push({role:message.role,content:message.content,summary:message.summary,tokens_savings:message.tokens_savings});
       } else {
         messages.push({role:message.role,content:message.content});
@@ -937,9 +940,9 @@ async function formatMessages(functionName,userMessages,additionData,realm){
   //Append the rest of the game messages
   while (userMessages.length > 0) {
     let message = userMessages.shift()
-    if (use_summary.active && message.tokens_savings > 5 && userMessages.length > always_summary) {
+    if (use_summary.active == 'true' && message.tokens_savings > 5 && userMessages.length > always_summary) {
       messages.push({role:message.role,content:message.summary});
-    } else if (use_summary.active & message.tokens_savings > minimumSaving) {
+    } else if (use_summary.active == 'true' & message.tokens_savings > minimumSaving) {
       messages.push({role:message.role,content:message.content,summary:message.summary,tokens_savings:message.tokens_savings});
     } else {
       messages.push({role:message.role,content:message.content});
@@ -979,17 +982,18 @@ async function formatMessages(functionName,userMessages,additionData,realm){
   }
   messages = JSON.parse(messages);
 
-  if(use_summary.active){
-    let maxTokens = getMaxTokens(additionData.model);
-    let currentTokens = calcTokens(messages);
+  if(use_summary.active == 'true'){
+    let maxTokens = await getMaxTokens(additionData.model)-Number(additionData.maxTokens);
+    let currentTokens = calcTokens(messages,additionData.model);
     let sent = false;
     for (let i = 0 ; i < messages.length; i++) {
       if (currentTokens > maxTokens && messages[i].tokens_savings > minimumSaving) {
         messages[i].content = messages[i].summary;
-        currentTokens = currentTokens - messages.tokens_savings;
+        currentTokens = currentTokens - messages[i].tokens_savings;
         if (!sent){
           let message = {message:'Summary had to trim extra!',color:'red',timeout:10000};
-          io.sockets.in('alertMsg',message);
+          io.sockets.in('Adventure-'+additionData.adventure_id).emit('alertMsg',message);
+          sent=true;
         } 
       }
       //need to clean up before sending to openai
