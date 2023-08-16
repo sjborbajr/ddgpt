@@ -1,18 +1,25 @@
 import os
 import re
 from pymongo import MongoClient
-from flask import Flask, send_file, request, send_from_directory
-from flask_socketio import SocketIO, send, emit
-from urllib.parse import urlparse
+import eventlet
+import socketio
 import datetime
 import base64
 import hashlib
 import random
+import json
 
-app = Flask(__name__, static_folder='public', static_url_path='/')
-socketio = SocketIO(app, async_mode='eventlet')
+sio = socketio.Server()
+app = socketio.WSGIApp(sio, static_files={
+    '/': {'content_type': 'text/html', 'filename': 'public/index.html'},
+    '/client.js':{'content_type': 'text/javascript', 'filename': 'client.js'}
+})
+
+global active_sockets
+active_sockets = {}
 
 mongo_uri = os.environ.get('MONGODB', 'mongodb://localhost/?retryWrites=true')
+#mongo_uri = os.getenv("MONGODB") or "mongodb://localhost/?retryWrites=true"
 client = MongoClient(mongo_uri)
 database = client.ddgpt
 settings_collection = database.settings
@@ -31,8 +38,16 @@ def client_js():
 def socket_io_js():
   return send_file('public/socket.io.js', mimetype='text/javascript')
 
+@socketio.on('showCharOption')
+def showCharOption(sid, data):
+  if data in ['All', 'Own']:
+    active_sockets[sid.get('playerName')]['showCharacters'] = data
+  else:
+    socketio.emit('alertMsg', {'message': 'Invalid option!', 'color': 'red', 'timeout': 5000}, to=request.sid)
+
+
 @socketio.on('saveChar')
-def handle_this(data):
+def saveChar(data):
   print('Received event')
   print(data)
 
@@ -52,20 +67,27 @@ def handle_connect(sid):
       pass
       # Update database of new logon
     elif player_data['authNonce'] != auth_nonce and player_data['name'] == player_name and client_ip in player_data['ipList']:
-      socketio.emit('nonce', player_data['authNonce'])
+      socketio.emit('nonce', player_data['authNonce'], to=request.sid)
     else:
-      socketio.emit("error", "user not authenticated")
-      socketio.disconnect()
+      socketio.emit("error", "user not authenticated", to=request.sid)
+      socketio.server().get_session(request.sid).disconnect()
       print('Player', player_name, 'did not have nonce and did not have IP - Kicked')
   else:
     #player_data = add_player(player_name, client_ip, socket)
     if not player_data:
-      socketio.emit("error", 'Could not add user with name "' + player_name + '"')
+      socketio.emit("error", 'Could not add user with name "' + player_name + '"', to=request.sid)
       socketio.disconnect()
-    
-  print(player_data)
-  if player_data['admin'] == True:
-    socketio.emit('serverRole','admin')
+
+  active_sockets[request.sid] = {
+    'player_data': player_data,
+    'showCharacters': 'Own',
+    'showActiveAdventures': True,
+    'historyFilterLimit': 'all',
+    'historyTextSearch': ''
+  }
+
+  if active_sockets[request.sid]['player_data']['admin'] == True:
+    socketio.emit('serverRole','admin', to=request.sid)
 
 def fetch_player_data(player_name):
   find_filter = {"name": player_name, "type": "player"}
@@ -81,7 +103,7 @@ def add_player(player_name, client_ip, socket):
   if len(player_name) > 0:
     print('Adding user:', player_name)
     nonce = base64.b64encode(os.urandom(64)).decode('utf-8')
-    socketio.emit('nonce', nonce)
+    socketio.emit('nonce', nonce, to=request.sid)
     player_doc = {
       "name": player_name,
       "type": "player",
@@ -96,4 +118,4 @@ def add_player(player_name, client_ip, socket):
       return None
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 9001)))
+  socketio.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 9001)))

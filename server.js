@@ -322,6 +322,21 @@ io.on('connection', async (socket) => {
       console.log(error)
     }
   });
+  socket.on('setAdventureRealm',async data =>{
+    console.log('['+new Date().toUTCString()+'] Player '+playerName+' requested to set realm to '+data.realm)
+    try {
+      data.adventure_id = new ObjectId(data.adventure_id);
+      if (data.model == 'unset' || data.model == '<default>'){
+        await gameDataCollection.updateOne({type:'adventure',_id:data.adventure_id},{$unset:{realm:1}});
+      } else {
+        await gameDataCollection.updateOne({type:'adventure',_id:data.adventure_id},{$set:{realm:data.realm}});
+      }
+      let message = {message:'realm updated',color:'green',timeout:3000}
+      socket.emit('alertMsg',message);
+    } catch (error) {
+      console.log(error)
+    }
+  });
   socket.on('endAdventure',async adventure_id =>{
     completeAdventure(new ObjectId(adventure_id));
   });

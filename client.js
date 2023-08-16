@@ -58,12 +58,14 @@ socket.on('serverRole', role => {
     document.getElementById('SystemBtn').style.display = 'inline';
     document.getElementById('ScotGPTBtn').style.display = 'inline';
     document.getElementById('HistoryBtn').style.display = 'inline';
-    document.getElementById('HomeBtn').style.width = '16%'
-    document.getElementById('CharactersBtn').style.width = '16%'
-    document.getElementById('AdventuresBtn').style.width = '17%'
-    document.getElementById('SystemBtn').style.width = '17%'
-    document.getElementById('HistoryBtn').style.width = '17%'
-    document.getElementById('ScotGPTBtn').style.width = '17%'
+    setTimeout(function() {
+      document.getElementById('HomeBtn').style.width = '16%'
+      document.getElementById('CharactersBtn').style.width = '16%'
+      document.getElementById('AdventuresBtn').style.width = '17%'
+      document.getElementById('SystemBtn').style.width = '17%'
+      document.getElementById('ScotGPTBtn').style.width = '17%'
+      document.getElementById('HistoryBtn').style.width = '17%'
+    }, 100);
   };
 });
 socket.on('functionList', allFunctions => {
@@ -259,7 +261,7 @@ socket.on('charData', (data) => {
     } else {
       document.getElementById('character_activeAdventure').value = '';
     }
-    if (data.adventures.length > 0) {
+    if (data.adventures) {
       document.getElementById('character_adventures').value = data.adventures[0].name;
       for (let i = 1 ; i < data.adventures.length; i++){
         document.getElementById('character_adventures').value += ','+data.adventures[i].name;
@@ -609,7 +611,6 @@ function saveSettings() {
     let optionDoc = document.getElementById('functionList'), table = document.getElementById('functionSettingsTable'), messageTable = document.getElementById('functionSettingsMessages')
     let functionSettings = {function:optionDoc.value}
     for (var i = 1, row; row = table.rows[i]; i++) {
-      console.log(row.cells[1].firstChild)
       if (row.cells[1].firstChild.value) {
         functionSettings[row.cells[0].innerHTML] = row.cells[1].firstChild.value;
       } else {
@@ -973,6 +974,11 @@ function endAdventure() {
 function adventureModel(model) {
   if (document.getElementById('player-input-end').disabled == false) {
     socket.emit("setAdventureModel",{model:model,adventure_id:document.getElementById('adventure_list').value});
+  }
+}
+function adventureRealm(realm) {
+  if (document.getElementById('player-input-end').disabled == false) {
+    socket.emit("setAdventureRealm",{realm:realm,adventure_id:document.getElementById('adventure_list').value});
   }
 }
 function adventureAction() {
