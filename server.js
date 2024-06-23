@@ -644,12 +644,13 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
     if (modelInfo.provider == 'openai'){
       let openai = new OpenAIApi(new Configuration({apiKey: apiKey}));
       response = await openai.createChatCompletion({model: model, messages: messages, temperature: temperature, max_tokens: maxTokens });
-    } else if (modelInfo.provider == 'openai'){
+    } else if (modelInfo.provider == 'anthropic'){
       response = anthropicCall(messages, model, temperature, maxTokens, apiKey,call_function);
       console.log('Anthropic Response',response)
       return
     } else {
-      console.error('invalid provider:', ('invalid provide'+modelInfo.provider));
+      console.error('invalid provider:', ('invalid provider '+modelInfo.provider));
+      return
     }
     
     let allResponse_id = await saveResponse(response,call_function);
