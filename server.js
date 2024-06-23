@@ -209,7 +209,7 @@ io.on('connection', async (socket) => {
     if (playerData.admin) {
       let message = {message:'Message recieved, running!',color:'green',timeout:10000}
       socket.emit('alertMsg',message);
-      let response = await openaiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_key,'ScotGPT')
+      let response = await aiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_key,'ScotGPT')
       socket.emit('ScotRan',response.content);
     }
   });
@@ -217,7 +217,7 @@ io.on('connection', async (socket) => {
     if (playerData.admin) {
       let message = {message:'replay recieved, running!',color:'green',timeout:10000}
       socket.emit('alertMsg',message);
-      let response = await openaiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_key,'Replay')
+      let response = await aiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_key,'Replay')
       socket.emit('replayRan',{date:response.date,_id:response.allResponse_id});
     }
   });
@@ -635,18 +635,22 @@ async function saveResponse(responseRaw,call_function){
     console.error('Error saving response to MongoDB:', error);
   }
 };
-async function openaiCall(messages, model, temperature, maxTokens, apiKey,call_function) {
+async function aiCall(messages, model, temperature, maxTokens, apiKey,call_function) {
   temperature = Number(temperature);
   maxTokens = Number(maxTokens);
+  let modelInfo = await settingsCollection.findOne({type:'model',"model":model});
+  let response = ''
   try {
     //should we do a retry? - todo
-    let openai = new OpenAIApi(new Configuration({apiKey: apiKey}));
-    const response = await openai.createChatCompletion({
-      model: model,
-      messages: messages,
-      temperature: temperature,
-      max_tokens: maxTokens
-    });
+    if (modelInfo.provider == 'openai'){
+      let openai = new OpenAIApi(new Configuration({apiKey: apiKey}));
+      response = await openai.createChatCompletion({model: model, messages: messages, temperature: temperature, max_tokens: maxTokens });
+    } else if (modelInfo.provider == 'openai'){
+      response = anthropicCall(messages, model, temperature, maxTokens, apiKey,call_function);
+      console.log('Anthropic Response',response)
+    } else {
+      console.error('invalid provider:', ('invalid provide'+modelInfo.provider));
+    }
     
     let allResponse_id = await saveResponse(response,call_function);
     // Extract the generated response from the API
@@ -676,6 +680,32 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey,call_f
       saveResponse(error.response,call_function);
     } catch (error2) {console.log(error2)}
     return {content:generatedResponse}
+  }
+}
+async function anthropicCall(messages, model, temperature, maxTokens, apiKey,call_function) {
+  const url = 'https://api.anthropic.com/v1/messages';
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01'
+  };
+  let systemMessage = messages[0].content;
+  messages.splice(0,1)
+  const data = {
+    model: model,
+    max_tokens: maxTokens,
+    temperature: temperature,
+    system: systemMessage,
+    messages: messages
+  };
+
+  try {
+    const response = await axios.post(url, data, { headers });
+    return response.data;
+  } catch (error) {
+    console.error('Error calling Anthropic API:', error);
+    throw error;
   }
 }
 async function getFunctionSettings(functionName){
@@ -718,7 +748,7 @@ async function startAdventure(adventure){
   let messages = await formatMessages("adventureStart",null,{"characters":characters},adventure.realm);
 
   if (settings.active == 'true'){
-    let openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'adventureStart');
+    let openAiResponse = await aiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'adventureStart');
     if (openAiResponse.id) {
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure._id;
@@ -735,7 +765,7 @@ async function startAdventure(adventure){
       messages = await formatMessages("adventureName",[{role:"user",content:openAiResponse.content}],{party_name:adventure.party_name});
       
       let cru_settings = await getFunctionSettings('adventureName');
-      let croupierResponse = await openaiCall(messages,cru_settings.model,Number(cru_settings.temperature),Number(cru_settings.maxTokens),apiKey,'adventureName');
+      let croupierResponse = await aiCall(messages,cru_settings.model,Number(cru_settings.temperature),Number(cru_settings.maxTokens),apiKey,'adventureName');
       if (croupierResponse.id){
         let responseJson = JSON.parse(croupierResponse.content)
         if (responseJson){
@@ -830,11 +860,11 @@ async function continueAdventure(adventure_id){
   let messages = await formatMessages("game",allMessages,{characters:characters,model:model,maxTokens:settings.maxTokens,adventure_id:adventure_id},adventure.realm);
 
   if (settings.active == 'true'){
-    openAiResponse = await openaiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game');
+    openAiResponse = await aiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game');
     if (openAiResponse.id) {
       if(dbl_settings.active == 'true') {
         let messages = await formatMessages("doubleCheck",[{role:"user",content:openAiResponse.content}],{characters:characters});
-        let tempOpenAiResponse = await openaiCall(messages,dbl_settings.model,dbl_settings.temperature,Number(dbl_settings.maxTokens),apiKey,'doubleCheck');
+        let tempOpenAiResponse = await aiCall(messages,dbl_settings.model,dbl_settings.temperature,Number(dbl_settings.maxTokens),apiKey,'doubleCheck');
         if (tempOpenAiResponse.id){
           openAiResponse = tempOpenAiResponse;
         }
@@ -853,7 +883,7 @@ async function continueAdventure(adventure_id){
 
       if (sum_settings.active == 'true') {
         messages = await formatMessages("summary",[{role:"user",content:openAiResponse.content}],null,adventure.realm);
-        let summaryResponse = openaiCall(messages,sum_settings.model,Number(sum_settings.temperature),Number(sum_settings.maxTokens),apiKey,'summary');
+        let summaryResponse = aiCall(messages,sum_settings.model,Number(sum_settings.temperature),Number(sum_settings.maxTokens),apiKey,'summary');
         //using then(response) to allow asymetric processing
         summaryResponse.then((response) => {
           if (response.id){
@@ -877,7 +907,7 @@ async function continueAdventure(adventure_id){
       if (cru_settings.active == 'true'){
         let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
         messages = await formatMessages("croupier",[{role:"user",content:openAiResponse.content}],{characters:characters},adventure.realm)
-        let croupierResponse = await openaiCall(messages,cru_settings.model,Number(cru_settings.temperature),Number(cru_settings.maxTokens),apiKey,'croupier');
+        let croupierResponse = await aiCall(messages,cru_settings.model,Number(cru_settings.temperature),Number(cru_settings.maxTokens),apiKey,'croupier');
         if (croupierResponse.id){
           //we got data back, is it json?
           try {
