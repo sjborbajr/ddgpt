@@ -647,6 +647,7 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
     } else if (modelInfo.provider == 'openai'){
       response = anthropicCall(messages, model, temperature, maxTokens, apiKey,call_function);
       console.log('Anthropic Response',response)
+      return
     } else {
       console.error('invalid provider:', ('invalid provide'+modelInfo.provider));
     }
