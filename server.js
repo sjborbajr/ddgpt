@@ -641,7 +641,6 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
   let modelInfo = await settingsCollection.findOne({type:'model',"model":model});
   let response = ''
   try {
-    //should we do a retry? - todo
     if (modelInfo.provider == 'openai'){
       let openai = new OpenAIApi(new Configuration({apiKey: apiKey}));
       response = await openai.createChatCompletion({model: model, messages: messages, temperature: temperature, max_tokens: maxTokens });
