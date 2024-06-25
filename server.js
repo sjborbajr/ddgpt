@@ -710,7 +710,7 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
     return {content:generatedResponse}
   }
 }
-async function anthropicCall(messages, model, temperature, maxTokens, apiKey,call_function) {
+async function anthropicCall(messages, model, temperature, maxTokens, apiKey) {
   const url = 'https://api.anthropic.com/v1/messages';
 
   const headers = {
