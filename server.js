@@ -7,6 +7,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import crypto from 'crypto';
+import axios from 'axios'
 //import { formatCroupierStartMessages, formatStartMessages, formatAdventureMessages, formatSummaryMessages, formatCroupierMessages, formatDoubleCheckMessages } from './functions.js';
 import { encoding_for_model } from "tiktoken";
 
@@ -572,22 +573,26 @@ async function saveResponse(responseRaw,call_function){
   }
   if (responseRaw.date) {
     response.date = responseRaw.date
-  } else if (responseRaw.headers.date) {
+  } else if (responseRaw['headers']['date']) {
     response.date = responseRaw.headers.date
   }
   if (responseRaw['headers']['openai-processing-ms']) {
     response.duration = responseRaw['headers']['openai-processing-ms']
   }
-  if (responseRaw.headers['openai-version']) {
-    response.openaiversion = responseRaw.headers['openai-version']
+  if (responseRaw['headers']['openai-version']) {
+    response.aiversion = responseRaw.headers['openai-version']
+  } else if (responseRaw['config']['headers']['anthropic-version']) {
+    response.aiversion = responseRaw.headers['anthropic-version']
   }
-  if (responseRaw.headers['x-request-id']) {
+  if (responseRaw['headers']['x-request-id']) {
     response.xrequestid = responseRaw.headers['x-request-id']
+  } else if (responseRaw['headers']['request-id']) {
+    response.xrequestid = responseRaw.headers['request-id']
   }
-  if (responseRaw.config.data) {
+  if (responseRaw['config']['data']) {
     response.request = responseRaw.config.data
   }
-  if (responseRaw.config.url) {
+  if (responseRaw['config']['url']) {
     response.url = responseRaw.config.url
   }
   if (responseRaw.data){
@@ -596,6 +601,8 @@ async function saveResponse(responseRaw,call_function){
     }
     if (responseRaw.data.object) {
       response.type = responseRaw.data.object
+    } else if (responseRaw.data.content[0].type) {
+      response.type = responseRaw.data.content[0].type
     }
     if (responseRaw.data.created) {
       response.created = responseRaw.data.created
@@ -608,24 +615,34 @@ async function saveResponse(responseRaw,call_function){
     if (responseRaw.data.usage){
       if (responseRaw.data.usage.prompt_tokens) {
         response.prompt_tokens = responseRaw.data.usage.prompt_tokens
+      } else if (responseRaw.data.usage.input_tokens) {
+        response.prompt_tokens = responseRaw.data.usage.input_tokens
       }
       if (responseRaw.data.usage.completion_tokens) {
         response.completion_tokens = responseRaw.data.usage.completion_tokens
+      } else if (responseRaw.data.usage.output_tokens) {
+        response.completion_tokens = responseRaw.data.usage.output_tokens
       }
       if (responseRaw.data.usage.total_tokens) {
         response.tokens = responseRaw.data.usage.total_tokens
+      } else {
+        response.tokens = response.prompt_tokens + response.completion_tokens
       }
     }
-    if (responseRaw.data.choices){
+    if (responseRaw.data.choices) {
       if (responseRaw.data.choices[0].message.content) {
         response.response = responseRaw.data.choices[0].message.content
       } else {
         response.response = JSON.stringify(responseRaw.data.choices)
       }
-      response.responseRaw = JSON.stringify(responseRaw.data.choices[0])
+      response.responseRaw = JSON.stringify(responseRaw.data.choices)
       if (responseRaw.data.choices[0].finish_reason) {
         response.finish_reason = responseRaw.data.choices[0].finish_reason
       }
+    } else if (responseRaw.data.content) {
+      response.response = responseRaw.data.content[0].text
+      response.responseRaw = JSON.stringify(responseRaw.data.content)
+      response.finish_reason = responseRaw.data.stop_reason
     }
   }
   try {
@@ -640,29 +657,39 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
   maxTokens = Number(maxTokens);
   let modelInfo = await settingsCollection.findOne({type:'model',"model":model});
   let response = ''
+  let generatedResponse = ''
   try {
     if (modelInfo.provider == 'openai'){
       let openai = new OpenAIApi(new Configuration({apiKey: apiKey}));
       response = await openai.createChatCompletion({model: model, messages: messages, temperature: temperature, max_tokens: maxTokens });
+      let allResponse_id = await saveResponse(response,call_function);
+      // Extract the generated response from the API
+      generatedResponse = {
+        content:response.data.choices[0].message.content,
+        date:response.headers.date,
+        role:response.data.choices[0].message.role,
+        id:response.data.id,
+        tokens:response.data.usage.completion_tokens,
+        allResponse_id:allResponse_id
+      }
     } else if (modelInfo.provider == 'anthropic'){
-      response = anthropicCall(messages, model, temperature, maxTokens, apiKey,call_function);
-      console.log('Anthropic Response',response)
-      return
+      apiKey = process.env.apiKey;
+      response = await anthropicCall(messages, model, temperature, maxTokens, apiKey,call_function);
+      let allResponse_id = await saveResponse(response,call_function);
+      // Extract the generated response from the API
+      generatedResponse = {
+        content:response.data.content[0].text,
+        date:response.headers.date,
+        role:'assistant',
+        id:response.data.id,
+        tokens:response.data.usage.output_tokens,
+        allResponse_id:allResponse_id
+      }
     } else {
       console.error('invalid provider:', ('invalid provider '+modelInfo.provider));
       return
     }
     
-    let allResponse_id = await saveResponse(response,call_function);
-    // Extract the generated response from the API
-    const generatedResponse = {
-      content:response.data.choices[0].message.content,
-      date:response.headers.date,
-      role:response.data.choices[0].message.role,
-      id:response.data.id,
-      tokens:response.data.usage.completion_tokens,
-      allResponse_id:allResponse_id
-    }
     
     return generatedResponse;
   } catch (error) {
@@ -691,19 +718,16 @@ async function anthropicCall(messages, model, temperature, maxTokens, apiKey,cal
     'x-api-key': apiKey,
     'anthropic-version': '2023-06-01'
   };
-  let systemMessage = messages[0].content;
-  messages.splice(0,1)
+  messages[0].role = 'user';
   const data = {
     model: model,
     max_tokens: maxTokens,
     temperature: temperature,
-    system: systemMessage,
     messages: messages
   };
-
   try {
     const response = await axios.post(url, data, { headers });
-    return response.data;
+    return response;
   } catch (error) {
     console.error('Error calling Anthropic API:', error);
     throw error;
