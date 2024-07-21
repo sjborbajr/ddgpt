@@ -563,93 +563,98 @@ async function updatePlayer(playerName,update) {
   }
 }
 async function saveResponse(responseRaw,call_function){
-  let response = {}
-  if (responseRaw.status) {
-    response.status = responseRaw.status
-  }
-  response.function = call_function;
-  if (responseRaw.statusText) {
-    response.statusText = responseRaw.statusText
-  }
-  if (responseRaw.date) {
-    response.date = responseRaw.date
-  } else if (responseRaw['headers']['date']) {
-    response.date = responseRaw.headers.date
-  }
-  if (responseRaw['headers']['openai-processing-ms']) {
-    response.duration = responseRaw['headers']['openai-processing-ms']
-  }
-  if (responseRaw['headers']['openai-version']) {
-    response.aiversion = responseRaw.headers['openai-version']
-  } else if (responseRaw['config']['headers']['anthropic-version']) {
-    response.aiversion = responseRaw.headers['anthropic-version']
-  }
-  if (responseRaw['headers']['x-request-id']) {
-    response.xrequestid = responseRaw.headers['x-request-id']
-  } else if (responseRaw['headers']['request-id']) {
-    response.xrequestid = responseRaw.headers['request-id']
-  }
-  if (responseRaw['config']['data']) {
-    response.request = responseRaw.config.data
-  }
-  if (responseRaw['config']['url']) {
-    response.url = responseRaw.config.url
-  }
-  if (responseRaw.data){
-    if (responseRaw.data.id) {
-      response.id = responseRaw.data.id
-    }
-    if (responseRaw.data.object) {
-      response.type = responseRaw.data.object
-    } else if (responseRaw.data.content[0].type) {
-      response.type = responseRaw.data.content[0].type
-    }
-    if (responseRaw.data.created) {
-      response.created = responseRaw.data.created
-    } else if (response.date) {
-      response.created = Math.round(new Date(response.date).getTime()/1000);
-    }
-    if (responseRaw.data.model) {
-      response.model = responseRaw.data.model
-    }
-    if (responseRaw.data.usage){
-      if (responseRaw.data.usage.prompt_tokens) {
-        response.prompt_tokens = responseRaw.data.usage.prompt_tokens
-      } else if (responseRaw.data.usage.input_tokens) {
-        response.prompt_tokens = responseRaw.data.usage.input_tokens
-      }
-      if (responseRaw.data.usage.completion_tokens) {
-        response.completion_tokens = responseRaw.data.usage.completion_tokens
-      } else if (responseRaw.data.usage.output_tokens) {
-        response.completion_tokens = responseRaw.data.usage.output_tokens
-      }
-      if (responseRaw.data.usage.total_tokens) {
-        response.tokens = responseRaw.data.usage.total_tokens
-      } else {
-        response.tokens = response.prompt_tokens + response.completion_tokens
-      }
-    }
-    if (responseRaw.data.choices) {
-      if (responseRaw.data.choices[0].message.content) {
-        response.response = responseRaw.data.choices[0].message.content
-      } else {
-        response.response = JSON.stringify(responseRaw.data.choices)
-      }
-      response.responseRaw = JSON.stringify(responseRaw.data.choices)
-      if (responseRaw.data.choices[0].finish_reason) {
-        response.finish_reason = responseRaw.data.choices[0].finish_reason
-      }
-    } else if (responseRaw.data.content) {
-      response.response = responseRaw.data.content[0].text
-      response.responseRaw = JSON.stringify(responseRaw.data.content)
-      response.finish_reason = responseRaw.data.stop_reason
-    }
-  }
   try {
-    await responseCollection.insertOne(response);
-    return response._id;
+    let response = {}
+    if (responseRaw.status) {
+      response.status = responseRaw.status
+    }
+    response.function = call_function;
+    if (responseRaw.statusText) {
+      response.statusText = responseRaw.statusText
+    }
+    if (responseRaw.date) {
+      response.date = responseRaw.date
+    } else if (responseRaw['headers']['date']) {
+      response.date = responseRaw.headers.date
+    }
+    if (responseRaw['headers']['openai-processing-ms']) {
+      response.duration = responseRaw['headers']['openai-processing-ms']
+    }
+    if (responseRaw['headers']['openai-version']) {
+      response.aiversion = responseRaw.headers['openai-version']
+    } else if (responseRaw['config']['headers']['anthropic-version']) {
+      response.aiversion = responseRaw.headers['anthropic-version']
+    }
+    if (responseRaw['headers']['x-request-id']) {
+      response.xrequestid = responseRaw.headers['x-request-id']
+    } else if (responseRaw['headers']['request-id']) {
+      response.xrequestid = responseRaw.headers['request-id']
+    }
+    if (responseRaw['config']['data']) {
+      response.request = responseRaw.config.data
+    }
+    if (responseRaw['config']['url']) {
+      response.url = responseRaw.config.url
+    }
+    if (responseRaw.data){
+      response.data = responseRaw.data
+      if (responseRaw.data.id) {
+        response.id = responseRaw.data.id
+      }
+      if (responseRaw.data.object) {
+        response.type = responseRaw.data.object
+      } else if (responseRaw.data.content) {
+        response.type = responseRaw.data.content[0].type
+      }
+      if (responseRaw.data.created) {
+        response.created = responseRaw.data.created
+      } else if (response.date) {
+        response.created = Math.round(new Date(response.date).getTime()/1000);
+      }
+      if (responseRaw.data.model) {
+        response.model = responseRaw.data.model
+      }
+      if (responseRaw.data.usage){
+        if (responseRaw.data.usage.prompt_tokens) {
+          response.prompt_tokens = responseRaw.data.usage.prompt_tokens
+        } else if (responseRaw.data.usage.input_tokens) {
+          response.prompt_tokens = responseRaw.data.usage.input_tokens
+        }
+        if (responseRaw.data.usage.completion_tokens) {
+          response.completion_tokens = responseRaw.data.usage.completion_tokens
+        } else if (responseRaw.data.usage.output_tokens) {
+          response.completion_tokens = responseRaw.data.usage.output_tokens
+        }
+        if (responseRaw.data.usage.total_tokens) {
+          response.tokens = responseRaw.data.usage.total_tokens
+        } else {
+          response.tokens = response.prompt_tokens + response.completion_tokens
+        }
+      }
+      if (responseRaw.data.choices) {
+        if (responseRaw.data.choices[0].message.content) {
+          response.response = responseRaw.data.choices[0].message.content
+        } else {
+          response.response = JSON.stringify(responseRaw.data.choices)
+        }
+        response.responseRaw = JSON.stringify(responseRaw.data.choices)
+        if (responseRaw.data.choices[0].finish_reason) {
+          response.finish_reason = responseRaw.data.choices[0].finish_reason
+        }
+      } else if (responseRaw.data.content) {
+        response.response = responseRaw.data.content[0].text
+        response.responseRaw = JSON.stringify(responseRaw.data.content)
+        response.finish_reason = responseRaw.data.stop_reason
+      }
+    }
+    try {
+      await responseCollection.insertOne(response);
+      return response._id;
+    } catch (error) {
+      console.error('Error saving response to MongoDB:', error);
+    }
   } catch (error) {
-    console.error('Error saving response to MongoDB:', error);
+    console.error('Error saving response from OpenAI:', error);
   }
 };
 async function aiCall(messages, model, temperature, maxTokens, apiKey,call_function) {
@@ -673,7 +678,7 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
         allResponse_id:allResponse_id
       }
     } else if (modelInfo.provider == 'anthropic'){
-      apiKey = process.env.apiKey;
+      apiKey = modelInfo.apiKey
       response = await anthropicCall(messages, model, temperature, maxTokens, apiKey,call_function);
       let allResponse_id = await saveResponse(response,call_function);
       // Extract the generated response from the API
