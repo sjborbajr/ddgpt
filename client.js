@@ -187,7 +187,6 @@ socket.on('error', data => {
   if (data == 'user not authenticated'){
     document.getElementById('player-name').value = ''
     localStorage.removeItem('playerName');
-    localStorage.removeItem('authNonce');
   }
 });
 socket.on('alertMsg',data => {
@@ -277,15 +276,12 @@ socket.on('charData', (data) => {
     console.log("recieved data for "+data._id+" but drop down set to "+document.getElementById('characters_list').value);
   }
 });
-socket.on('nameChanged', (name) => {
+socket.on('playerName', (name) => {
   localStorage.setItem('playerName', name);
   playerName = name
   document.getElementById('player-name').disabled = true;
   document.getElementById('player-name').value = name;
   document.getElementById('connectButton').innerText = 'Change';
-});
-socket.on('nonce', (nonce) => {
-  localStorage.setItem('authNonce', nonce);
 });
 socket.on('AllAdventureHistory', (data) => {
   //addAllAdventureHistory(data);
@@ -716,7 +712,12 @@ function historyDelete(){
 function replayAdd(){
   let table = document.getElementById('history_table');
   if (table.rows[table.rows.length-1].cells[0].innerHTML == 'raw') table.rows[table.rows.length-1].remove()
-  if (table.rows[table.rows.length-1].cells[0].innerHTML == 'Response') table.rows[table.rows.length-1].remove()
+  if (table.rows[table.rows.length-1].cells[0].innerHTML == 'Response') {
+    table.rows[table.rows.length-1].cells[0].innerHTML = 'assistant'
+    table.rows[table.rows.length-1].cells[0].addEventListener('click', swapRole);
+    table.rows[table.rows.length-1].cells[0].style="cursor: pointer;"
+    table.rows[table.rows.length-1].cells[1].firstChild.removeAttribute("disabled")
+  }
   let newrow = document.createElement('tr');
   newrow.innerHTML = '<th onclick="swapRole(this)" style="cursor: pointer;">user</th><td><textarea oninput="autoResize(this)"></textarea></td>';
   table.append(newrow);
@@ -745,7 +746,7 @@ function swapTrueFalse(item) {
     }
   }
 }
-function swapRole(item) {
+function swapRole(item,order) {
   if(item.target) {
     item = item.target;
     if (item.innerText == 'user'){
@@ -758,6 +759,8 @@ function swapRole(item) {
   } else {
     if (item.innerText == 'user'){
       item.innerText = 'assistant';
+    } else if (item.innerText == 'assistant' && order == 'first'){
+      item.innerText = 'system';
     } else {
       item.innerText = 'user';
     }
@@ -770,20 +773,14 @@ function historyFilterLimit(filterText) {
 function connectButton() {
   let temp = document.getElementById('player-name').value
   document.getElementById('player-name').value = temp.trim().replace(/[^a-zA-Z0-9]/g,'');
-  if (document.getElementById('player-name').value.length == 0) {
-    alert('name must not be empty')
-  } else if (document.getElementById('connectButton').innerText == 'Connect' && document.getElementById('player-name').value.length > 0){
+  if (document.getElementById('connectButton').innerText == 'Connect'){
     playerName = document.getElementById('player-name').value;
-    let authNonce = localStorage.getItem('authNonce') || '';
-    socket.auth = { playerName, authNonce };
+    socket.auth = { playerName };
     socket.connect();
-    //console.log('connect attempt')
   } else if (document.getElementById('player-name').disabled && document.getElementById('connectButton').innerText == 'Change') {
-    //console.log('enabling change name feature')
     document.getElementById('player-name').disabled = false;
     document.getElementById('connectButton').innerText = 'Suggest';
   } else {
-    //console.log('requesting name change')
     socket.emit("changeName",document.getElementById('player-name').value);
   }
 }
@@ -805,7 +802,7 @@ function scotAdd(){
 }
 function scotRemove(){
   let table = document.getElementById('scotMessages');
-  if (table.rows.length > 2) {
+  if (table.rows.length > 1) {
     table.rows[table.rows.length-1].remove();
   }
 }
