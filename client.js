@@ -867,13 +867,19 @@ function addAllAdventureHistory(data) {
   });
 }
 function addAdventureHistory(entry) {
+  const markdownParser = new MarkdownParser();
   const adventureHistoryDiv = document.getElementById('adventure-history');
   let messageDiv = document.getElementById('loading');
   if (!messageDiv){
     messageDiv = document.createElement('div');
   }
   messageDiv.className = 'message ' + (entry.role === 'user' ? 'player-message' : 'dm-message');
-  messageDiv.textContent = entry.content;
+  if (entry.role === 'user') {
+    messageDiv.textContent = entry.content;
+  } else {
+    messageDiv.innerHTML = markdownParser.parse(entry.content);
+  }
+  
   if (entry._id) {
     messageDiv.id = 'div-'+entry._id;
     let button = document.createElement('button');
@@ -1123,5 +1129,118 @@ function toggleNav() {
     document.getElementById("mySidepanel").style.width = "33%";
   } else {
     document.getElementById("mySidepanel").style.width = "0";
+  }
+}
+class MarkdownParser {
+  constructor() {
+    // Regular expressions for different markdown elements
+    this.rules = {
+      // Headers (h1 to h6)
+      headers: /^(#{1,6})\s(.+)$/gm,
+      
+      // Bold text
+      bold: /\*\*(.+?)\*\*/g,
+      
+      // Italic text
+      italic: /\*(.+?)\*/g,
+      
+      // Code blocks with language specification
+      codeBlock: /```(\w+)?\n([\s\S]*?)```/g,
+      
+      // Inline code
+      inlineCode: /`(.+?)`/g,
+      
+      // Unordered lists
+      unorderedList: /^[\*\-]\s(.+)$/gm,
+      
+      // Ordered lists
+      orderedList: /^\d+\.\s(.+)$/gm,
+      
+      // Blockquotes
+      blockquote: /^>\s(.+)$/gm,
+      
+      // Links
+      links: /\[(.+?)\]\((.+?)\)/g,
+      
+      // Line breaks
+      lineBreaks: /\n/g
+    };
+  }
+
+  parse(markdown) {
+    let html = markdown;
+
+    // Process code blocks first to prevent interference with other rules
+    html = html.replace(this.rules.codeBlock, (match, language, code) => {
+      return `<pre class="code-block ${language || ''}"><code>${this.escapeHTML(code.trim())}</code></pre>`;
+    });
+
+    // Process inline code
+    html = html.replace(this.rules.inlineCode, '<code>$1</code>');
+
+    // Process headers
+    html = html.replace(this.rules.headers, (match, hLevel, text) => {
+      const level = hLevel.length;
+      return `<h${level}>${text.trim()}</h${level}>`;
+    });
+
+    // Process bold text
+    html = html.replace(this.rules.bold, '<strong>$1</strong>');
+
+    // Process italic text
+    html = html.replace(this.rules.italic, '<em>$1</em>');
+
+    // Process unordered lists
+    //let listItems = html.match(this.rules.unorderedList);
+    //if (listItems) {
+    //  let list = '<ul>';
+    //  listItems.forEach(item => {
+    //    list += `<li>${item.replace(/^[\*\-]\s/, '')}</li>`;
+    //  });
+    //  list += '</ul>';
+    //  html = html.replace(/(?:^[\*\-]\s.+$\n?)+/gm, list);
+    //}
+
+    // Process ordered lists
+    //listItems = html.match(this.rules.orderedList);
+    //if (listItems) {
+    //  let list = '<ol>';
+    //  listItems.forEach(item => {
+    //    list += `<li>${item.replace(/^\d+\.\s/, '')}</li>`;
+    //  });
+    //  list += '</ol>';
+    //  html = html.replace(/(?:^\d+\.\s.+$\n?)+/gm, list);
+    //}
+
+    // Process blockquotes
+    html = html.replace(this.rules.blockquote, '<blockquote>$1</blockquote>');
+
+    // Process links
+    html = html.replace(this.rules.links, '<a href="$2">$1</a>');
+
+    // Process paragraphs and line breaks
+    html = html.split('\n\n').map(paragraph => {
+      if (!paragraph.trim().startsWith('<')) {
+        return `<p>${paragraph}</p>`;
+      }
+      return paragraph;
+    }).join('\n');
+
+    // Clean up any remaining line breaks
+    html = html.replace(/\n(?![<\s])/g, '<br>');
+
+    return html;
+  }
+
+  // Helper function to escape HTML special characters
+  escapeHTML(text) {
+    const escapeChars = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, char => escapeChars[char]);
   }
 }

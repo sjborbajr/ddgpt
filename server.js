@@ -246,7 +246,7 @@ io.on('connection', async (socket) => {
         
         if (settings.active == 'true'){
           try {
-            gameDataCollection.insertOne(UserInput,{safe: true});
+            await gameDataCollection.insertOne(UserInput,{safe: true});
           } catch (error) {
             console.error('Error saving response to MongoDB:', error);
           }
@@ -774,6 +774,7 @@ async function startAdventure(adventure){
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure._id;
       openAiResponse.originMessage = true;
+      openAiResponse.date = new Date().toUTCString();
       openAiResponse.created = Math.round(new Date(openAiResponse.date).getTime()/1000);
 
       io.sockets.in('Adventure-'+adventure._id).emit('adventureEvent',openAiResponse);
@@ -879,7 +880,7 @@ async function continueAdventure(adventure_id){
   let apiKey = adventure.api_key;
   let model = adventure.model || settings.model;
   let messages = await formatMessages("game",allMessages,{characters:characters,model:model,maxTokens:settings.maxTokens,adventure_id:adventure_id},adventure.realm);
-
+  
   if (settings.active == 'true'){
     openAiResponse = await aiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKey,'game');
     if (openAiResponse.id) {
@@ -894,6 +895,7 @@ async function continueAdventure(adventure_id){
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure_id;
       openAiResponse.owner_id = adventure.owner_id;
+      openAiResponse.date = new Date().toUTCString();
       openAiResponse.created = Math.round(new Date(openAiResponse.date).getTime()/1000);
       try {
         await gameDataCollection.insertOne(openAiResponse,{safe: true});
@@ -979,9 +981,14 @@ async function formatMessages(functionName,userMessages,additionData,realm){
     use_summary = await getFunctionSettings('use_summary');
   }
 
+  let userMessagesRemain = 0
+  //for game message, need to put the last user message after the last assistant
+  if (functionName === "game") {
+    userMessagesRemain = 1
+  }
   for (let i = 0 ; i < allOrders.length; i++) {
     //game messages start at 1000, blend messages in the middle if there are messages > 1000
-    while (allOrders[i] > userMessagesIx && userMessages.length > 0) {
+    while (allOrders[i] > userMessagesIx && userMessages.length > userMessagesRemain) {
       let message = userMessages.shift()
       if (use_summary.active == 'true' && message.tokens_savings > 5 && userMessages.length > always_summary) {
         messages.push({role:message.role,content:message.summary});
