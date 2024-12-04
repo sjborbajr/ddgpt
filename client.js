@@ -902,7 +902,7 @@ function AddAdventurer(data) {
   let entry=document.createElement('div');
   entry.id = data.id = "div-"+data._id;
   entry.className = 'sidepanel-item'
-  entry.onclick=function () {adventurerClick(this);};
+  entry.ondblclick=function () {adventurerClick(this);};
 
     let name = document.createElement('div');
     name.innerText = "Name: " + data.name;
@@ -1150,25 +1150,16 @@ class MarkdownParser {
       // Inline code
       inlineCode: /`(.+?)`/g,
       
-      // Unordered lists
-      unorderedList: /^[\*\-]\s(.+)$/gm,
-      
-      // Ordered lists
-      orderedList: /^\d+\.\s(.+)$/gm,
-      
       // Blockquotes
       blockquote: /^>\s(.+)$/gm,
-      
-      // Links
-      links: /\[(.+?)\]\((.+?)\)/g,
-      
-      // Line breaks
-      lineBreaks: /\n/g
     };
   }
 
   parse(markdown) {
     let html = markdown;
+
+    // remove double line breaks
+    html = html.replace(/\n\n/g, '\n');
 
     // Process code blocks first to prevent interference with other rules
     html = html.replace(this.rules.codeBlock, (match, language, code) => {
@@ -1190,44 +1181,11 @@ class MarkdownParser {
     // Process italic text
     html = html.replace(this.rules.italic, '<em>$1</em>');
 
-    // Process unordered lists
-    //let listItems = html.match(this.rules.unorderedList);
-    //if (listItems) {
-    //  let list = '<ul>';
-    //  listItems.forEach(item => {
-    //    list += `<li>${item.replace(/^[\*\-]\s/, '')}</li>`;
-    //  });
-    //  list += '</ul>';
-    //  html = html.replace(/(?:^[\*\-]\s.+$\n?)+/gm, list);
-    //}
-
-    // Process ordered lists
-    //listItems = html.match(this.rules.orderedList);
-    //if (listItems) {
-    //  let list = '<ol>';
-    //  listItems.forEach(item => {
-    //    list += `<li>${item.replace(/^\d+\.\s/, '')}</li>`;
-    //  });
-    //  list += '</ol>';
-    //  html = html.replace(/(?:^\d+\.\s.+$\n?)+/gm, list);
-    //}
-
     // Process blockquotes
     html = html.replace(this.rules.blockquote, '<blockquote>$1</blockquote>');
 
     // Process links
     html = html.replace(this.rules.links, '<a href="$2">$1</a>');
-
-    // Process paragraphs and line breaks
-    html = html.split('\n\n').map(paragraph => {
-      if (!paragraph.trim().startsWith('<')) {
-        return `<p>${paragraph}</p>`;
-      }
-      return paragraph;
-    }).join('\n');
-
-    // Clean up any remaining line breaks
-    html = html.replace(/\n(?![<\s])/g, '<br>');
 
     return html;
   }

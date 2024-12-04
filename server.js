@@ -6,10 +6,7 @@ import { Server as SocketIO } from 'socket.io';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
-import crypto from 'crypto';
 import axios from 'axios'
-//import { formatCroupierStartMessages, formatStartMessages, formatAdventureMessages, formatSummaryMessages, formatCroupierMessages, formatDoubleCheckMessages } from './functions.js';
-import { encoding_for_model } from "tiktoken";
 
 const mongoUri = process.env.MONGODB || "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri);
@@ -235,14 +232,12 @@ io.on('connection', async (socket) => {
     socket.on('approveAdventureInput',async UserInput =>{
       if (UserInput.content.length > 1) {
         let settings = await getFunctionSettings('game');
-        //let enc = encoding_for_model(settings.model);
   
         UserInput.approverName = playerName;
         UserInput.adventure_id = new ObjectId(UserInput.adventure_id);
         UserInput.date = new Date().toUTCString();
         UserInput.created = Math.round(new Date(UserInput.date).getTime()/1000);
         UserInput.type = 'message';
-        //UserInput.tokens = (enc.encode(UserInput.content)).length;
         
         if (settings.active == 'true'){
           try {
@@ -482,14 +477,14 @@ io.on('connection', async (socket) => {
       }
     });
   } else {
-    //playerData = await addPlayer(playerName,socket,clientIp);
-    //if (!playerData) {
-    //  socket.emit("error",'Could not add user with name "'+playerName+'"');
-    //  socket.disconnect();
-    //}
-    console.log('false');
-    socket.emit("error","user not known");
-    socket.disconnect(true);
+    playerData = await addPlayer(email,socket,clientIp);
+    if (playerData) {
+      socket.emit("error",'Player added, refresh page to use "'+playerName+'"');
+      socket.disconnect();
+    } else {
+      socket.emit("error","error adding user - maybe, refresh to check");
+      socket.disconnect();
+    }
   }
 });
 async function fetchPlayerData(email) {
@@ -529,13 +524,15 @@ async function saveSettings(data,socket){
     socket.emit('error',error)
   }
 }
-async function addPlayer(playerName,socket,clientIp) {
+async function addPlayer(email,socket,clientIp) {
+  let playerName = socket.handshake.auth.playerName;
   if (playerName.length > 0){
     console.log('adding user: '+playerName);
     let playerDoc = {
       name: playerName,
       type: 'player',
-      ipList: [ clientIp ]
+      ipList: [ clientIp ],
+      email:email
     }
     try {
       await gameDataCollection.insertOne(playerDoc,{safe: true});
@@ -1057,7 +1054,7 @@ async function formatMessages(functionName,userMessages,additionData,realm){
 
   if(use_summary.active == 'true'){
     let maxTokens = await getMaxTokens(additionData.model)-Number(additionData.maxTokens);
-    let currentTokens = calcTokens(messages,additionData.model);
+    let currentTokens = 1 //TODO - needs to be fixed
     let sent = false;
     for (let i = 0 ; i < messages.length; i++) {
       if (currentTokens > maxTokens && messages[i].tokens_savings > minimumSaving) {
@@ -1083,16 +1080,6 @@ async function getMaxTokens(model){
     return modeData.tokens;
   } catch (error){}
 }
-function calcTokens(messages,model){
-  const enc = encoding_for_model(model);
-  let adjust = 5; //after multiple tests we found this adjustment ended up returning the right number of tokens based on "prompt_tokens" from historical api calls
-  let tokens = 0;
-  for (let i = 0 ; i < messages.length; i++) {
-    tokens = tokens + (enc.encode(messages[i].content)).length + adjust;
-  }
-  enc.free();
-  return tokens
-}
 function CreateCharTable(characters){
   let table = 'Name      ', attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
   let attributesLen = [10,6,3,3,3,3,3,3,3,2,2,24,17,9,1,1], spaces = '                   ';
@@ -1109,7 +1096,7 @@ function CreateCharTable(characters){
       table+=spaces.substring(0,10-CharData.name.length);
     }
     for (let i = 0 ; i < attributes.length; i++){
-      table+='|'+CharData.details[attributes[i]];
+      table+=('|'+CharData.details[attributes[i]]).replace(/\n/g,' ');
       if ((''+CharData.details[attributes[i]]).length < attributesLen[i]){
         table+=spaces.substring(0,attributesLen[i]-(''+CharData.details[attributes[i]]).length)
       }
