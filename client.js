@@ -2,12 +2,10 @@ const socket = io({autoConnect: false});
 
 let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', systemSettings, settingEditCell, allRealms = ["<default>"], modelList = [ 'gpt-4' ];
 
-var leftColumn = document.getElementById('gpt-history-left-column');
-var rightColumn = document.getElementById('gpt-history-right-column');
-var container = document.getElementById('gpt-history');
+//Global variable for resize - shared between to functions
 var startX, initialLeftWidth;
-document.getElementById('gpt-history-resize-bar').addEventListener('mousedown', initDrag);
 
+document.getElementById('gpt-history-resize-bar').addEventListener('mousedown', initDrag);
 document.getElementById('scotRun').addEventListener('click', ScotRun);
 document.getElementById('replay').addEventListener('click', replay);
 document.getElementById('saveChar').addEventListener('click', saveChar);
@@ -19,7 +17,6 @@ document.getElementById('player-input-roll').addEventListener('click', Adventure
 document.getElementById('player-input-end').addEventListener('click', endAdventure);
 document.getElementById('create-party').addEventListener('click', createParty);
 document.getElementById('join-party').addEventListener('click', joinParty);
-
 document.getElementById('history_search').addEventListener('keyup',historySearch);
 let basecut = .65, testers = ["Steve","Evan","Ronin"];
 
@@ -527,6 +524,7 @@ socket.on('disconnect', () => {
   document.getElementById('HistoryBtn').style.display = 'none';
   document.getElementById('ScotGPTBtn').style.display = 'none';
 });
+
 function autoResize(textarea) {
   textarea.style.height = 'auto';
   textarea.style.height = textarea.scrollHeight + 'px';
@@ -1138,6 +1136,55 @@ function toggleNav() {
     document.getElementById("mySidepanel").style.width = "0";
   }
 }
+function initDrag(e) {
+  startX = e.clientX;
+  initialLeftWidth = document.getElementById('gpt-history-left-column').offsetWidth;
+  document.addEventListener('mousemove', doDrag);
+  document.addEventListener('mouseup', stopDrag);
+}
+function doDrag(e) {
+  var deltaX = e.clientX - startX;
+  var newLeftWidth = initialLeftWidth + deltaX;
+  var containerWidth = document.getElementById('gpt-history').offsetWidth;
+  var leftWidthPercentage = (newLeftWidth / containerWidth) * 100;
+  var rightWidthPercentage = 100 - leftWidthPercentage;
+  document.getElementById('gpt-history-left-column').style.width = leftWidthPercentage + '%';
+  document.getElementById('gpt-history-right-column').style.width = rightWidthPercentage + '%';
+}
+function stopDrag() {
+  document.removeEventListener('mousemove', doDrag);
+  document.removeEventListener('mouseup', stopDrag);
+}
+function showHide(element) {
+  let popupBox = document.getElementById(element.id+'-box');
+  if (popupBox.style.display === "block") {
+    popupBox.style.display = "none";
+  } else {
+    popupBox.style.display = "block";
+  }
+}
+function sortTable(n,tableName) {
+    var table = document.getElementById(tableName);
+    var rows = Array.from(table.rows).slice(1); // convert HTMLCollection to Array, exclude the header
+    var isNumber = !isNaN(+rows[0].children[n].textContent);
+    var sortedRows;
+    if (isNumber) {
+        sortedRows = rows.sort((a, b) => 
+            a.children[n].textContent - b.children[n].textContent
+        );
+    } else {
+        sortedRows = rows.sort((a, b) => 
+            a.children[n].textContent > b.children[n].textContent ? 1 : -1
+        );
+    }
+    while (table.rows.length > 1) {
+        table.deleteRow(1);
+    }
+    for (let row of sortedRows) {
+        table.tBodies[0].appendChild(row);
+    }
+}
+
 class MarkdownParser {
   constructor() {
     // Regular expressions for different markdown elements
@@ -1208,52 +1255,4 @@ class MarkdownParser {
     };
     return text.replace(/[&<>"']/g, char => escapeChars[char]);
   }
-}
-function initDrag(e) {
-  startX = e.clientX;
-  initialLeftWidth = leftColumn.offsetWidth;
-  document.addEventListener('mousemove', doDrag);
-  document.addEventListener('mouseup', stopDrag);
-}
-function doDrag(e) {
-  var deltaX = e.clientX - startX;
-  var newLeftWidth = initialLeftWidth + deltaX;
-  var containerWidth = container.offsetWidth;
-  var leftWidthPercentage = (newLeftWidth / containerWidth) * 100;
-  var rightWidthPercentage = 100 - leftWidthPercentage;
-  leftColumn.style.width = leftWidthPercentage + '%';
-  rightColumn.style.width = rightWidthPercentage + '%';
-}
-function stopDrag() {
-  document.removeEventListener('mousemove', doDrag);
-  document.removeEventListener('mouseup', stopDrag);
-}
-function showHide(element) {
-  let popupBox = document.getElementById(element.id+'-box');
-  if (popupBox.style.display === "block") {
-    popupBox.style.display = "none";
-  } else {
-    popupBox.style.display = "block";
-  }
-}
-function sortTable(n,tableName) {
-    var table = document.getElementById(tableName);
-    var rows = Array.from(table.rows).slice(1); // convert HTMLCollection to Array, exclude the header
-    var isNumber = !isNaN(+rows[0].children[n].textContent);
-    var sortedRows;
-    if (isNumber) {
-        sortedRows = rows.sort((a, b) => 
-            a.children[n].textContent - b.children[n].textContent
-        );
-    } else {
-        sortedRows = rows.sort((a, b) => 
-            a.children[n].textContent > b.children[n].textContent ? 1 : -1
-        );
-    }
-    while (table.rows.length > 1) {
-        table.deleteRow(1);
-    }
-    for (let row of sortedRows) {
-        table.tBodies[0].appendChild(row);
-    }
 }
