@@ -1,3 +1,4 @@
 # RPG game using OpenAI
 
-npm install express http socket.io fs path
+to install packages, just run
+npm install
