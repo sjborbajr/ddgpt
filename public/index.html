@@ -199,9 +199,9 @@
     <table id="scotMessages">
       <tr><th onclick="swapRole(this,'first')" style="cursor: pointer;">system</th><td width="94%"><textarea oninput="autoResize(this)"></textarea></td></tr>
       <tr><th onclick="swapRole(this)" style="cursor: pointer;">assistant</th><td><textarea oninput="autoResize(this)"></textarea></td></tr>
-      <tr><th onclick="swapRole(this)" style="cursor: pointer;">user</th><td><form><input type="file" name="filename"></form><textarea oninput="autoResize(this)"></textarea></td></tr>
+      <tr><th onclick="swapRole(this)" style="cursor: pointer;">user</th><td><textarea oninput="autoResize(this)"></textarea></td></tr>
     </table>
-    <button id="scotRun" >Run</button>
+    <button id="scotRun" >Run</button><form><input type="file" name="filename"></form>
     <div class="item">
       <label for="response-messageScot">response:</label>
       <textarea id="response-messageScot" oninput="autoResize(this)" cols="80"></textarea>

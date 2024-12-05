@@ -1,5 +1,4 @@
 // Import required modules
-import { Configuration, OpenAIApi } from "openai";
 import express from 'express';
 import http from 'http';
 import { Server as SocketIO } from 'socket.io';
@@ -80,6 +79,7 @@ io.on('connection', async (socket) => {
         console.log('['+new Date().toUTCString()+'] Player '+playerName+' saving char '+data.data.name);
         data.data.uniquename = data.data.name.trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase();
         if (data._id.length == 24) {
+          //existing Char, updating
           let charData = await gameDataCollection.findOne({type:"character",_id:new ObjectId(data._id)});
           if (charData) {
             if (playerData.admin || charData.owner_id.toString() == playerData._id.toString()){
@@ -93,6 +93,7 @@ io.on('connection', async (socket) => {
             }
           }
         } else if (data._id == '') {
+          //new char, create and send back
           data.data.type = 'character'
           data.data.owner_id = playerData._id
           await gameDataCollection.insertOne(data.data);
@@ -127,7 +128,8 @@ io.on('connection', async (socket) => {
     socket.on('changeName', async newName => {
       if (newName == newName.trim().replace(/[^a-zA-Z0-9]/g,'')){
         console.log('Player changing name from '+playerName+' to '+newName);
-        //fix here, test for existing username
+        //fix here, test for existing username, before oidc, we fetched data based on player name, need to test.
+        //alternatly, it is possible that the database restriction for unique player name might handle.
         let test = await fetchPlayerData(email)
         //console.log(test)
         if (test) {
@@ -190,6 +192,7 @@ io.on('connection', async (socket) => {
     socket.on('scotRun',async data =>{
       if (playerData.admin) {
         let message = {message:'Message recieved, running!',color:'green',timeout:10000}
+        console.log(data.messages)
         socket.emit('alertMsg',message);
         let response = await aiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_key,'ScotGPT')
         socket.emit('ScotRan',response.content);
@@ -242,16 +245,18 @@ io.on('connection', async (socket) => {
         if (settings.active == 'true'){
           try {
             await gameDataCollection.insertOne(UserInput,{safe: true});
+            continueAdventure(UserInput.adventure_id);
           } catch (error) {
             console.error('Error saving response to MongoDB:', error);
           }
         }
         io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEvent',UserInput);
-        
-        continueAdventure(UserInput.adventure_id);
       }
     });
     socket.on('bootAdventurer',async data =>{
+      //you can boot chars before the adventure starts if it is your adventure
+      //or you can boot your own chars
+      //or if you are admin
       try{
         let [ adventure , character ] = await Promise.all([
           gameDataCollection.findOne({type:'adventure',_id:new ObjectId(data.adventure_id)}),
@@ -265,6 +270,7 @@ io.on('connection', async (socket) => {
       }
     });
     socket.on('deleteMessage',async message_id =>{
+      //you can delete messages if it is your adventure or you are admin
       try {
         let message = await gameDataCollection.findOne({type:'message',_id:new ObjectId(message_id)},{adventure_id:1});
         if (message){
@@ -653,8 +659,7 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
   let generatedResponse = ''
   try {
     if (modelInfo.provider == 'openai'){
-      let openai = new OpenAIApi(new Configuration({apiKey: apiKey}));
-      response = await openai.createChatCompletion({model: model, messages: messages, temperature: temperature, max_tokens: maxTokens });
+      response = await openaiCall(messages, model, temperature, maxTokens, apiKey );
       let allResponse_id = await saveResponse(response,call_function);
       // Extract the generated response from the API
       generatedResponse = {
@@ -712,6 +717,27 @@ async function anthropicCall(messages, model, temperature, maxTokens, apiKey) {
     'anthropic-version': '2023-06-01'
   };
   messages[0].role = 'user';
+  const data = {
+    model: model,
+    max_tokens: maxTokens,
+    temperature: temperature,
+    messages: messages
+  };
+  try {
+    const response = await axios.post(url, data, { headers });
+    return response;
+  } catch (error) {
+    console.error('Error calling Anthropic API:', error);
+    throw error;
+  }
+}
+async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
+  const url = 'https://api.openai.com/v1/chat/completions';
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': "Bearer "+apiKey,
+  };
   const data = {
     model: model,
     max_tokens: maxTokens,
@@ -838,6 +864,7 @@ async function completeAdventure(adventure_id){
         gameDataCollection.updateMany({type:'character','activeAdventure._id':adventure_id},{$unset:{activeAdventure:1}})
       ]);
       sendAdventureData(adventure_id,io.sockets.in('Adventure-'+adventure_id));
+      //TODO
       //level up character
     }
   } catch (error) {

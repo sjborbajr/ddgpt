@@ -816,6 +816,7 @@ function ScotRun(){
       })
     }
   }
+  console.log(messages)
   let ScotData = {
     temperature:document.getElementById('temperatureScot').value,
     maxTokens:document.getElementById('maxTokensScot').value,
