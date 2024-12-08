@@ -1,14 +1,22 @@
 const socket = io({autoConnect: false});
 
-let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', systemSettings, settingEditCell, allRealms = ["<default>"], modelList = [ 'gpt-4' ];
+let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', settingEditCell, allRealms = ["<default>"], modelList = [ 'gpt-4' ];
 
 //Global variable for resize - shared between to functions
 var startX, initialLeftWidth;
 document.getElementById('gpt-history-resize-bar').addEventListener('mousedown', initDrag);
 
-//Glogal variables for audio
-let audioContext, workletNode, mediaRecorder, mediaStream;
 document.getElementById('mic-button').addEventListener('click', micClick);
+const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+recognition.continuous = true;
+recognition.interimResults = true;
+recognition.onerror = (event) => {
+  console.error('Speech recognition error:', event.error);
+};
+recognition.onresult = (event) => {
+  const transcript = Array.from(event.results).map(result => result[0].transcript).join(' ');
+  document.getElementById('player-input-field').value = transcript;
+};
 
 document.getElementById('scotRun').addEventListener('click', ScotRun);
 document.getElementById('replay').addEventListener('click', replay);
@@ -25,7 +33,7 @@ document.getElementById('history_search').addEventListener('keyup',historySearch
 let basecut = .65, testers = ["Steve","Evan","Ronin"];
 
 window.onload = function() {
-  let playerNameRead = localStorage.getItem('playerName'); // get playerName from local storage
+  let playerNameRead = localStorage.getItem('playerName');
   if (playerNameRead) {
     document.getElementById('player-name').value = playerNameRead
     connectButton();
@@ -45,18 +53,9 @@ window.onload = function() {
     document.getElementById('modelScot').value = localStorage.getItem('modelScot');
   }
 };
-function getResponseData(listItem){
-  socket.emit('fetchHistory',listItem.id);
-  let table = document.getElementById('history_table');
-  while(table.rows[0]) table.deleteRow(0);
-  if(listItem.tagName === 'LI') {                                      // 2.
-    selected= document.querySelector('li.selected');                   // 2a.
-    if(selected) selected.className= '';                               // "
-    listItem.className= 'selected';                                    // 2b.
-  }
-}
+
 socket.onAny((event, ...args) => {
-  if (event != 'settings' && event != 'audio-partial'){
+  if (event != 'settings'){
     console.log(event, args);
   }
 });
@@ -72,7 +71,7 @@ socket.on('serverRole', role => {
       document.getElementById('SystemBtn').style.width = '17%'
       document.getElementById('ScotGPTBtn').style.width = '17%'
       document.getElementById('HistoryBtn').style.width = '17%'
-    }, 100);
+    }, 100); //had to wait till they were shown to resize them
   };
 });
 socket.on('functionList', allFunctions => {
@@ -528,15 +527,17 @@ socket.on('disconnect', () => {
   document.getElementById('HistoryBtn').style.display = 'none';
   document.getElementById('ScotGPTBtn').style.display = 'none';
 });
-socket.on('audio-result', (data) => {
-  //output.textContent += `\n${data.text}`;
-  //console.log("got",data)
-});
-socket.on('audio-partial', (data) => {
-  //output.textContent = `${output.textContent.split('\n').slice(0, -1).join('\n')}\n${data.partial}`;
-  console.log("got",data)
-});
 
+function getResponseData(listItem){
+  socket.emit('fetchHistory',listItem.id);
+  let table = document.getElementById('history_table');
+  while(table.rows[0]) table.deleteRow(0);
+  if(listItem.tagName === 'LI') {
+    selected= document.querySelector('li.selected');
+    if(selected) selected.className= '';
+    listItem.className= 'selected';
+  }
+}
 function autoResize(textarea) {
   textarea.style.height = 'auto';
   textarea.style.height = textarea.scrollHeight + 'px';
@@ -645,8 +646,6 @@ function saveSettings() {
   }
 }
 function saveChar() {
-  //console.log('saveChar');
-  //adventures: document.getElementById('character_adventures').value.split(","),
   socket.emit("saveChar",{_id: document.getElementById('character_id').value,
                      owner_id: document.getElementById('character_owner').value,
                          data:{
@@ -669,18 +668,17 @@ function saveChar() {
                             Armor: document.getElementById('character_Armor').value.split(","),
                         Inventory: document.getElementById('character_Inventory').value.split(","),
                         Backstory: document.getElementById('character_Backstory').value
-                                  }
-                          }}
-              )
+                                 }
+                        }}
+             )
 }
 function showCharsOption() {
   if (document.getElementById('all_characters').checked) {
     socket.emit('showCharOption','All')
-    socket.emit('tab','Characters') //will refresh data
   } else {
     socket.emit('showCharOption','Own')
-    socket.emit('tab','Characters') //will refresh data
   }
+  socket.emit('tab','Characters') //will cause list refresh
 }
 function showChar(id) {
   //remove all but the top owner 
@@ -1199,24 +1197,10 @@ function sortTable(n,tableName) {
 async function micClick() {
   if (document.getElementById('mic-button').classList.contains('recording')) {
     document.getElementById('mic-button').classList.remove('recording');
-    socket.emit('audio-stop','');
-    mediaRecorder.stop();
-    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    recognition.stop();
   } else {
     document.getElementById('mic-button').classList.add('recording');
-    navigator.mediaDevices.getUserMedia({ audio: true}).then((stream) => {
-      mediaRecorder = new MediaRecorder(stream, {audioBitsPerSecond: (16 * 16000)});
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-            const reader = new FileReader();
-            reader.onload = () => {
-                socket.emit('audio', reader.result);
-            };
-            reader.readAsArrayBuffer(event.data);
-        }
-      };
-      mediaRecorder.start(100);
-    });
+    recognition.start();
   }
 }
 

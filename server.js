@@ -6,14 +6,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import axios from 'axios'
-import vosk from 'vosk';
-import fs from 'fs';
-import ffmpeg from 'ffmpeg-static';
-import { spawn } from 'child_process';
-import { Readable } from 'stream';
 
-vosk.setLogLevel(0);
-const vosk_model = new vosk.Model("./vosk");
 
 const mongoUri = process.env.MONGODB || "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri);
@@ -50,9 +43,8 @@ io.on('connection', async (socket) => {
 
   let playerData = await fetchPlayerData(email)
   if ( playerData ) {
-    let playerName = playerData.name, audioBuffer = false;
+    let playerName = playerData.name;
     socket.emit('playerName',playerName)
-    const recognizer = new vosk.Recognizer({ model: vosk_model, sampleRate: 16000 });
 
     gameDataCollection.updateOne({type:'player',name:playerName},{$set:{connected:true}});
     if (playerData.admin){
@@ -69,22 +61,9 @@ io.on('connection', async (socket) => {
   
     socket.onAny((event, ...args) => {
       // Log all recieved events/data except settings save
-      if (event != 'save' && event != 'listOwners' && event != 'saveChar' && event != 'audio'){
+      if (event != 'save' && event != 'listOwners' && event != 'saveChar'){
         console.log('['+new Date().toUTCString()+'] playerName('+playerName+'), socket('+event+')', args);
       }
-    });
-    socket.on('audio-stop', (data) => {
-      if (socket.audioProcessor) {
-        socket.audioProcessor.end();
-        socket.audioProcessor = null;
-      }
-    });
-    socket.on('audio', (data) => {
-      if (!socket.audioProcessor) {
-        socket.audioProcessor = new AudioStreamProcessor(recognizer, socket);
-      }
-      
-      socket.audioProcessor.processAudio(Buffer.from(data));
     });
     socket.on('saveSettings', data => {
       if (playerData.admin){
@@ -146,9 +125,6 @@ io.on('connection', async (socket) => {
     socket.on('disconnect', () => {
       console.log('['+new Date().toUTCString()+'] Player disconnected:', playerName);
       gameDataCollection.updateOne({type:'player',name:playerName},{$set:{connected:false}});
-      if (socket.audioProcessor) {
-        socket.audioProcessor.end();
-      }
     });
     socket.on('changeName', async newName => {
       if (newName == newName.trim().replace(/[^a-zA-Z0-9]/g,'')){
@@ -1158,97 +1134,4 @@ function CreateCharTable(characters){
     };
   });
   return table;
-}
-
-class AudioStreamProcessor {
-  constructor(recognizer, socket) {
-    this.recognizer = recognizer;
-    this.socket = socket;
-    this.audioStream = null;
-    this.ffmpegProcess = null;
-    this.initializeStreams();
-  }
-
-  initializeStreams() {
-    this.audioStream = new Readable({
-      read() {}
-    });
-
-    this.ffmpegProcess = spawn(ffmpeg, [
-      '-loglevel', 'error',
-      '-i', 'pipe:0',
-      '-ar', '16000',
-      '-ac', '1',
-      '-f', 's16le',
-      '-acodec', 'pcm_s16le',
-      '-flush_packets', '1',
-      '-fflags', '+nobuffer',
-      '-channels', '1',
-      'pipe:1'
-    ]);
-
-    this.ffmpegProcess.on('error', (error) => {
-      console.error('FFmpeg error:', error);
-    });
-
-    this.ffmpegProcess.stderr.on('data', (data) => {
-      const msg = data.toString();
-      if (!msg.includes('ended prematurely')) {
-        console.log('[FFmpeg] stderr:', msg);
-      }
-    });
-
-    this.ffmpegProcess.stdout.on('data', (data) => {
-      // Ensure we're working with chunks of an appropriate size
-      // Vosk typically works well with chunks of 8000 bytes (4000 samples)
-      const CHUNK_SIZE = 8000;
-  
-      for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-        const chunk = data.slice(i, Math.min(i + CHUNK_SIZE, data.length));
-        if (chunk.length < CHUNK_SIZE) {
-          // Pad the last chunk if needed
-          const paddedChunk = Buffer.alloc(CHUNK_SIZE);
-          chunk.copy(paddedChunk);
-          if (this.recognizer.acceptWaveform(paddedChunk)) {
-            const result = this.recognizer.result();
-            if (result.text) {
-              this.socket.emit('audio-result', result);
-            }
-          }
-        } else {
-          if (this.recognizer.acceptWaveform(chunk)) {
-            const result = this.recognizer.result();
-            if (result.text) {
-              this.socket.emit('audio-result', result);
-            }
-          }
-        }
-        const partial = this.recognizer.partialResult();
-        if (partial.partial) {
-          this.socket.emit('audio-partial', partial);
-        }
-      }
-    });
-
-    this.audioStream.pipe(this.ffmpegProcess.stdin);
-  }
-
-  processAudio(chunk) {
-    if (this.audioStream) {
-      this.audioStream.push(chunk);
-    }
-  }
-
-  end() {
-    if (this.audioStream) {
-      this.audioStream.push(null);
-      this.audioStream = null;
-    }
-    
-    if (this.ffmpegProcess) {
-      this.ffmpegProcess.stdin.end();
-      this.ffmpegProcess.kill();
-      this.ffmpegProcess = null;
-    }
-  }
 }
