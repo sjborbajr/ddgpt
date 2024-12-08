@@ -52,7 +52,7 @@ io.on('connection', async (socket) => {
   if ( playerData ) {
     let playerName = playerData.name, audioBuffer = false;
     socket.emit('playerName',playerName)
-    const recognizer = new vosk.Recognizer({ model: vosk_model, sampleRate: 48000 });
+    const recognizer = new vosk.Recognizer({ model: vosk_model, sampleRate: 16000 });
 
     gameDataCollection.updateOne({type:'player',name:playerName},{$set:{connected:true}});
     if (playerData.admin){
@@ -1211,7 +1211,6 @@ class AudioStreamProcessor {
           chunk.copy(paddedChunk);
           if (this.recognizer.acceptWaveform(paddedChunk)) {
             const result = this.recognizer.result();
-            console.log('[Vosk] Full result:', result);
             if (result.text) {
               this.socket.emit('audio-result', result);
             }
@@ -1219,14 +1218,12 @@ class AudioStreamProcessor {
         } else {
           if (this.recognizer.acceptWaveform(chunk)) {
             const result = this.recognizer.result();
-            console.log('[Vosk] Full result:', result);
             if (result.text) {
               this.socket.emit('audio-result', result);
             }
           }
         }
         const partial = this.recognizer.partialResult();
-        console.log('[Vosk] Partial result:', partial);
         if (partial.partial) {
           this.socket.emit('audio-partial', partial);
         }
@@ -1237,7 +1234,6 @@ class AudioStreamProcessor {
   }
 
   processAudio(chunk) {
-    console.log('[Audio] Received chunk of size:', chunk.length);
     if (this.audioStream) {
       this.audioStream.push(chunk);
     }
