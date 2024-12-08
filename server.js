@@ -75,7 +75,7 @@ io.on('connection', async (socket) => {
         if (err) console.error('Error saving audio:', err);
         else console.log('Audio saved to audio.wav');
       });
-      //audioBuffer = false;
+      audioBuffer = false;
     });
     socket.on('audio', (data) => {
       const incomingBuffer = Buffer.from(data);
