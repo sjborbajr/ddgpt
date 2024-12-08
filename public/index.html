@@ -288,6 +288,25 @@
     </div>
   </div>
   <div id="Adventures" class="tabcontent">
+    <div id="mySidepanel" class="sidepanel">
+      <div style="width: 100%; text-align: center;">
+        <label for="adventure-model">
+          <span>Model:</span>
+          <select id="adventure-model" onChange="adventureModel(this.value)" class="modelList">
+            <option value="unset">default</option>
+          </select>
+        </label>
+        <label for="adventure-realm">
+          <span>Realm:</span>
+          <select id="adventure-realm" onChange="adventureRealm(this.value)" class="realmList">
+            <option value="unset">default</option>
+            <option value="generic">generic</option>
+            <option value="RnU">RnU</option>
+          </select>
+        </label>
+      </div>
+      <div id="adventurers"></div>
+    </div>
     <div>
       <button id="player-input-end">End</button>
       <label for="adventure_list">
@@ -299,25 +318,6 @@
     <div id="adventure-history-container">
       <h2>Adventure History</h2>
       <button id=mySidepanel-btn class="openbtn refreshButton" onclick="toggleNav()">&#9776;</button>
-      <div id="mySidepanel" class="sidepanel">
-        <div style="width: 100%; text-align: center;">
-          <label for="adventure-model">
-            <span>Model:</span>
-            <select id="adventure-model" onChange="adventureModel(this.value)" class="modelList">
-              <option value="unset">default</option>
-            </select>
-          </label>
-          <label for="adventure-realm">
-            <span>Realm:</span>
-            <select id="adventure-realm" onChange="adventureRealm(this.value)" class="realmList">
-              <option value="unset">default</option>
-              <option value="generic">generic</option>
-              <option value="RnU">RnU</option>
-            </select>
-          </label>
-        </div>
-        <div id="adventurers"></div>
-      </div>
       <div id="adventure-history" style="height: 500px; overflow-y: scroll; resize: vertical; border: 1px solid #ddd;"></div>
     </div>
     <div id="player-input-container">
@@ -327,6 +327,7 @@
       <button id="player-input-edit" hidden="true">Edit</button>
       <button id="player-input-roll">Roll</button>
       <input type="number" id="player-input-roll-diceCount" value=1 style="width: 32px;">d<input type="number" id="player-input-roll-diceSides" value=20 style="width: 45px;">
+      <button id="mic-button" title="Start/Stop">🎤</button>
     </div>
   </div>
   <script src="/socket.io/socket.io.min.js"></script>

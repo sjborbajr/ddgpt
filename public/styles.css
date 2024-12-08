@@ -349,4 +349,11 @@ textarea {
   cursor: col-resize;
   padding-right: 4px;
 }
-
+#mic-button {
+  border: none;
+  border-radius: 50%;
+  transition: background-color 0.3s;
+}
+#mic-button.recording {
+  background-color: #f44336; /* Red (recording) */
+}

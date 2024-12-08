@@ -6,6 +6,11 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
 import axios from 'axios'
+import vosk from 'vosk';
+import fs from 'fs';
+
+vosk.setLogLevel(0);
+const vosk_model = new vosk.Model("./vosk");
 
 const mongoUri = process.env.MONGODB || "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri);
@@ -42,8 +47,9 @@ io.on('connection', async (socket) => {
 
   let playerData = await fetchPlayerData(email)
   if ( playerData ) {
-    let playerName = playerData.name
+    let playerName = playerData.name, audioBuffer = false;
     socket.emit('playerName',playerName)
+    const recognizer = new vosk.Recognizer({ model: vosk_model, sampleRate: 48000 });
 
     gameDataCollection.updateOne({type:'player',name:playerName},{$set:{connected:true}});
     if (playerData.admin){
@@ -60,8 +66,28 @@ io.on('connection', async (socket) => {
   
     socket.onAny((event, ...args) => {
       // Log all recieved events/data except settings save
-      if (event != 'save' && event != 'listOwners' && event != 'saveChar'){
+      if (event != 'save' && event != 'listOwners' && event != 'saveChar' && event != 'audio'){
         console.log('['+new Date().toUTCString()+'] playerName('+playerName+'), socket('+event+')', args);
+      }
+    });
+    socket.on('audio-stop', (data) => {
+      fs.writeFile('audio.wav', Buffer.from(audioBuffer), (err) => {
+        if (err) console.error('Error saving audio:', err);
+        else console.log('Audio saved to audio.wav');
+      });
+      //audioBuffer = false;
+    });
+    socket.on('audio', (data) => {
+      const incomingBuffer = Buffer.from(data);
+      if (audioBuffer) {
+        audioBuffer = Buffer.concat([audioBuffer, incomingBuffer]);
+      } else {
+        audioBuffer = incomingBuffer;
+      }
+      if (recognizer.acceptWaveform(incomingBuffer)) {
+          socket.emit('audio-result', recognizer.result());
+      } else {
+          socket.emit('audio-partial', recognizer.partialResult());
       }
     });
     socket.on('saveSettings', data => {
@@ -758,8 +784,11 @@ async function getFunctionSettings(functionName){
 async function sendAdventureData(adventure_id,socket){
   let [ adventureMessages , adventureData ] = await Promise.all([
     gameDataCollection.find({type:'message',adventure_id:new ObjectId(adventure_id)}).sort({created:1}).toArray(),
-    gameDataCollection.findOne({type:'adventure',_id:new ObjectId(adventure_id)},{api_key:-1,apiKey:-1}),
+    gameDataCollection.findOne({type:'adventure',_id:new ObjectId(adventure_id)},{projection:{api_key:0,owner_id:0,_id:0}}),
   ]);
+  if (adventureData.api_key) {
+    adventureData.api_key = null;
+  }
   if (adventureData){
     adventureData.messages = adventureMessages;
   } else {

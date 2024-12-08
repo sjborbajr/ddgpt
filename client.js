@@ -4,8 +4,12 @@ let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', 
 
 //Global variable for resize - shared between to functions
 var startX, initialLeftWidth;
-
 document.getElementById('gpt-history-resize-bar').addEventListener('mousedown', initDrag);
+
+//Glogal variables for audio
+let audioContext, workletNode, mediaRecorder, mediaStream;
+document.getElementById('mic-button').addEventListener('click', micClick);
+
 document.getElementById('scotRun').addEventListener('click', ScotRun);
 document.getElementById('replay').addEventListener('click', replay);
 document.getElementById('saveChar').addEventListener('click', saveChar);
@@ -52,7 +56,7 @@ function getResponseData(listItem){
   }
 }
 socket.onAny((event, ...args) => {
-  if (event != 'settings'){
+  if (event != 'settings' && event != 'audio-partial'){
     console.log(event, args);
   }
 });
@@ -523,6 +527,14 @@ socket.on('disconnect', () => {
   document.getElementById('SystemBtn').style.display = 'none';
   document.getElementById('HistoryBtn').style.display = 'none';
   document.getElementById('ScotGPTBtn').style.display = 'none';
+});
+socket.on('audio-result', (data) => {
+  //output.textContent += `\n${data.text}`;
+  //console.log("got",data)
+});
+socket.on('audio-partial', (data) => {
+  //output.textContent = `${output.textContent.split('\n').slice(0, -1).join('\n')}\n${data.partial}`;
+  console.log("got",data)
 });
 
 function autoResize(textarea) {
@@ -1183,6 +1195,29 @@ function sortTable(n,tableName) {
     for (let row of sortedRows) {
         table.tBodies[0].appendChild(row);
     }
+}
+async function micClick() {
+  if (document.getElementById('mic-button').classList.contains('recording')) {
+    document.getElementById('mic-button').classList.remove('recording');
+    socket.emit('audio-stop','');
+    mediaRecorder.stop();
+    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+  } else {
+    document.getElementById('mic-button').classList.add('recording');
+    navigator.mediaDevices.getUserMedia({ audio: true}).then((stream) => {
+      mediaRecorder = new MediaRecorder(stream, {audioBitsPerSecond: (16 * 16000)});
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                socket.emit('audio', reader.result);
+            };
+            reader.readAsArrayBuffer(event.data);
+        }
+      };
+      mediaRecorder.start(100);
+    });
+  }
 }
 
 class MarkdownParser {
