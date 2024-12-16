@@ -1134,8 +1134,12 @@ async function getMaxTokens(model){
   } catch (error){}
 }
 async function sendLogs(socket,logfile) {
+  var maxlen = 10000
   var fileContent = fs.readFileSync(logfile).toString();
-  socket.emit('logStart',substring(fileContent,fileContent.length-2000,2000));
+  if (fileContent.length > maxlen) {
+    fileContent = fileContent.substring(fileContent.length-maxlen)
+  }
+  socket.emit('logStart',fileContent);
 
   socket.tail = new Tail(logfile);
   socket.tail.on("line", function(data) {
