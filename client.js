@@ -1247,8 +1247,8 @@ async function micClick() {
     document.getElementById('adventureAction').disabled = false;
     recognition.stop();
   } else {
-    document.getElementById('mic-button').classList.add('recording');
     //start recording
+    document.getElementById('mic-button').classList.add('recording');
     document.getElementById('player-input-field-temp').value = document.getElementById('player-input-field').value;
     document.getElementById('player-input-field').id = 'player-input-field-mic';
     document.getElementById('player-input-field-temp').id = 'player-input-field';
