@@ -5,8 +5,10 @@ import { Server as SocketIO } from 'socket.io';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, ObjectId } from 'mongodb';
-import axios from 'axios'
-
+import axios from 'axios';
+import fs from 'fs';
+import tail from 'tail';
+const Tail = tail.Tail;
 
 const mongoUri = process.env.MONGODB || "mongodb://localhost/?retryWrites=true";
 const client = new MongoClient(mongoUri);
@@ -411,8 +413,28 @@ io.on('connection', async (socket) => {
         console.log(error);
       }
     });
+    socket.on('listLogs',async data =>{
+      if (playerData.admin){
+        fs.readdir(__dirname+'/logs/', (err, files) => {
+          if (err) {
+            console.error(err);
+            return;
+          }
+        
+          files.sort((a, b) => b.localeCompare(a)); // Reverse sort
+
+          socket.emit('logList',files)
+        });
+      }
+    });
+    socket.on('tailLog',async logfile =>{
+      if (playerData.admin){
+        sendLogs(socket,__dirname+'/logs/'+logfile)
+      }
+    });
     socket.on('tab',async tabName =>{
       updatePlayer(playerName,{$set:{tabName:tabName}});
+      socket.tab = tabName
       //remove player from old tab channels?  - Todo
       if (tabName == 'Home'){
         socket.join('Tab-'+tabName);
@@ -1111,7 +1133,16 @@ async function getMaxTokens(model){
     return modeData.tokens;
   } catch (error){}
 }
-function CreateCharTable(characters){
+async function sendLogs(socket,logfile) {
+  var fileContent = fs.readFileSync(logfile).toString();
+  socket.emit('logStart',substring(fileContent,fileContent.length-2000,2000));
+
+  socket.tail = new Tail(logfile);
+  socket.tail.on("line", function(data) {
+    socket.emit('logTail',data);
+  });
+}
+async function CreateCharTable(characters){
   let table = 'Name      ', attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
   let attributesLen = [10,6,3,3,3,3,3,3,3,2,2,24,17,9,1,1], spaces = '                   ';
   for (let i = 0 ; i < attributes.length; i++){

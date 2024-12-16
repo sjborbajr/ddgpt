@@ -307,6 +307,8 @@ textarea {
   padding: 5px;
 }
 
+
+
 #gpt-history {
   display: flex;
 }
@@ -349,6 +351,42 @@ textarea {
   cursor: col-resize;
   padding-right: 4px;
 }
+
+#system-div {
+  display: flex;
+}
+#system-div-left-column {
+  position: relative;
+  width: 20%;
+  border: 1px solid black;
+  padding-right: 4px;
+  margin-right: 4px;
+  overflow-y: auto;
+}
+#system-div-left-column ul {
+  list-style-type: none;
+  padding: 0;
+  overflow-y: auto;
+  height: 800px;
+}
+#system-div-left-column li {
+  cursor: pointer;
+  margin-bottom: 5px;
+  padding-left: 10px;
+  line-height: 1.2;
+}
+#system-div-resize-bar {
+  width: 2px;
+  background-color: #ddd;
+  cursor: col-resize;
+  padding-right: 4px;
+}
+#system-div-right-column {
+  width: 80%;
+  padding: 0;
+  padding-left: 4px;
+}
+
 #mic-button {
   border: none;
   border-radius: 50%;

@@ -3,8 +3,9 @@ const socket = io({autoConnect: false});
 let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', settingEditCell, allRealms = ["<default>"], modelList = [ 'gpt-4' ];
 
 //Global variable for resize - shared between to functions
-var startX, initialLeftWidth;
+var startX, initialLeftWidth, resizeTarget;
 document.getElementById('gpt-history-resize-bar').addEventListener('mousedown', initDrag);
+document.getElementById('system-div-resize-bar').addEventListener('mousedown', initDrag);
 
 document.getElementById('mic-button').addEventListener('click', micClick);
 const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -15,7 +16,8 @@ recognition.onerror = (event) => {
 };
 recognition.onresult = (event) => {
   const transcript = Array.from(event.results).map(result => result[0].transcript).join(' ');
-  document.getElementById('player-input-field').value = transcript;
+  console.log((document.getElementById('player-input-field').value+" "+transcript).trim())
+  document.getElementById('player-input-field-mic').value = document.getElementById('player-input-field').value.trim()+" "+transcript.replaceAll("  "," ");
 };
 
 document.getElementById('scotRun').addEventListener('click', ScotRun);
@@ -510,6 +512,27 @@ socket.on('adventureEndFound', data => {
     adventureEnd.height = adventureEnd.height*2;
   }
 });
+socket.on('logList', (data) => {
+  let optionDoc = document.getElementById('logList');
+  while (optionDoc.length > 0) optionDoc.remove(0);
+  if (data.length) {
+    optionDoc.options[0] = new Option("","");
+    for(let i = 0; i < data.length; i++){
+      optionDoc.options[i+1] = new Option(data[i], data[i]);
+    }
+  } else if (allFunctions) {
+    optionDoc.options[0] = new Option("","");
+    optionDoc.options[1] = new Option(data, data);
+  }
+});
+socket.on('logTail', (data) => {
+  document.getElementById('logTail').innerHTML = document.getElementById('logTail').innerHTML+"<br>"+data.replaceAll('\n',"<br>")
+  document.getElementById('logTail').scrollTo(0, document.getElementById('logTail').scrollHeight)
+});
+socket.on('logStart', (data) => {
+  document.getElementById('logTail').innerHTML = data.replaceAll('\n',"<br>")
+  document.getElementById('logTail').scrollTo(0, document.getElementById('logTail').scrollHeight)
+});
 socket.on('disconnect', () => {
   console.log('Disconnected from server');
   document.getElementById('connectButton').disabled = false;
@@ -528,6 +551,25 @@ socket.on('disconnect', () => {
   document.getElementById('ScotGPTBtn').style.display = 'none';
 });
 
+function systemList(listItem){
+  console.log();
+  if(listItem.tagName === 'LI') {
+    selected= document.querySelector('li.selected');
+    if(selected) selected.className= '';
+    listItem.className= 'selected';
+    document.getElementById('system-div-Functions').hidden = true
+    document.getElementById('system-div-Logs').hidden = true
+    document.getElementById('system-div-Models').hidden = true
+    document.getElementById('system-div-'+listItem.innerText).hidden = false
+    if (listItem.innerText == 'Functions') {
+      //something?
+    } else if (listItem.innerText == 'Logs') {
+      socket.emit('listLogs','');
+    } else if (listItem.innerText == 'Models') {
+      //something?
+    }
+  }
+}
 function getResponseData(listItem){
   socket.emit('fetchHistory',listItem.id);
   let table = document.getElementById('history_table');
@@ -1147,19 +1189,20 @@ function toggleNav() {
   }
 }
 function initDrag(e) {
+  resizeTarget = e.target.id.replace('-resize-bar','')
   startX = e.clientX;
-  initialLeftWidth = document.getElementById('gpt-history-left-column').offsetWidth;
+  initialLeftWidth = document.getElementById(resizeTarget+'-left-column').offsetWidth;
   document.addEventListener('mousemove', doDrag);
   document.addEventListener('mouseup', stopDrag);
 }
 function doDrag(e) {
   var deltaX = e.clientX - startX;
   var newLeftWidth = initialLeftWidth + deltaX;
-  var containerWidth = document.getElementById('gpt-history').offsetWidth;
+  var containerWidth = document.getElementById(resizeTarget).offsetWidth;
   var leftWidthPercentage = (newLeftWidth / containerWidth) * 100;
   var rightWidthPercentage = 100 - leftWidthPercentage;
-  document.getElementById('gpt-history-left-column').style.width = leftWidthPercentage + '%';
-  document.getElementById('gpt-history-right-column').style.width = rightWidthPercentage + '%';
+  document.getElementById(resizeTarget+'-left-column').style.width = leftWidthPercentage + '%';
+  document.getElementById(resizeTarget+'-right-column').style.width = rightWidthPercentage + '%';
 }
 function stopDrag() {
   document.removeEventListener('mousemove', doDrag);
@@ -1196,10 +1239,18 @@ function sortTable(n,tableName) {
 }
 async function micClick() {
   if (document.getElementById('mic-button').classList.contains('recording')) {
+    //end recording
     document.getElementById('mic-button').classList.remove('recording');
+    document.getElementById('player-input-field').value = document.getElementById('player-input-field-mic').value;
+    document.getElementById('player-input-field').id = 'player-input-field-temp';
+    document.getElementById('player-input-field-mic').id = 'player-input-field';
     recognition.stop();
   } else {
     document.getElementById('mic-button').classList.add('recording');
+    //start recording
+    document.getElementById('player-input-field-temp').value = document.getElementById('player-input-field').value;
+    document.getElementById('player-input-field').id = 'player-input-field-mic';
+    document.getElementById('player-input-field-temp').id = 'player-input-field';
     recognition.start();
   }
 }
