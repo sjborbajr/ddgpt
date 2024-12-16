@@ -1244,6 +1244,7 @@ async function micClick() {
     document.getElementById('player-input-field').value = document.getElementById('player-input-field-mic').value;
     document.getElementById('player-input-field').id = 'player-input-field-temp';
     document.getElementById('player-input-field-mic').id = 'player-input-field';
+    document.getElementById('adventureAction').disabled = false;
     recognition.stop();
   } else {
     document.getElementById('mic-button').classList.add('recording');
@@ -1251,6 +1252,7 @@ async function micClick() {
     document.getElementById('player-input-field-temp').value = document.getElementById('player-input-field').value;
     document.getElementById('player-input-field').id = 'player-input-field-mic';
     document.getElementById('player-input-field-temp').id = 'player-input-field';
+    document.getElementById('adventureAction').disabled = true;
     recognition.start();
   }
 }
