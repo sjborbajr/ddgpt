@@ -1237,8 +1237,7 @@ function sortTable(n,tableName) {
     }
 }
 async function micClick() {
-  if (document.getElementById('mic-button').classList.contains('recording')) {
-    //end recording
+  if (document.getElementById('mic-button').classList.contains('recording')) {   //end recording
     document.getElementById('mic-button').classList.remove('recording');
     document.getElementById('player-input-field').value = document.getElementById('player-input-field-mic').value;
     document.getElementById('player-input-field').id = 'player-input-field-temp';
@@ -1246,8 +1245,7 @@ async function micClick() {
     document.getElementById('player-input-field').disabled = false;
     document.getElementById('adventureAction').disabled = false;
     recognition.stop();
-  } else {
-    //start recording
+  } else {  //start recording
     document.getElementById('mic-button').classList.add('recording');
     document.getElementById('player-input-field-temp').value = document.getElementById('player-input-field').value;
     document.getElementById('player-input-field').id = 'player-input-field-mic';
