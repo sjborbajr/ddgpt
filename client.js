@@ -177,6 +177,17 @@ socket.on('realmList', data => {
 });
 socket.on('modelList', data => {
   modelList = data;
+  //Fill system table
+  let systemModels = document.getElementById('system-Models-table');
+  //while (systemModels.length > 1) systemModels.remove(1);
+  for(let i = 0; i < modelList.length; i++) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + modelList[i].model + '</td>' +
+    '<td>' + modelList[i].provider + '</td>'
+    systemModels.appendChild(tr);
+  }
+
+  //find out all lists with class codel list and update
   let modelLists = document.querySelectorAll(".modelList");
   for(let i = 0; i < modelLists.length; i++) {
     let saveSelect = modelLists[i].value
@@ -565,7 +576,7 @@ function systemList(listItem){
     } else if (listItem.innerText == 'Logs') {
       socket.emit('listLogs','');
     } else if (listItem.innerText == 'Models') {
-      //something?
+      socket.emit('listModels','');
     }
   }
 }

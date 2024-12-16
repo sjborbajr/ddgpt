@@ -58,7 +58,7 @@ io.on('connection', async (socket) => {
       socket.emit('realmList',response);
     })
   
-    let modelList = await settingsCollection.find({type:'model'}).toArray();
+    let modelList = await settingsCollection.find({type:'model'},{projection:{apiKey:0}}).toArray();
     socket.emit('modelList',modelList);
   
     socket.onAny((event, ...args) => {
@@ -412,6 +412,10 @@ io.on('connection', async (socket) => {
       } catch (error){
         console.log(error);
       }
+    });
+    socket.on('listModels',async data =>{
+      let modelList = await settingsCollection.find({type:'model'},{projection:{apiKey:0}}).toArray();
+      socket.emit('modelList',modelList);
     });
     socket.on('listLogs',async data =>{
       if (playerData.admin){
