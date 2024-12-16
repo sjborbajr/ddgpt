@@ -16,8 +16,7 @@ recognition.onerror = (event) => {
 };
 recognition.onresult = (event) => {
   const transcript = Array.from(event.results).map(result => result[0].transcript).join(' ');
-  console.log((document.getElementById('player-input-field').value+" "+transcript).trim())
-  document.getElementById('player-input-field-mic').value = document.getElementById('player-input-field').value.trim()+" "+transcript.replaceAll("  "," ");
+  document.getElementById('player-input-field-mic').value = (document.getElementById('player-input-field').value.trim()+" ").trim()+transcript.replaceAll("  "," ").replaceAll(" carriage return","\n").replaceAll(" period",".").replaceAll("\n ","\n");;
 };
 
 document.getElementById('scotRun').addEventListener('click', ScotRun);
@@ -1244,6 +1243,7 @@ async function micClick() {
     document.getElementById('player-input-field').value = document.getElementById('player-input-field-mic').value;
     document.getElementById('player-input-field').id = 'player-input-field-temp';
     document.getElementById('player-input-field-mic').id = 'player-input-field';
+    document.getElementById('player-input-field').disabled = false;
     document.getElementById('adventureAction').disabled = false;
     recognition.stop();
   } else {
@@ -1252,6 +1252,7 @@ async function micClick() {
     document.getElementById('player-input-field-temp').value = document.getElementById('player-input-field').value;
     document.getElementById('player-input-field').id = 'player-input-field-mic';
     document.getElementById('player-input-field-temp').id = 'player-input-field';
+    document.getElementById('player-input-field-mic').disabled = true;
     document.getElementById('adventureAction').disabled = true;
     recognition.start();
   }
