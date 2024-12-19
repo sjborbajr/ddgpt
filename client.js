@@ -56,7 +56,7 @@ window.onload = function() {
 };
 
 socket.onAny((event, ...args) => {
-  if (event != 'settings'){
+  if (event != 'settings' && event != 'logTail'){
     console.log(event, args);
   }
 });
@@ -458,24 +458,31 @@ socket.on('connectedPlayers', (data) => {
   }
 });
 socket.on('historyData', (data) => {
-  let attributes = ["model","completion_tokens","duration","finish_reason","prompt_tokens","url"];
+  let attributes = ["model","completion_tokens","duration","finish_reason","prompt_tokens","url","temperature","max_tokens","function"];
   for (let i = 0 ; i < attributes.length; i++){
-    document.getElementById('history_'+attributes[i]).value = data[attributes[i]];
+    if (data[attributes[i]]) {
+      document.getElementById('history_'+attributes[i]).value = data[attributes[i]];
+    } else {
+      document.getElementById('history_'+attributes[i]).value = '';
+    }
   };
-  document.getElementById('history_model').disabled = false;
   document.getElementById('history_status').value = data.status.toString()+':'+data.statusText;
-  let request = JSON.parse(data.request);
-  document.getElementById('history_temperature').value = request.temperature;
-  document.getElementById('history_temperature').disabled = false;
-  document.getElementById('history_maxTokens').value = request.max_tokens;
-  document.getElementById('history_maxTokens').disabled = false;
-  document.getElementById('history_function').value = data.function;
+  let messages;
+  if(data.messages){
+    messages = data.messages;
+  } else {
+    messages = JSON.parse(data.request);
+    if (messages.messages) {
+      messages = messages.messages;
+    }
+  }
 
   let table = document.getElementById('history_table');
   while(table.rows[0]) table.deleteRow(0);
-  for (let i = 0 ; i < request.messages.length; i++){
+
+  for (let i = 0 ; i < messages.length; i++){
     let newrow = document.createElement('tr');
-    newrow.innerHTML = '<th onclick="swapRole(this)" style="cursor: pointer;">'+request.messages[i].role+'</th><td width="90%" ><textarea style="height:180px;">'+request.messages[i].content+'</textarea></td>';
+    newrow.innerHTML = '<th onclick="swapRole(this)" style="cursor: pointer;">'+messages[i].role+'</th><td width="90%" ><textarea style="height:180px;">'+messages[i].content+'</textarea></td>';
     table.append(newrow);
   };
   let newrow = document.createElement('tr');
@@ -877,8 +884,8 @@ function swapProvider(item) {
   if(item.target) item = item.target;
   if (item.innerText == 'openai'){
     item.innerText = 'anthropic';
-  } else if (item.innerText == 'nextthing') {
-    item.innerText = 'something';
+  } else if (item.innerText == 'anthropic') {
+    item.innerText = 'gemini';
   } else {
     item.innerText = 'openai';
   }

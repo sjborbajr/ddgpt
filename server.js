@@ -649,101 +649,6 @@ async function updatePlayer(playerName,update) {
     console.error('Error saving response to MongoDB:', error);
   }
 }
-async function saveResponse(responseRaw,call_function){
-  try {
-    let response = {}
-    if (responseRaw.status) {
-      response.status = responseRaw.status
-    }
-    response.function = call_function;
-    if (responseRaw.statusText) {
-      response.statusText = responseRaw.statusText
-    }
-    if (responseRaw.date) {
-      response.date = responseRaw.date
-    } else if (responseRaw['headers']['date']) {
-      response.date = responseRaw.headers.date
-    }
-    if (responseRaw['headers']['openai-processing-ms']) {
-      response.duration = responseRaw['headers']['openai-processing-ms']
-    }
-    if (responseRaw['headers']['openai-version']) {
-      response.aiversion = responseRaw.headers['openai-version']
-    } else if (responseRaw['config']['headers']['anthropic-version']) {
-      response.aiversion = responseRaw.headers['anthropic-version']
-    }
-    if (responseRaw['headers']['x-request-id']) {
-      response.xrequestid = responseRaw.headers['x-request-id']
-    } else if (responseRaw['headers']['request-id']) {
-      response.xrequestid = responseRaw.headers['request-id']
-    }
-    if (responseRaw['config']['data']) {
-      response.request = responseRaw.config.data
-    }
-    if (responseRaw['config']['url']) {
-      response.url = responseRaw.config.url
-    }
-    if (responseRaw.data){
-      response.data = responseRaw.data
-      if (responseRaw.data.id) {
-        response.id = responseRaw.data.id
-      }
-      if (responseRaw.data.object) {
-        response.type = responseRaw.data.object
-      } else if (responseRaw.data.content) {
-        response.type = responseRaw.data.content[0].type
-      }
-      if (responseRaw.data.created) {
-        response.created = responseRaw.data.created
-      } else if (response.date) {
-        response.created = Math.round(new Date(response.date).getTime()/1000);
-      }
-      if (responseRaw.data.model) {
-        response.model = responseRaw.data.model
-      }
-      if (responseRaw.data.usage){
-        if (responseRaw.data.usage.prompt_tokens) {
-          response.prompt_tokens = responseRaw.data.usage.prompt_tokens
-        } else if (responseRaw.data.usage.input_tokens) {
-          response.prompt_tokens = responseRaw.data.usage.input_tokens
-        }
-        if (responseRaw.data.usage.completion_tokens) {
-          response.completion_tokens = responseRaw.data.usage.completion_tokens
-        } else if (responseRaw.data.usage.output_tokens) {
-          response.completion_tokens = responseRaw.data.usage.output_tokens
-        }
-        if (responseRaw.data.usage.total_tokens) {
-          response.tokens = responseRaw.data.usage.total_tokens
-        } else {
-          response.tokens = response.prompt_tokens + response.completion_tokens
-        }
-      }
-      if (responseRaw.data.choices) {
-        if (responseRaw.data.choices[0].message.content) {
-          response.response = responseRaw.data.choices[0].message.content
-        } else {
-          response.response = JSON.stringify(responseRaw.data.choices)
-        }
-        response.responseRaw = JSON.stringify(responseRaw.data.choices)
-        if (responseRaw.data.choices[0].finish_reason) {
-          response.finish_reason = responseRaw.data.choices[0].finish_reason
-        }
-      } else if (responseRaw.data.content) {
-        response.response = responseRaw.data.content[0].text
-        response.responseRaw = JSON.stringify(responseRaw.data.content)
-        response.finish_reason = responseRaw.data.stop_reason
-      }
-    }
-    try {
-      await responseCollection.insertOne(response);
-      return response._id;
-    } catch (error) {
-      console.error('Error saving response to MongoDB:', error);
-    }
-  } catch (error) {
-    console.error('Error saving response from OpenAI:', error);
-  }
-};
 async function aiCall(messages, model, temperature, maxTokens, apiKey,call_function) {
   temperature = Number(temperature);
   maxTokens = Number(maxTokens);
@@ -753,35 +658,26 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
   try {
     if (modelInfo.provider == 'openai'){
       response = await openaiCall(messages, model, temperature, maxTokens, apiKey );
-      let allResponse_id = await saveResponse(response,call_function);
-      // Extract the generated response from the API
-      generatedResponse = {
-        content:response.data.choices[0].message.content,
-        date:response.headers.date,
-        role:response.data.choices[0].message.role,
-        id:response.data.id,
-        tokens:response.data.usage.completion_tokens,
-        allResponse_id:allResponse_id
-      }
+    } else if (modelInfo.provider == 'gemini'){
+      apiKey = modelInfo.apiKey
+      response = await geminiCall(messages, model, temperature, maxTokens, apiKey );
     } else if (modelInfo.provider == 'anthropic'){
       apiKey = modelInfo.apiKey
-      response = await anthropicCall(messages, model, temperature, maxTokens, apiKey,call_function);
-      let allResponse_id = await saveResponse(response,call_function);
-      // Extract the generated response from the API
-      generatedResponse = {
-        content:response.data.content[0].text,
-        date:response.headers.date,
-        role:'assistant',
-        id:response.data.id,
-        tokens:response.data.usage.output_tokens,
-        allResponse_id:allResponse_id
-      }
+      response = await anthropicCall(messages, model, temperature, maxTokens, apiKey );
     } else {
       console.error('invalid provider:', ('invalid provider '+modelInfo.provider));
       return
     }
-    
-    
+    settingsCollection.updateOne({model:response.model,provider:modelInfo.provider},{$set:{lastUsed:response.created}},{upsert:true})//record last time a model is used and create new models for the sub models openai creates (use gpt-4, actual could be gpt-5-0613)
+    response.function = call_function
+    await responseCollection.insertOne(response);;
+    generatedResponse = {
+      content:response.response,
+      date:response.date,
+      role:'assistant',
+      tokens:response.completion_tokens,
+      allResponse_id:response._id
+    }
     return generatedResponse;
   } catch (error) {
     console.error('Error generating response from OpenAI:', error);
@@ -801,6 +697,60 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
     return {content:generatedResponse}
   }
 }
+async function geminiCall(messages, model, temperature, maxTokens, apiKey) {
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent';
+  const headers = {'Content-Type': 'application/json','x-goog-api-key': apiKey};
+
+  // Convert messages array to Gemini format
+  const formattedMessages = messages.map(msg => ({
+    role: msg.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: msg.content }]
+  }));
+
+  const data = {
+    contents: formattedMessages,
+    generationConfig: {
+      temperature: temperature,
+      maxOutputTokens: maxTokens,
+      topP: 0.8,
+      topK: 40
+    }
+  };
+
+  try {
+    const response = await axios.post(url, data, { headers });
+    delete response.headers['x-goog-api-key'];
+    delete response.config.headers['x-goog-api-key'];
+    let responseFormatted={
+      temperature:temperature,
+      max_tokens:maxTokens,
+      messages:messages,
+
+      headersSent:response.config.headers,
+      requestSent:data,
+
+      created:Math.round(new Date(response.headers.date).getTime()/1000),
+      date:response.headers.date,
+      duration:response.headers['server-timing'].replace("gfet4t7; dur=",""),
+      headersResponse:response.headers,
+      url:url,
+      status:response.status,
+      statusText:response.statusText,
+
+      data:response.data,
+      model:response.data.modelVersion,
+      response:response.data.candidates[0].content.parts[0].text,
+      finish_reason:response.data.candidates[0].finishReason,
+      prompt_tokens:response.data.usageMetadata.promptTokenCount,
+      completion_tokens:response.data.usageMetadata.candidatesTokenCount,
+      tokens:response.data.usageMetadata.totalTokenCount,
+    }
+    return responseFormatted;
+  } catch (error) {
+    console.error('Error calling Gemini API:', error);
+    throw error;
+  }
+}
 async function anthropicCall(messages, model, temperature, maxTokens, apiKey) {
   const url = 'https://api.anthropic.com/v1/messages';
 
@@ -817,8 +767,35 @@ async function anthropicCall(messages, model, temperature, maxTokens, apiKey) {
     messages: messages
   };
   try {
+    const start = Date.now();
     const response = await axios.post(url, data, { headers });
-    return response;
+    const duration = Date.now() - start;
+    delete response.headers['x-api-key'];
+    delete response.config.headers['x-api-key'];
+    let responseFormatted={
+      temperature:temperature,
+      max_tokens:maxTokens,
+      messages:messages,
+
+      headersSent:response.config.headers,
+      requestSent:data,
+      created:Math.round(new Date(response.headers.date).getTime()/1000),
+      date:response.headers.date,
+      duration:duration,
+      headersResponse:response.headers,
+      url:url,
+      status:response.status,
+      statusText:response.statusText,
+
+      data:response.data,
+      model:data.model,
+      response:response.data.content[0].text,
+      finish_reason:response.data.stop_reason,
+      prompt_tokens:response.data.usage.input_tokens,
+      completion_tokens:response.data.usage.output_tokens,
+      tokens:response.data.usage.input_tokens+response.data.usage.output_tokens,
+    }
+    return responseFormatted;
   } catch (error) {
     console.error('Error calling Anthropic API:', error);
     throw error;
@@ -839,9 +816,35 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
   };
   try {
     const response = await axios.post(url, data, { headers });
-    return response;
+    delete response.headers['Authorization'];
+    delete response.config.headers['Authorization'];
+    let responseFormatted={
+      temperature:temperature,
+      max_tokens:maxTokens,
+      messages:messages,
+
+      headersSent:response.config.headers,
+      requestSent:data,
+
+      created:Math.round(new Date(response.headers.date).getTime()/1000),
+      date:response.headers.date,
+      duration:response['headers']['openai-processing-ms'],
+      headersResponse:response.headers,
+      url:url,
+      status:response.status,
+      statusText:response.statusText,
+
+      data:response.data,
+      model:response.data.model,
+      response:response.data.choices[0].message.content,
+      finish_reason:response.data.choices[0].finish_reason,
+      prompt_tokens:response.data.usage.prompt_tokens,
+      completion_tokens:response.data.usage.completion_tokens,
+      tokens:response.data.usage.total_tokens
+    }
+    return responseFormatted;
   } catch (error) {
-    console.error('Error calling Anthropic API:', error);
+    console.error('Error calling OpenAI API:', error);
     throw error;
   }
 }
