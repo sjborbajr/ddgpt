@@ -221,7 +221,6 @@ socket.on('alertMsg',data => {
   setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',data.timeout);
 });
 socket.on('connect', () => {
-  //console.log('Connected to server');
   document.getElementById('player-name').disabled = true;
   document.getElementById('disconnectButton').disabled = false;
   document.getElementById('connectButton').innerText = 'Change';
@@ -582,7 +581,6 @@ function fetchModels(provider){
   //todo
 }
 function systemList(listItem){
-  console.log();
   if(listItem.tagName === 'LI') {
     selected= document.querySelector('li.selected');
     if(selected) selected.className= '';
@@ -937,7 +935,6 @@ function ScotRun(){
       })
     }
   }
-  console.log(messages)
   let ScotData = {
     temperature:document.getElementById('temperatureScot').value,
     maxTokens:document.getElementById('maxTokensScot').value,
@@ -1119,7 +1116,6 @@ function adventureAction() {
     let content = document.getElementById('player-input-field').value;
     let adventure_id = document.getElementById('adventure_list').value
     let suggestingPlayerName = document.getElementById("player-input-header").innerText
-    //console.log(suggestingPlayerName)
     suggestingPlayerName = suggestingPlayerName.substring(15,suggestingPlayerName.length)
 
     socket.emit('approveAdventureInput',{role:'user',
