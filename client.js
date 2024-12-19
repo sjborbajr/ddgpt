@@ -182,22 +182,27 @@ socket.on('modelList', data => {
   while (systemModels.rows.length > 1) systemModels.deleteRow(1);
   for(let i = 0; i < modelList.length; i++) {
     var tr = document.createElement('tr');
-    tr.innerHTML = '<td><input type="checkbox" checked onclick="disableModel(this.parentElement.parentElement)"></td>' +
-                   '<td id="'+ modelList[i]._id +'"><div onblur="renameModel(this.parentElement.parentElement)" contenteditable>' + modelList[i].model + '</div></td>' +
-                   '<td onclick="swapProvider(this)">' + modelList[i].provider + '</td>'+
-                   '<button class="delete2" onclick="deleteModel(this.parentElement)">x</button>'
+    if(modelList[i].enable == false) {
+      tr.innerHTML = '<td><input type="checkbox" onclick="disableModel(this.parentElement.parentElement)"></td>'
+    } else {
+      tr.innerHTML = '<td><input type="checkbox" checked onclick="disableModel(this.parentElement.parentElement)"></td>'
+    }
+    tr.innerHTML = tr.innerHTML + '<td id="'+ modelList[i]._id +'"><div onblur="renameModel(this.parentElement.parentElement)" contenteditable>' + modelList[i].model + '</div></td>' +
+                    '<td onclick="swapProvider(this)">' + modelList[i].provider + '</td>'+
+                    '<button class="delete2" onclick="deleteModel(this.parentElement)">x</button>'
     systemModels.appendChild(tr);
   }
 
   //find out all lists with class codel list and update
   let modelLists = document.querySelectorAll(".modelList");
+  modelList = data.filter(item => item.enable !== false);
   for(let i = 0; i < modelLists.length; i++) {
     let saveSelect = modelLists[i].value
     while (modelLists[i].options[0]) modelLists[i].remove(0);
-    for(let j = 0; j < data.length; j++) {
-      modelLists[i].options[j] = new Option(data[j].model, data[j].model);
+    for(let j = 0; j < modelList.length; j++) {
+      modelLists[i].options[j] = new Option(modelList[j].model, modelList[j].model);
     }
-    if (modelLists[i].id == 'adventure-model') modelLists[i].options[data.length] = new Option('default', 'unset');
+    if (modelLists[i].id == 'adventure-model') modelLists[i].options[modelList.length] = new Option('default', 'unset');
     if (modelLists[i].id == 'modelScot') saveSelect = localStorage.getItem('modelScot');
     modelLists[i].value = saveSelect;
   }
