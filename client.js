@@ -575,18 +575,23 @@ socket.on('disconnect', () => {
   document.getElementById('ScotGPTBtn').style.display = 'none';
 });
 
+function restartServer(){
+  socket.emit('restartServer','');
+}
+function fetchModels(provider){
+  //todo
+}
 function systemList(listItem){
   console.log();
   if(listItem.tagName === 'LI') {
     selected= document.querySelector('li.selected');
     if(selected) selected.className= '';
     listItem.className= 'selected';
-    document.getElementById('system-div-Functions').hidden = true
-    document.getElementById('system-div-Logs').hidden = true
-    document.getElementById('system-div-Models').hidden = true
+
+    document.getElementById('system-div-right-column').childNodes.forEach(function(item){item.hidden = true})
     document.getElementById('system-div-'+listItem.innerText).hidden = false
     if (listItem.innerText == 'Functions') {
-      //something?
+      socket.emit('functionList','');
     } else if (listItem.innerText == 'Logs') {
       socket.emit('listLogs','');
     } else if (listItem.innerText == 'Models') {
@@ -776,7 +781,7 @@ function replay() {
   }
   let replayData = {
     temperature:document.getElementById('history_temperature').value,
-    maxTokens:document.getElementById('history_maxTokens').value,
+    maxTokens:document.getElementById('history_max_tokens').value,
     model:document.getElementById('history_model').value,
     messages:messages
   }

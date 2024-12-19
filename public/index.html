@@ -135,14 +135,15 @@
     <div id="system-div">
       <div id="system-div-left-column">
         <ul id="system-div-list">
-          <li class='selected' onclick="systemList(this)">Functions</li>
+          <li onclick="systemList(this)">Functions</li>
           <li onclick="systemList(this)">Logs</li>
           <li onclick="systemList(this)">Models</li>
+          <li onclick="systemList(this)">Actions</li>
         </ul>
       </div>
       <div id="system-div-resize-bar"></div>
       <div id="system-div-right-column">
-        <div id="system-div-Functions">
+        <div id="system-div-Functions" hidden="true">
           <label for="functionList">
             <span>Functions:</span>
             <select id="functionList" onChange="socket.emit('fetchFunction',this.value)"></select>
@@ -213,6 +214,10 @@
             <tbody></tbody>
           </table>
           <button onclick="addModel()">Add</button>
+        </div>
+        <div id="system-div-Actions" hidden="true">
+          <button onclick="restartServer()">Restart</button>
+          <button onclick="fetchModels('OpenAI')">Get OpenAI Models</button>
         </div>
       </div>
     </div>

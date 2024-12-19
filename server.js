@@ -413,6 +413,11 @@ io.on('connection', async (socket) => {
         console.log(error);
       }
     });
+    socket.on('restartServer',async data =>{
+      if (playerData.admin) {
+        process.exit(0)
+      }
+    });
     socket.on('changeProvider',async data =>{
       if (playerData.admin) {
         try {
@@ -483,6 +488,12 @@ io.on('connection', async (socket) => {
       let modelList = await settingsCollection.find({type:'model'},{projection:{apiKey:0}}).toArray();
       socket.emit('modelList',modelList);
     });
+    socket.on('functionList',async data =>{
+      if (playerData.admin) {
+        let allFunctions = await settingsCollection.distinct("function",{type:"function"});
+        socket.emit('functionList',allFunctions);
+      }
+    });
     socket.on('listLogs',async data =>{
       if (playerData.admin){
         fs.readdir(__dirname+'/logs/', (err, files) => {
@@ -544,21 +555,16 @@ io.on('connection', async (socket) => {
             advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
           } else {
             advetureNames = await gameDataCollection.distinct('adventures',{type:'character',owner_id: new ObjectId(playerData._id)})
-            //console.log('in',advetureNames);
           }
-          //advetureNames = await gameDataCollection.find({type:'adventure'}).project({name:1,_id:1}).toArray();
         }
         if (advetureNames != ''){
           socket.emit('adventureList',advetureNames);
         }
       } else if (tabName == 'System' && playerData.admin) {
         socket.join('Tab-'+tabName);
-        let allFunctions = await settingsCollection.distinct("function",{type:"function"});
-        socket.emit('functionList',allFunctions);
       } else if (tabName == 'ScotGPT' && playerData.admin) {
         socket.join('Tab-'+tabName);
       } else if (tabName == 'History' && playerData.admin) {
-        //console.log('History');
         socket.join('Tab-'+tabName);
         let historyFilter = {deleted:{$ne:true}};
         if (historyFilterLimit != 'all' && historyTextSearch != '') {
