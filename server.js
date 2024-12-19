@@ -359,7 +359,7 @@ io.on('connection', async (socket) => {
         io.sockets.in('Adventure-'+adventure._id).emit('AddAdventurer',myCharactersData);
         socket.emit('partyJoined',{_id:adventure._id,name:adventure.name});
         let message = {message:'Party Joined',color:'green',timeout:3000}
-        socket.emit('alertMsg',message);    
+        socket.emit('alertMsg',message);
       } catch (error) {
         console.log(error);
       }
@@ -411,6 +411,72 @@ io.on('connection', async (socket) => {
         }
       } catch (error){
         console.log(error);
+      }
+    });
+    socket.on('changeProvider',async data =>{
+      if (playerData.admin) {
+        try {
+          await settingsCollection.updateOne({type:'model',_id:new ObjectId(data.id)},{$set:{provider:data.provider}})
+          let message = {message:'Changed Provider',color:'green',timeout:1000}
+          socket.emit('alertMsg',message);
+        } catch (error) {
+          console.log(error);
+        }
+      }
+    });
+    socket.on('deleteModel',async data =>{
+      if (playerData.admin) {
+        try {
+          await settingsCollection.deleteOne({type:'model',_id:new ObjectId(data)})
+          let message = {message:'Deleted Model',color:'green',timeout:1000}
+          socket.emit('alertMsg',message);
+        } catch (error) {
+          console.log(error);
+        }
+      }
+    });
+    socket.on('enableModel',async data =>{
+      if (playerData.admin) {
+        try {
+          await settingsCollection.updateOne({type:'model',_id:new ObjectId(data)},{$set:{enable:true}})
+          let message = {message:'Enabled Model',color:'green',timeout:1000}
+          socket.emit('alertMsg',message);
+        } catch (error) {
+          console.log(error);
+        }
+      }
+    });
+    socket.on('disableModel',async data =>{
+      if (playerData.admin) {
+        try {
+          await settingsCollection.updateOne({type:'model',_id:new ObjectId(data)},{$set:{enable:false}})
+          let message = {message:'Disabled Provider',color:'green',timeout:1000}
+          socket.emit('alertMsg',message);
+        } catch (error) {
+          console.log(error);
+        }
+      }
+    });
+    socket.on('renameModel',async data =>{
+      if (playerData.admin) {
+        try {
+          await settingsCollection.updateOne({type:'model',_id:new ObjectId(data.id)},{$set:{model:data.newName}})
+          let message = {message:'Rename Model',color:'green',timeout:1000}
+          socket.emit('alertMsg',message);
+        } catch (error) {
+          console.log(error);
+        }
+      }
+    });
+    socket.on('newModel',async data =>{
+      if (playerData.admin) {
+        try {
+          await settingsCollection.updateOne({type:'model',model:data.model},{$set:{provider:data.provider}},{upsert:true})
+          let message = {message:'Changed Provider',color:'green',timeout:1000}
+          socket.emit('alertMsg',message);
+        } catch (error) {
+          console.log(error);
+        }
       }
     });
     socket.on('listModels',async data =>{
