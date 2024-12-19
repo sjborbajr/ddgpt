@@ -198,7 +198,12 @@ io.on('connection', async (socket) => {
         console.log(data.messages)
         socket.emit('alertMsg',message);
         let response = await aiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_key,'ScotGPT')
-        socket.emit('ScotRan',response.content);
+        if (response.status == 200) {
+          socket.emit('ScotRan',response.content);
+        } else {
+          let message = {message:'Scot run failed!',color:'red',timeout:10000}
+          socket.emit('alertMsg',message);
+        }
       }
     });
     socket.on('replay',async data =>{
@@ -674,9 +679,9 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
       console.error('invalid provider:', ('invalid provider '+modelInfo.provider));
       return
     }
-    settingsCollection.updateOne({model:response.model,provider:modelInfo.provider},{$set:{lastUsed:response.created}},{upsert:true})//record last time a model is used and create new models for the sub models openai creates (use gpt-4, actual could be gpt-5-0613)
+    settingsCollection.updateOne({model:response.model,provider:modelInfo.provider},{$set:{lastUsed:response.created}},{upsert:true})//record last time a model is used and create new models for the sub models openai creates (use gpt-4, actual could be gpt-4-0613)
     response.function = call_function
-    await responseCollection.insertOne(response);;
+    await responseCollection.insertOne(response);
     generatedResponse = {
       content:response.response,
       date:response.date,
@@ -698,7 +703,30 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
       generatedResponse += " code: "+error.code;
     }
     try {
-      saveResponse(error.response,call_function);
+      delete error.config.headers['x-goog-api-key'];
+      delete error.config.headers['x-api-key'];
+      delete error.config.headers['Authorization'];
+      let errorFormatted={
+        temperature:temperature,
+        max_tokens:maxTokens,
+        messages:messages,
+  
+        headersSent:error.config.headers,
+        requestSent:error.config.data,
+  
+        created:Math.round(new Date(error.response.headers.date).getTime()/1000),
+        date:error.response.headers.date,
+        headersResponse:error.response.headers,
+        url:error.config.url,
+        status:error.response.status,
+        statusText:error.response.statusText,
+  
+        data:error.response.data,
+        model:model,
+        response:generatedResponse,
+        finish_reason:error.response.status+":"+error.response.statusText,
+      }
+      responseCollection.insertOne(errorFormatted);
     } catch (error2) {console.log(error2)}
     return {content:generatedResponse}
   }
