@@ -809,7 +809,7 @@ async function anthropicCall(messages, model, temperature, maxTokens, apiKey) {
     'x-api-key': apiKey,
     'anthropic-version': '2023-06-01'
   };
-  messages[0].role = 'user';
+  messages[0].role = 'user';//Anthropic kept throughing errors if the first role isn't user
   const data = {
     model: model,
     max_tokens: maxTokens,
