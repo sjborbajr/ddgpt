@@ -198,11 +198,13 @@ io.on('connection', async (socket) => {
         console.log(data.messages)
         socket.emit('alertMsg',message);
         let response = await aiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_key,'ScotGPT')
-        if (response.status == 200) {
+        console.log(response);
+        if (response.role) {
           socket.emit('ScotRan',response.content);
         } else {
           let message = {message:'Scot run failed!',color:'red',timeout:10000}
           socket.emit('alertMsg',message);
+          socket.emit('ScotRan',response.content);
         }
       }
     });
@@ -734,9 +736,10 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
 async function geminiCall(messages, model, temperature, maxTokens, apiKey) {
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent';
   const headers = {'Content-Type': 'application/json','x-goog-api-key': apiKey};
+  const systemMessage = messages.find(msg => msg.role === 'system');
+  const nonSystemMessages = messages.filter(msg => msg.role !== 'system');
 
-  // Convert messages array to Gemini format
-  const formattedMessages = messages.map(msg => ({
+  const formattedMessages = nonSystemMessages.map(msg => ({
     role: msg.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: msg.content }]
   }));
@@ -750,6 +753,13 @@ async function geminiCall(messages, model, temperature, maxTokens, apiKey) {
       topK: 40
     }
   };
+
+  if (systemMessage) {
+    data.systemInstruction = {
+      role: 'user',
+      parts: [{ text: systemMessage.content }]
+    };
+  }
 
   try {
     const response = await axios.post(url, data, { headers });
