@@ -179,11 +179,13 @@ socket.on('modelList', data => {
   modelList = data;
   //Fill system table
   let systemModels = document.getElementById('system-Models-table');
-  //while (systemModels.length > 1) systemModels.remove(1);
+  while (systemModels.rows.length > 1) systemModels.deleteRow(1);
   for(let i = 0; i < modelList.length; i++) {
     var tr = document.createElement('tr');
-    tr.innerHTML = '<td>' + modelList[i].model + '</td>' +
-    '<td>' + modelList[i].provider + '</td>'
+    tr.innerHTML = '<td><input type="checkbox" checked onclick="disableModel(this.parentElement.parentElement)"></td>' +
+                   '<td id="'+ modelList[i]._id +'"><div onblur="renameModel(this.parentElement.parentElement)" contenteditable>' + modelList[i].model + '</div></td>' +
+                   '<td onclick="swapProvider(this)">' + modelList[i].provider + '</td>'+
+                   '<button class="delete2" onclick="deleteModel(this.parentElement)">x</button>'
     systemModels.appendChild(tr);
   }
 
@@ -866,6 +868,42 @@ function scotAdd(){
   newrow.innerHTML = '<th onclick="swapRole(this)" style="cursor: pointer;">user</th><td><textarea oninput="autoResize(this)"></textarea></td>';
   table.append(newrow);
 }
+function swapProvider(item) {
+  if(item.target) item = item.target;
+  if (item.innerText == 'openai'){
+    item.innerText = 'anthropic';
+  } else if (item.innerText == 'nextthing') {
+    item.innerText = 'something';
+  } else {
+    item.innerText = 'openai';
+  }
+  socket.emit("changeProvider",{id:item.parentElement.cells[1].id,provider:item.parentElement.cells[2].innerText})
+}
+function deleteModel(row){
+  socket.emit("deleteModel",row.cells[1].id)
+  row.remove()
+}
+function disableModel(row){
+  if(row.cells[0].firstChild.checked==true) {
+    socket.emit("enableModel",row.cells[1].id)
+  } else {
+    socket.emit("disableModel",row.cells[1].id)
+  }
+}
+function renameModel(row){
+  socket.emit("renameModel",{id:row.cells[1].id,newName:row.cells[1].innerText})
+}
+function saveNewModel(row){
+  socket.emit("newModel",{model:row.cells[1].innerText,provider:row.cells[2].innerText})
+}
+function addModel(){
+  let systemModels = document.getElementById('system-Models-table');
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td><input type="checkbox" checked disabled></td>' +
+                 '<td><div onblur="saveNewModel(this.parentElement.parentElement)" contenteditable></div></td>' +
+                 '<td onclick="swapProvider(this)">openai</td>'
+  systemModels.appendChild(tr);
+}
 function scotRemove(){
   let table = document.getElementById('scotMessages');
   if (table.rows.length > 1) {
@@ -1226,26 +1264,51 @@ function showHide(element) {
     popupBox.style.display = "block";
   }
 }
-function sortTable(n,tableName) {
-    var table = document.getElementById(tableName);
-    var rows = Array.from(table.rows).slice(1); // convert HTMLCollection to Array, exclude the header
-    var isNumber = !isNaN(+rows[0].children[n].textContent);
-    var sortedRows;
+function sortTable(n, tableName, columnType) {
+  var table = document.getElementById(tableName);
+  var rows = Array.from(table.rows).slice(1);
+  var th = table.rows[0].getElementsByTagName("th")[n];
+  var sortDirection = th.getAttribute("data-sort-direction") || "asc";
+
+  if (columnType === 'checkbox') {
+    sortedRows = rows.sort((a, b) => {
+      var aChecked = a.getElementsByTagName("input")[0].checked;
+      var bChecked = b.getElementsByTagName("input")[0].checked;
+      return sortDirection === "asc" ? 
+        (aChecked === bChecked ? 0 : aChecked ? -1 : 1) :
+        (aChecked === bChecked ? 0 : aChecked ? 1 : -1);
+    });
+  } else {
+    var isNumber = !isNaN(+rows[0].children[n].textContent.trim());
     if (isNumber) {
-        sortedRows = rows.sort((a, b) => 
-            a.children[n].textContent - b.children[n].textContent
-        );
+      sortedRows = rows.sort((a, b) => {
+        var aVal = parseFloat(a.children[n].textContent);
+        var bVal = parseFloat(b.children[n].textContent);
+        return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+      });
     } else {
-        sortedRows = rows.sort((a, b) => 
-            a.children[n].textContent > b.children[n].textContent ? 1 : -1
-        );
+      sortedRows = rows.sort((a, b) => {
+        var aVal = a.children[n].textContent.trim();
+        var bVal = b.children[n].textContent.trim();
+        return sortDirection === "asc" ? 
+          (aVal > bVal ? 1 : -1) :
+          (aVal > bVal ? -1 : 1);
+      });
     }
-    while (table.rows.length > 1) {
-        table.deleteRow(1);
-    }
-    for (let row of sortedRows) {
-        table.tBodies[0].appendChild(row);
-    }
+  }
+
+  th.setAttribute("data-sort-direction", sortDirection === "asc" ? "desc" : "asc");
+
+  table.querySelectorAll('th').forEach(header => {
+    header.textContent = header.textContent.replace(' ↑', '').replace(' ↓', '');
+  });
+
+  th.textContent += sortDirection === "asc" ? " ↑" : " ↓";
+
+  while (table.rows.length > 1) table.deleteRow(1);
+  for (let row of sortedRows) {
+    table.tBodies[0].appendChild(row);
+  }
 }
 async function micClick() {
   if (document.getElementById('mic-button').classList.contains('recording')) {   //end recording

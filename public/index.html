@@ -157,8 +157,8 @@
                   <th onclick="sortTable(0,'functionSettingsTable')">Name</th>
                   <th onclick="sortTable(1,'functionSettingsTable')">Value</th>
                 </tr>
-                <tbody></tbody>
               </thead>
+              <tbody></tbody>
             </table>
             <button onclick="addFunctionSettings()">Add</button>
             <br>Prompts:&nbsp;&nbsp;&nbsp;&nbsp;<span id="question-mark-macro" class="question-mark" onclick="showHide(this)">Macros?</span>
@@ -182,8 +182,8 @@
                   <th onclick="sortTable(4,'functionSettingsMessages')">Realm</th>
                   <th onclick="sortTable(5,'functionSettingsMessages')">Notes</th>
                 </tr>
-                <tbody></tbody>
               </thead>
+              <tbody></tbody>
             </table>
             <button onclick="addFunctionSettingsMessages()">Add</button>
             <div id="editBox" style="display: none;">
@@ -202,20 +202,17 @@
           <div id="logTail" style="height: 500px; overflow-y: scroll; resize: vertical; border: 1px solid #ddd;"></div>
         </div>
         <div id="system-div-Models" hidden="true">
-          <table id="system-Models-table">
-            <colgroup>
-              <col/>
-              <col/>
-              <col/>
-              <col/>
-            </colgroup>
-            <tr>
-              <th><span>model</span></th>
-              <th><span>provider</span></th>
-            </tr>
+          <table id="system-Models-table" class="systemTable">
+            <thead>
+              <tr>
+                <th onclick="sortTable(0,'system-Models-table','checkbox')">Enabled</th>
+                <th onclick="sortTable(1,'system-Models-table')">Model</th>
+                <th onclick="sortTable(2,'system-Models-table')">Provider</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
           </table>
-          <ul id="system-Models-list">
-          </ul>
+          <button onclick="addModel()">Add</button>
         </div>
       </div>
     </div>
