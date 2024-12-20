@@ -681,7 +681,7 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
       console.error('invalid provider:', ('invalid provider '+modelInfo.provider));
       return
     }
-    settingsCollection.updateOne({model:response.model,provider:modelInfo.provider},{$set:{lastUsed:response.created}},{upsert:true})//record last time a model is used and create new models for the sub models openai creates (use gpt-4, actual could be gpt-4-0613)
+    settingsCollection.updateOne({model:response.model,provider:modelInfo.provider,type:'model'},{$set:{lastUsed:response.created}},{upsert:true})//record last time a model is used and create new models for the sub models openai creates (use gpt-4, actual could be gpt-4-0613)
     response.function = call_function
     await responseCollection.insertOne(response);
     generatedResponse = {

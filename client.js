@@ -189,6 +189,7 @@ socket.on('modelList', data => {
     }
     tr.innerHTML = tr.innerHTML + '<td id="'+ modelList[i]._id +'"><div onblur="renameModel(this.parentElement.parentElement)" contenteditable>' + modelList[i].model + '</div></td>' +
                     '<td onclick="swapProvider(this)">' + modelList[i].provider + '</td>'+
+                    '<td>' + (modelList[i].lastUsed || 0) + '</td>'+
                     '<button class="delete2" onclick="deleteModel(this.parentElement)">x</button>'
     systemModels.appendChild(tr);
   }
