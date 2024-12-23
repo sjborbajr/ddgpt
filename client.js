@@ -7,6 +7,9 @@ var startX, initialLeftWidth, resizeTarget;
 document.getElementById('gpt-history-resize-bar').addEventListener('mousedown', initDrag);
 document.getElementById('system-div-resize-bar').addEventListener('mousedown', initDrag);
 
+//global variables for data from server
+let classes, abilities, alignments, races, backgrounds
+
 document.getElementById('mic-button').addEventListener('click', micClick);
 const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
 recognition.continuous = true;
@@ -300,6 +303,77 @@ socket.on('charData', (data) => {
   } else {
     console.log("recieved data for "+data._id+" but drop down set to "+document.getElementById('characters_list').value);
   }
+});
+socket.on('name', (name) => {
+  document.getElementById('new-char-name').value = name[0].name
+});
+socket.on('classes', (data) => {
+  let optionDoc = document.getElementById('new-char-class')
+  classes = data
+  while (optionDoc.options[0]) optionDoc.remove(0);
+  for(let i = 0; i < data.length; i++) {
+    optionDoc.options[i] = new Option(data[i].name, data[i].name);
+  }
+  optionDoc.value = data[Math.floor(Math.random() * data.length)].name;
+});
+socket.on('abilities', (data) => {
+  classes = data
+});
+socket.on('alignments', (data) => {
+  let optionDoc = document.getElementById('new-char-alignment')
+  alignments = data
+  while (optionDoc.options[0]) optionDoc.remove(0);
+  for(let i = 0; i < data.length; i++) {
+    optionDoc.options[i] = new Option(data[i].name, data[i].name);
+  }
+  optionDoc.value = data[Math.floor(Math.random() * data.length)].name;
+});
+socket.on('races', (data) => {
+  let optionDoc = document.getElementById('new-char-race')
+  races = data
+  while (optionDoc.options[0]) optionDoc.remove(0);
+  for(let i = 0; i < data.length; i++) {
+    optionDoc.options[i] = new Option(data[i].name, data[i].name);
+  }
+  optionDoc.value = data[Math.floor(Math.random() * data.length)].name;
+});
+socket.on('background-basic', (data) => {
+  let optionDoc = document.getElementById('new-char-background')
+  backgrounds = data
+  while (optionDoc.options[0]) optionDoc.remove(0);
+  for(let i = 0; i < data.length; i++) {
+    optionDoc.options[i] = new Option(data[i].name, data[i].name);
+  }
+  optionDoc.value = data[Math.floor(Math.random() * data.length)].name;
+});
+socket.on('background-basic-choice', (data) => {
+  let optionDoc = document.getElementById('new-char-bond')
+  while (optionDoc.options[0]) optionDoc.remove(0);
+  for(let i = 0; i < data[0].Bonds.length; i++) {
+    optionDoc.options[i] = new Option(data[0].Bonds[i], data[0].Bonds[i]);
+  }
+  optionDoc.value = optionDoc.options[Math.floor(Math.random() * optionDoc.options.length)].value;
+
+  optionDoc = document.getElementById('new-char-flaw')
+  while (optionDoc.options[0]) optionDoc.remove(0);
+  for(let i = 0; i < data[0].Flaws.length; i++) {
+    optionDoc.options[i] = new Option(data[0].Flaws[i], data[0].Flaws[i]);
+  }
+  optionDoc.value = optionDoc.options[Math.floor(Math.random() * optionDoc.options.length)].value;
+
+  optionDoc = document.getElementById('new-char-ideal')
+  while (optionDoc.options[0]) optionDoc.remove(0);
+  for(let i = 0; i < data[0].Ideals.length; i++) {
+    optionDoc.options[i] = new Option(data[0].Ideals[i], data[0].Ideals[i]);
+  }
+  optionDoc.value = optionDoc.options[Math.floor(Math.random() * optionDoc.options.length)].value;
+
+  optionDoc = document.getElementById('new-char-trait')
+  while (optionDoc.options[0]) optionDoc.remove(0);
+  for(let i = 0; i < data[0]['Personality Traits'].length; i++) {
+    optionDoc.options[i] = new Option(data[0]['Personality Traits'][i], data[0]['Personality Traits'][i]);
+  }
+  optionDoc.value = optionDoc.options[Math.floor(Math.random() * optionDoc.options.length)].value;
 });
 socket.on('playerName', (name) => {
   localStorage.setItem('playerName', name);
@@ -1023,42 +1097,42 @@ function AddAdventurer(data) {
   entry.id = data.id = "div-"+data._id;
   entry.className = 'sidepanel-item'
   entry.ondblclick=function () {adventurerClick(this);};
-
-    let name = document.createElement('div');
-    name.innerText = "Name: " + data.name;
-    entry.appendChild(name);
   
-    let Class = document.createElement('div');
-    Class.innerText = "Class: " + data.details.Class;
-    entry.appendChild(Class);
+  let name = document.createElement('div');
+  name.innerText = "Name: " + data.name;
+  entry.appendChild(name);
   
-    let race = document.createElement('div');
-    race.innerText = "Race: " + data.details.Race;
-    entry.appendChild(race);
-
-    let table = document.createElement('table');
-    table.className = "hidden-table"
-    table.hidden = true;
-    table.id = "hide-"+data._id;
-    let tableHeaderRow = table.insertRow();
-    let tableHeaderCell1 = tableHeaderRow.insertCell(), tableHeaderCell2 = tableHeaderRow.insertCell();
-    tableHeaderCell1.innerText = 'Property';
-    tableHeaderCell2.innerText = 'Value';
-    for (var key in data.details) {
-      let tableRow = table.insertRow();
-      let tableCell1 = tableRow.insertCell(), tableCell2 = tableRow.insertCell();
-      tableCell1.innerText = key;
-      tableCell2.innerText = Array.isArray(data.details[key]) ? data.details[key].join(', ') : data.details[key];
-    }
-    entry.appendChild(table);
-
-    let button = document.createElement('button');
-    button.className = 'delete';
-    button.id = data._id;
-    button.onclick = function() {
-      socket.emit('bootAdventurer', {character_id:this.id,adventure_id:document.getElementById('adventure_list').value});
-    }
-    button.textContent = 'x';
+  let Class = document.createElement('div');
+  Class.innerText = "Class: " + data.details.Class;
+  entry.appendChild(Class);
+  
+  let race = document.createElement('div');
+  race.innerText = "Race: " + data.details.Race;
+  entry.appendChild(race);
+  
+  let table = document.createElement('table');
+  table.className = "hidden-table"
+  table.hidden = true;
+  table.id = "hide-"+data._id;
+  let tableHeaderRow = table.insertRow();
+  let tableHeaderCell1 = tableHeaderRow.insertCell(), tableHeaderCell2 = tableHeaderRow.insertCell();
+  tableHeaderCell1.innerText = 'Property';
+  tableHeaderCell2.innerText = 'Value';
+  for (var key in data.details) {
+    let tableRow = table.insertRow();
+    let tableCell1 = tableRow.insertCell(), tableCell2 = tableRow.insertCell();
+    tableCell1.innerText = key;
+    tableCell2.innerText = Array.isArray(data.details[key]) ? data.details[key].join(', ') : data.details[key];
+  }
+  entry.appendChild(table);
+  
+  let button = document.createElement('button');
+  button.className = 'delete';
+  button.id = data._id;
+  button.onclick = function() {
+    socket.emit('bootAdventurer', {character_id:this.id,adventure_id:document.getElementById('adventure_list').value});
+  }
+  button.textContent = 'x';
 
   entry.appendChild(button);
   list.appendChild(entry);
@@ -1184,57 +1258,66 @@ function joinParty(){
   }
 }
 function newChar() {
-  let names = [{name:'Zephyr',gender:'Either'},{name:'Ember',gender:'Either'},{name:'Kairo',gender:'Either'},{name:'Vega',gender:'Either'},{name:'Astra',gender:'Female'},{name:'Riven',gender:'Either'},{name:'Azriel',gender:'Either'},{name:'Zenith',gender:'Either'},{name:'Zora',gender:'Female'},{name:'Blaze',gender:'Either'},{name:'Magna',gender:'Either'},{name:'Phoenix',gender:'Either'},{name:'Zaire',gender:'Either'},{name:'Caelum',gender:'Either'},{name:'Aegis',gender:'Either'},{name:'Valor',gender:'Either'},{name:'Zarael',gender:'Either'},{name:'Lyric',gender:'Either'},{name:'Orionis',gender:'Male'},{name:'Kael',gender:'Either'},{name:'Daxon',gender:'Male'},{name:'Zephyros',gender:'Male'},{name:'Cael',gender:'Either'},{name:'Zyra',gender:'Female'},{name:'Lyra',gender:'Female'},{name:'Nova',gender:'Female'},{name:'Selene',gender:'Female'},{name:'Zara',gender:'Female'},{name:'Nyx',gender:'Female'},{name:'Thalia',gender:'Female'},{name:'Calliope',gender:'Female'},{name:'Astrid',gender:'Female'},{name:'Lumi',gender:'Female'},{name:'Seraphina',gender:'Female'},{name:'Xyla',gender:'Female'},{name:'Zinnia',gender:'Female'},{name:'Zephyra',gender:'Female'},{name:'Nola',gender:'Female'},{name:'Aella',gender:'Female'},{name:'Zahara',gender:'Female'},{name:'Celestia',gender:'Female'},{name:'Zaria',gender:'Female'},{name:'Emberlyn',gender:'Female'},{name:'Nyssa',gender:'Female'},{name:'Zaira',gender:'Female'},{name:'Aria',gender:'Female'},{name:'Astraia',gender:'Female'},{name:'Zephyrine',gender:'Female'},{name:'Callista',gender:'Female'},{name:'Kyra',gender:'Female'},{name:'Elysia',gender:'Female'},{name:'Zariah',gender:'Female'},{name:'Astraea',gender:'Female'},{name:'Zafira',gender:'Female'},{name:'Selena',gender:'Female'},{name:'Xyliana',gender:'Female'},{name:'Orion',gender:'Male'},{name:'Xander',gender:'Male'},{name:'Ajax',gender:'Male'},{name:'Soren',gender:'Male'},{name:'Kellan',gender:'Male'},{name:'Jaxon',gender:'Male'},{name:'Daxton',gender:'Male'},{name:'Ronin',gender:'Male'},{name:'Draven',gender:'Male'},{name:'Zephyrus',gender:'Male'},{name:'Titan',gender:'Male'},{name:'Zoran',gender:'Male'},{name:'Evander',gender:'Male'},{name:'Xyler',gender:'Male'},{name:'Kian',gender:'Male'},{name:'Seraph',gender:'Male'},{name:'Ryker',gender:'Male'},{name:'Zyler',gender:'Male'},{name:'Superman',gender:'Male'},{name:'Batman',gender:'Male'},{name:'Spider-Man',gender:'Male'},{name:'Wonder Woman',gender:'Female'},{name:'Captain America',gender:'Male'},{name:'Iron Man',gender:'Male'},{name:'Thor',gender:'Male'},{name:'Hulk',gender:'Male'},{name:'Black Widow',gender:'Female'},{name:'Wolverine',gender:'Male'},{name:'Storm',gender:'Female'},{name:'Cyclops',gender:'Male'},{name:'Jean Grey',gender:'Female'},{name:'Deadpool',gender:'Male'},{name:'Aquaman',gender:'Male'},{name:'The Flash',gender:'Male'},{name:'Green Lantern',gender:'Male'},{name:'Supergirl',gender:'Female'},{name:'Nightcrawler',gender:'Male'},{name:'Black Panther',gender:'Male'},{name:'Hawkeye',gender:'Male'},{name:'Doctor Strange',gender:'Male'},{name:'Catwoman',gender:'Female'},{name:'Green Arrow',gender:'Male'},{name:'Robin',gender:'Male'},{name:'Batgirl',gender:'Female'},{name:'Rogue',gender:'Female'},{name:'Gambit',gender:'Male'},{name:'Harley Quinn',gender:'Female'},{name:'Joker',gender:'Male'},{name:'Rorschach',gender:'Male'},{name:'Spawn',gender:'Male'},{name:'Hellboy',gender:'Male'},{name:'Daredevil',gender:'Male'},{name:'Punisher',gender:'Male'},{name:'Venom',gender:'Male'},{name:'Black Canary',gender:'Female'},{name:'Luke Cage',gender:'Male'},{name:'Jessica Jones',gender:'Female'},{name:'Elektra',gender:'Female'},{name:'Green Goblin',gender:'Male'},{name:'Doctor Doom',gender:'Male'},{name:'Bane',gender:'Male'},{name:'Red Hood',gender:'Male'},{name:'Batwoman',gender:'Female'},{name:'Poison Ivy',gender:'Female'},{name:'Penguin',gender:'Male'},{name:'Black Adam',gender:'Male'},{name:'Robin Hood',gender:'Male'},{name:'Silver Surfer',gender:'Male'},{name:'Oracle',gender:'Female'},{name:'Falcon',gender:'Male'},{name:'Scarlet Witch',gender:'Female'},{name:'Vision',gender:'Male'},{name:'Black Cat',gender:'Female'},{name:'Ant-Man',gender:'Male'},{name:'Wasp',gender:'Female'},{name:'Star-Lord',gender:'Male'},{name:'Gamora',gender:'Female'},{name:'Drax the Destroyer',gender:'Male'},{name:'Rocket Raccoon',gender:'Male'},{name:'Groot',gender:'Male'},{name:'Captain Marvel',gender:'Female'},{name:'Winter Soldier',gender:'Male'},{name:'Martian Manhunter',gender:'Male'},{name:'Batwing',gender:'Male'},{name:'Hawkgirl',gender:'Female'},{name:'Zatanna',gender:'Female'},{name:'Power Girl',gender:'Female'},{name:'Firestorm',gender:'Male'},{name:'Vixen',gender:'Female'},{name:'Blue Beetle',gender:'Male'},{name:'Huntress',gender:'Female'},{name:'Nightwing',gender:'Male'},{name:'The Thing',gender:'Male'},{name:'Human Torch',gender:'Male'},{name:'Invisible Woman',gender:'Female'},{name:'Mr. Fantastic',gender:'Male'},{name:'The Hulkling',gender:'Male'},{name:'She-Hulk',gender:'Female'},{name:'Robin (Damian Wayne)',gender:'Male'},{name:'Spider-Woman',gender:'Female'},{name:'Iron Fist',gender:'Male'},{name:'Moon Knight',gender:'Male'},{name:'Shazam',gender:'Male'},{name:'Black Lightning',gender:'Male'},{name:'Ghost Rider',gender:'Male'},{name:'Batwing (Luke Fox)',gender:'Male'},{name:'Green Lantern (Jessica Cruz)',gender:'Female'},{name:'Ms. Marvel',gender:'Female'},{name:'Red Hulk',gender:'Male'},{name:'Firestar',gender:'Female'},{name:'Cable',gender:'Male'},{name:'Squirrel Girl',gender:'Female'},{name:'Silver Sable',gender:'Female'},{name:'Deathstroke',gender:'Male'},{name:'Zatara',gender:'Male'},{name:'Sinestro',gender:'Male'},{name:'Jessica Drew',gender:'Female'}];
-  let Classes = ["Barbarian","Bard","Cleric","Druid","Fighter","Monk","Paladin","Ranger","Rogue","Sorcerer","Warlock","Wizard","Assassin"];
-  let Races = ["Dragonborn","Dwarf","Elf","Gnome","Half-Elf","Half-Orc","Halfling","Human","Tiefling"];
-  let raceBonuses = {
-    "Dragonborn": {"CHA": 1, "STR": 2},
-    "Dwarf": {"CON": 2},
-    "Elf": {"DEX": 2},
-    "Gnome": {"INT": 2},
-    "Half-Elf": {"CHA": 2},
-    "Half-Orc": {"CON": 1, "STR": 2},
-    "Halfling": {"DEX": 2},
-    "Human": {"CHA": 1, "CON": 1, "DEX": 1, "INT": 1, "STR": 1, "WIS": 1},
-    "Tiefling": {"CHA": 2, "INT": 1}
-  };
-
-  let attributes = ["HP","AC","Weapon","Armor","Class","Inventory","Backstory","activeAdventure",'adventures','id','name']
-  for (let i = 0 ; i < attributes.length; i++){
-    document.getElementById('character_'+attributes[i]).value = '';
-  };
-
-  //fill the drop down with potential owners
-  if (document.getElementById('character_owner').options.length < 1) {
-    socket.emit('listOwners');
-  }
-  document.getElementById('character_state').value = 'alive';
-  document.getElementById('character_Lvl').value = '1';
-
-  let selectedRace = Races[(Math.floor(Math.random() * Races.length))];
-  document.getElementById('character_Race').value = selectedRace;
-  document.getElementById('character_Class').value = Classes[(Math.floor(Math.random() * Classes.length))];;
-
-  // Select a random character from the array and assign the name and gender
-  let randomName = names[Math.floor(Math.random() * names.length)];
-  document.getElementById('character_name').value = randomName.name;
-  if (randomName.gender == 'Either'){
-    let genders = ['Male','Female','not specified']
-    randomName.gender = genders[Math.floor(Math.random() * genders.length)];
-  }
-  document.getElementById('character_Gender').value = randomName.gender;
-
-  attributes = ["STR","DEX","CON","INT","WIS","CHA"];
-  for (let i = 0 ; i < attributes.length; i++){
-    let attributeValue = rollStat();
-    if (raceBonuses[selectedRace][attributes[i]]) {
-      attributeValue += raceBonuses[selectedRace][attributes[i]];
-    }
-    document.getElementById('character_'+attributes[i]).value = attributeValue;
-  };
+  socket.emit('getName','');
+  socket.emit('getClasses','');
+  socket.emit('getRaces','');
+  socket.emit('getBackgrounds','');
+  socket.emit('getAbilities','');
+  socket.emit('getAlignments','');
+  newRoll();
+  toggleNav('char-tab-btn');
+}
+function newCharNext() {
+  document.getElementById('new-char-content-dev1').style.display = "none";
+  document.getElementById('new-char-content-dev2').style.display = "block";
+  document.getElementById('next-new-char-btn').disabled = true;
+  document.getElementById('prev-new-char-btn').disabled = false;
 
 }
-function rollStat() {
+function newCharPrev() {
+  document.getElementById('new-char-content-dev1').style.display = "block";
+  document.getElementById('new-char-content-dev2').style.display = "none";
+  document.getElementById('next-new-char-btn').disabled = false;
+  document.getElementById('prev-new-char-btn').disabled = true;
+}
+function createNewChar() {
+}
+function newRoll(){
+  let abilities = ["STR","DEX","CON","INT","WIS","CHA"];
+  let rolls = rollAbility();
+  for (let i = 0 ; i < abilities.length; i++){
+    rolls = rolls+"\n"+rollAbility();
+  };
+  document.getElementById('new-char-available-rolls').innerHTML = rolls;
+  rolls = rolls.split("\n")
+  for (let i = 0 ; i < abilities.length; i++){
+    let optionDoc = document.getElementById('new-char-'+abilities[i])
+    while (optionDoc.length > 0) optionDoc.remove(0);
+    for (let j = 0 ; j < rolls.length; j++){
+      optionDoc.options[j+1] = new Option(rolls[j], rolls[j]);
+    }
+    optionDoc.disabled = false;
+  };
+}
+function abilitySelect(optionDocPassed){
+  document.getElementById('new-char-available-rolls').innerHTML = document.getElementById('new-char-available-rolls').innerHTML.replace(optionDocPassed.value,"").replace("\n\n","\n").trim()
+  let abilities = ["STR","DEX","CON","INT","WIS","CHA"];
+  //look through and remove the first matched value
+  for (let i = 0 ; i < abilities.length; i++){
+    if (optionDocPassed.id == 'new-char-'+abilities[i]) {
+      optionDocPassed.disabled = true;
+    } else {
+      let optionDoc = document.getElementById('new-char-'+abilities[i])
+      for (let j = 0 ; j < optionDoc.length; j++){
+        if (optionDoc.disabled == false && optionDoc.options[j].value == optionDocPassed.value) {
+          optionDoc.remove(j)
+          j = optionDoc.length + 1
+        }
+      }
+    }
+  };
+}
+function rollAbility() {
   let rolls = [ Math.floor(Math.random() * 6 + 1),
                 Math.floor(Math.random() * 6 + 1),
                 Math.floor(Math.random() * 6 + 1),
@@ -1243,12 +1326,23 @@ function rollStat() {
   rolls.sort(function(a, b){return a - b})
   return (rolls[1]+rolls[2]+rolls[3])
 }
-function toggleNav() {
-  if (document.getElementById("mySidepanel").style.width < 1 || document.getElementById("mySidepanel").style.width == "0px") {
-    document.getElementById("mySidepanel").style.width = "33%";
+function toggleNav(button) {
+  let pannel, percent;
+  if (button=='mySidepanel-btn'){
+    pannel=document.getElementById("mySidepanel")
+    percent = "33%"
+  } else if ("char-tab-btn") {
+    pannel=document.getElementById("new-char-dev")
+    percent = "100%"
   } else {
-    document.getElementById("mySidepanel").style.width = "0";
+    return
   }
+  if (pannel.style.width < 1 || pannel.style.width == "0px") {
+    pannel.style.width = percent;
+  } else {
+    pannel.style.width = "0";
+  }
+
 }
 function initDrag(e) {
   resizeTarget = e.target.id.replace('-resize-bar','')

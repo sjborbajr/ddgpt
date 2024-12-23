@@ -24,7 +24,12 @@ textarea {
   height: 100px;
   resize: vertical;
 }
-
+.display-grid {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 20px;
+  margin: 20px 0;
+}
 .left {
   float: left;
   padding-left: 4px;

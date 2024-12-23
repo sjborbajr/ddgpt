@@ -77,6 +77,33 @@ io.on('connection', async (socket) => {
         socket.disconnect();
       }
     });
+    socket.on('getName', async () => {
+      let returndata = await settingsCollection.aggregate([{$match:{type:'name'}},{$sample:{size:1}}]).toArray();
+      console.log(returndata)
+      socket.emit("name",returndata)
+    });
+    socket.on('getClasses', async () => {
+      let returndata = await settingsCollection.find({type:'class'}).toArray();
+      socket.emit("classes",returndata)
+    });
+    socket.on('getRaces', async () => {
+      let returndata = await settingsCollection.find({type:'race'}).toArray();
+      socket.emit("races",returndata)
+    });
+    socket.on('getBackgrounds', async () => {
+      let returndata = await settingsCollection.find({type:'background-basic'}).toArray();
+      socket.emit("background-basic",returndata)
+      returndata = await settingsCollection.find({type:'background-basic-choice'}).toArray();
+      socket.emit("background-basic-choice",returndata)
+    });
+    socket.on('getAlignments', async () => {
+      let returndata = await settingsCollection.find({type:'alignment'}).toArray();
+      socket.emit("alignments",returndata)
+    });
+    socket.on('getAbilities', async () => {
+      let returndata = await settingsCollection.find({type:'ability'}).toArray();
+      socket.emit("abilities",returndata)
+    });
     socket.on('saveChar', async data => {
       try{
         console.log('['+new Date().toUTCString()+'] Player '+playerName+' saving char '+data.data.name);
@@ -698,6 +725,9 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
     if (error.response) {
       generatedResponse += " Status: "+error.response.status+", "+error.response.statusText;
     }
+    if (error.response.data.error.message) {
+      generatedResponse += "\n"+error.response.data.error.message;
+    }
     if (error.errno) {
       generatedResponse += " errno: "+error.errno;
     }
@@ -729,6 +759,7 @@ async function aiCall(messages, model, temperature, maxTokens, apiKey,call_funct
         finish_reason:error.response.status+":"+error.response.statusText,
       }
       responseCollection.insertOne(errorFormatted);
+
     } catch (error2) {console.log(error2)}
     return {content:generatedResponse}
   }
@@ -1263,7 +1294,7 @@ async function sendLogs(socket,logfile) {
     socket.emit('logTail',data);
   });
 }
-async function CreateCharTable(characters){
+function CreateCharTable(characters){
   let table = 'Name      ', attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
   let attributesLen = [10,6,3,3,3,3,3,3,3,2,2,24,17,9,1,1], spaces = '                   ';
   for (let i = 0 ; i < attributes.length; i++){

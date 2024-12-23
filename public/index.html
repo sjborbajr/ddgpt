@@ -41,10 +41,83 @@
     </div>
   </div>
   <div id="Characters" class="tabcontent">
+    <div id="new-char-dev" class="sidepanel">
+      <div id="new-char-content-dev1" style="width: 100%; text-align: center;">
+        <div>
+          <label for="name">Name:</label><input type="text" id="new-char-name" name="name">
+        </div>
+        <div>
+          <label for="race">Race:</label><select id="new-char-race" name="race"></select>
+        </div>
+        <div>
+          <label for="class">Class:</label><select id="new-char-class" name="class"></select>
+        </div>
+        <div>
+          <label for="background">Background:</label><select id="new-char-background" name="background"></select>
+        </div>
+        <div>
+          <label for="alignment">Alignment:</label><select id="new-char-alignment" name="alignment"></select>
+        </div>
+    
+        <div class="display-grid" style="width:50%;margin-left:auto;margin-right:auto;">
+          <div class="display-grid">
+            <label for="new-char-str">STR:</label><select id="new-char-STR" name="new-char-str" onChange="abilitySelect(this)"></select>
+            <label for="new-char-dex">DEX:</label><select id="new-char-DEX" name="new-char-dex" onChange="abilitySelect(this)"></select>
+            <label for="new-char-con">CON:</label><select id="new-char-CON" name="new-char-con" onChange="abilitySelect(this)"></select>
+            <label for="new-char-int">INT:</label><select id="new-char-INT" name="new-char-int" onChange="abilitySelect(this)"></select>
+            <label for="new-char-wis">WIS:</label><select id="new-char-WIS" name="new-char-wis" onChange="abilitySelect(this)"></select>
+            <label for="new-char-cha">CHA:</label><select id="new-char-CHA" name="new-char-cha" onChange="abilitySelect(this)"></select>
+          </div>
+          <div class="reroll-section">
+            <button class="reroll-button" onclick="newRoll()">reroll</button>
+            <textarea id='new-char-available-rolls' disabled="true"></textarea>
+          </div>
+        </div>
+    
+        <div class="traits-section">
+          <div>
+            <label for="trait">Trait:</label><select id="new-char-trait" name="trait"></select>
+          </div>
+          <div>
+            <label for="ideal">Ideal:</label><select id="new-char-ideal" name="ideal"></select>
+          </div>
+          <div>
+            <label for="bond">Bond:</label><select id="new-char-bond" name="bond"></select>
+          </div>
+          <div>
+            <label for="flaw">Flaw:</label><select id="new-char-flaw" name="flaw"></select>
+          </div>
+        </div>
+        
+      </div>
+      <div id="new-char-content-dev2" style="width: 100%; text-align: center; display: none;" >
+        <div style="text-align: center;">
+          Race:
+          &nbsp;&nbsp;ability_bonuses<br>
+          &nbsp;&nbsp;ability_bonus_options<br>
+          &nbsp;&nbsp;starting_proficiencies<br>
+          &nbsp;&nbsp;starting_proficiency_options<br>
+          &nbsp;&nbsp;Races.Traits.Name<br>
+        </div>
+        <div style="text-align: center;">
+          Class:
+          &nbsp;&nbsp;hit die<br>
+          &nbsp;&nbsp;proficiencies<br>
+          &nbsp;&nbsp;proficiency_choices<br>
+          &nbsp;&nbsp;starting_equipment<br>
+          &nbsp;&nbsp;starting_equipment_options<br>
+        </div>
+      </div>
+      <div id="new-char-buttons" style="width: 100%; text-align: center; vertical-align: bottom;" >
+
+          <button id="prev-new-char-btn" disabled onclick="newCharPrev()">Previous</button>
+          <button id="next-new-char-btn" onclick="newCharNext()">Next</button>
+          <button id="create-new-char-btn" onclick="createNewChar()">Create</button>
+      </div>
+    </div>
+    <button id="char-tab-btn" class="openbtn refreshButton" onclick="toggleNav('char-tab-btn')">&#9776;</button>
     <div>
-      <label for="characters_list">Characters:</label>
-      <select id="characters_list" onChange="showChar(this.value)">
-      </select>
+      <label for="characters_list">Characters:</label><select id="characters_list" onChange="showChar(this.value)"></select>
       <input type="checkbox" id="all_characters" onclick="showCharsOption()">Show All</input>
       <button id="saveChar" >Save</button>
       <button id="newChar" onclick="newChar()">New</button>
@@ -357,7 +430,7 @@
     </div>
     <div id="adventure-history-container">
       <h2>Adventure History</h2>
-      <button id=mySidepanel-btn class="openbtn refreshButton" onclick="toggleNav()">&#9776;</button>
+      <button id="mySidepanel-btn" class="openbtn refreshButton" onclick="toggleNav('mySidepanel-btn')">&#9776;</button>
       <div id="adventure-history" style="height: 500px; overflow-y: scroll; resize: vertical; border: 1px solid #ddd;"></div>
     </div>
     <div id="player-input-container">
