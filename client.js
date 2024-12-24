@@ -8,7 +8,7 @@ document.getElementById('gpt-history-resize-bar').addEventListener('mousedown', 
 document.getElementById('system-div-resize-bar').addEventListener('mousedown', initDrag);
 
 //global variables for data from server
-let classes, abilities, alignments, races, backgrounds
+let char_classes, abilities, alignments, races, backgrounds
 
 document.getElementById('mic-button').addEventListener('click', micClick);
 const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -307,9 +307,16 @@ socket.on('charData', (data) => {
 socket.on('name', (name) => {
   document.getElementById('new-char-name').value = name[0].name
 });
+socket.on('backgroundStory', (story) => {
+  document.getElementById('new-char-background-story').value = story.content;
+  socket.emit('generateBackgroundSummary',story.content);
+});
+socket.on('backgroundSummary', (summary) => {
+  document.getElementById('new-char-background-summary').value = summary.content;
+});
 socket.on('classes', (data) => {
   let optionDoc = document.getElementById('new-char-class')
-  classes = data
+  char_classes = data
   while (optionDoc.options[0]) optionDoc.remove(0);
   for(let i = 0; i < data.length; i++) {
     optionDoc.options[i] = new Option(data[i].name, data[i].name);
@@ -1266,21 +1273,238 @@ function newChar() {
   socket.emit('getAlignments','');
   newRoll();
   toggleNav('char-tab-btn');
+  newCharPrev();
 }
 function newCharNext() {
-  document.getElementById('new-char-content-dev1').style.display = "none";
-  document.getElementById('new-char-content-dev2').style.display = "block";
-  document.getElementById('next-new-char-btn').disabled = true;
-  document.getElementById('prev-new-char-btn').disabled = false;
+  if (document.getElementById('next-new-char-btn').innerText == "Next" && !(document.getElementById('new-char-name').value+document.getElementById('new-char-class').value == '')){
 
+    document.getElementById('new-char-content-dev1').style.display = "none";
+    document.getElementById('new-char-content-dev2').style.display = "block";
+    document.getElementById('next-new-char-btn').innerText = "Create";
+    document.getElementById('prev-new-char-btn').disabled = false;
+    
+    let info = '--- Character Information ---\n'+
+    'This is for the character named '+document.getElementById('new-char-name').value+', race is '+document.getElementById('new-char-race').value+
+    ", class is "+document.getElementById('new-char-class').value+" with an alignment of "+document.getElementById('new-char-alignment').value+".\n"+
+    "\n"+
+    'The character has the background type of '+document.getElementById('new-char-background').value+', the character has the personality trait: "'+document.getElementById('new-char-trait').value+
+    '". They hold the ideal: "'+document.getElementById('new-char-ideal').value+'". Their bond is: "'+document.getElementById('new-char-bond').value+
+    '". However, they struggle with the flaw: "'+document.getElementById('new-char-flaw').value+'".'
+    if (document.getElementById('new-char-background-additional').value.length > 0){
+      info = info+"\n\nAdditional background info:\n"+document.getElementById('new-char-background-additional').value
+    }
+    if (document.getElementById('new-char-background-info').value != info){
+      socket.emit("generateBackgroundStory",info)
+      document.getElementById('new-char-background-info').value = info;
+    }
+
+    let race = races.find(p => p.name === document.getElementById('new-char-race').value)
+    let char_class = char_classes.find(p => p.name === document.getElementById('new-char-class').value)
+    document.getElementById('new-char-class-hit-die').value = char_class.hit_die
+
+    let element = document.getElementById('new-char-ability-bonus')
+    element.style.display = "none"; element.value='';
+    if (race.ability_bonuses.length){
+      element.style.display = "block";
+      for (let i = 0 ; i < race.ability_bonuses.length; i++){
+        element.value = element.value+", "+race.ability_bonuses[i].ability_score.name+"+"+race.ability_bonuses[i].bonus
+      }
+    }
+    if (element.value != '') element.value = element.value.replace(", ","") //remove the leading comma space
+
+    element = document.getElementById('new-char-skills')
+    element.style.display = "none"; element.value='';
+    if (race.starting_proficiencies.length){
+      element.style.display = "block";
+      for (let i = 0 ; i < race.starting_proficiencies.length; i++){
+        element.value = element.value+", "+race.starting_proficiencies[i].name
+      }
+    }
+    if (race.traits.length > 0){
+      element.style.display = "block";
+      for (let i = 0 ; i < race.traits.length; i++){
+        element.value = element.value+", "+race.traits[i].name
+      }
+    }
+    if (char_class.proficiencies.length){
+      element.style.display = "block";
+      for (let i = 0 ; i < race.starting_proficiencies.length; i++){
+        element.value = element.value+", "+char_class.proficiencies[i].name
+      }
+    }
+    if (element.value.length > 3) element.value = element.value.replace(", ","") //remove the leading comma space
+
+    element = document.getElementById('new-char-inventory')
+    element.style.display = "none"; element.value='';
+    if (char_class.starting_equipment.length){
+      element.style.display = "block";
+      for (let i = 0 ; i < char_class.starting_equipment.length; i++){
+        element.value = element.value+", "+char_class.starting_equipment[i].equipment.name
+      }
+    }
+    if (element.value.length > 3) element.value = element.value.replace(", ","") //remove the leading comma space
+
+    form = document.getElementById('new-char-choices')
+    form.innerHTML = ''
+    if (race.ability_bonus_options){
+      var abilitySection = document.createElement('div');
+      abilitySection.className = 'section';
+      let abilityHeader = document.createElement('h3');
+      abilityHeader.textContent = `Ability Bonuses: Choose ${race.ability_bonus_options.choose}`;
+      abilitySection.appendChild(abilityHeader);
+      const abilityOptions = document.createElement('div');
+      abilityOptions.className = 'options';
+      race.ability_bonus_options.from.options.forEach((option, index) => {
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'ability_bonuses';
+        checkbox.value = option.ability_score.name;
+        checkbox.id = `ability_${index}`;
+        label.setAttribute('for', `ability_${index}`);
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(` ${option.ability_score.name} (+${option.bonus})`));
+        abilityOptions.appendChild(label);
+      });
+      abilitySection.appendChild(abilityOptions);
+      form.appendChild(abilitySection);
+    }
+
+    if (race.starting_proficiency_options) {
+      const proficiencySection = document.createElement('div');
+      proficiencySection.className = 'section';
+      const proficiencyHeader = document.createElement('h3');
+      proficiencyHeader.textContent = `Starting Race Proficiencies: Choose ${race.starting_proficiency_options.choose}`;
+      proficiencySection.appendChild(proficiencyHeader);
+      
+      const proficiencyOptions = document.createElement('div');
+      proficiencyOptions.className = 'options';
+      race.starting_proficiency_options.from.options.forEach((option, index) => {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.name = 'proficiencies';
+        input.value = option.item.name;
+        input.id = `proficiency_${index}`;
+        label.setAttribute('for', `proficiency_${index}`);
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(` ${option.item.name}`));
+        proficiencyOptions.appendChild(label);
+      });
+      proficiencySection.appendChild(proficiencyOptions);
+      form.appendChild(proficiencySection);
+    }
+
+
+    if (char_class.proficiency_choices){
+      const proficiencySections = char_class.proficiency_choices.map((proficiencyOption, proficiencyIndex) => {
+        const proficiencySection = document.createElement('div');
+        proficiencySection.className = 'section';
+        const proficiencyHeader = document.createElement('h3');
+        proficiencyHeader.textContent = `Starting Class Proficiencies ${proficiencyIndex + 1}: Choose ${proficiencyOption.choose}`;
+        proficiencySection.appendChild(proficiencyHeader);
+        
+        const proficiencyOptions = document.createElement('div');
+        proficiencyOptions.className = 'options';
+        proficiencyOption.from.options.forEach((option, index) => {
+          const label = document.createElement('label');
+          const input = document.createElement('input');
+          input.type = 'checkbox';
+          input.name = 'proficiencies';
+          if(option.item) {
+            input.value = option.item.name;
+          } else {
+            input.value = option.choice.desc;
+          }
+          input.id = `proficiency_${proficiencyIndex}_${index}`;
+          label.setAttribute('for', `proficiency_${proficiencyIndex}_${index}`);
+          label.appendChild(input);
+          label.appendChild(document.createTextNode(` ${input.value}`));
+          proficiencyOptions.appendChild(label);
+        });
+
+        proficiencySection.appendChild(proficiencyOptions);
+        return proficiencySection;
+      });
+
+      proficiencySections.forEach(proficiencyOptions => form.appendChild(proficiencyOptions));
+    }
+
+    const equipmentSections = char_class.starting_equipment_options.map((equipOption, equipIndex) => {
+      const equipSection = document.createElement('div');
+      equipSection.className = 'section';
+      const equipHeader = document.createElement('h3');
+      equipHeader.textContent = `Starting Equipment Option ${equipIndex + 1}`;
+      equipSection.appendChild(equipHeader);
+            
+      const equipOptions = document.createElement('div');
+      equipOptions.className = 'options';
+      
+      if (equipOption.from.options){
+        equipOption.from.options.forEach((option, index) => {
+          const label = document.createElement('label');
+          const input = document.createElement('input');
+          
+          input.type = (equipOption.choose > 1) ? 'checkbox' : 'radio';
+          input.name = `equipment_${equipIndex}`;
+          input.id = `equipment_${equipIndex}_option_${index}`;
+          
+          let labelText = '';
+          
+          if (option.option_type === 'counted_reference') {
+            labelText = `${option.count}x ${option.of.name}`;
+            input.value = `${option.count}x ${option.of.name}`;
+          } else if (option.option_type === 'choice') {
+            labelText = option.choice.desc;
+            input.value = option.choice.desc;
+          } else if (option.option_type === 'multiple') {
+            const itemsText = option.items.map(item => {
+            if (item.option_type === 'counted_reference') {
+              return `${item.count}x ${item.of.name}`;
+            } else if (item.option_type === 'choice') {
+              return item.choice.desc;
+            } else {
+              return item.of.name;
+            }
+            }).join(' and ');
+            labelText = itemsText; 
+            input.value = itemsText;
+          }
+        
+          label.setAttribute('for', input.id);
+          label.appendChild(input);
+          label.appendChild(document.createTextNode(` ${labelText}`));
+        
+          equipOptions.appendChild(label);
+        });
+      } else {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = `equipment_${equipIndex}`;
+        input.id = `equipment_${equipIndex}`;
+        input.value = equipOption.desc;
+        label.setAttribute('for', input.id);
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(` ${input.value = equipOption.desc}`));
+        equipOptions.appendChild(label);
+      }
+      
+      equipSection.appendChild(equipOptions);
+      return equipSection;
+    });
+
+    equipmentSections.forEach(equipSec => form.appendChild(equipSec));
+
+  } else if (document.getElementById('next-new-char-btn').innerText == "create") {
+    //do something
+  }
 }
 function newCharPrev() {
   document.getElementById('new-char-content-dev1').style.display = "block";
   document.getElementById('new-char-content-dev2').style.display = "none";
-  document.getElementById('next-new-char-btn').disabled = false;
+  document.getElementById('next-new-char-btn').innerText = "Next";
   document.getElementById('prev-new-char-btn').disabled = true;
-}
-function createNewChar() {
 }
 function newRoll(){
   let abilities = ["STR","DEX","CON","INT","WIS","CHA"];

@@ -400,3 +400,48 @@ textarea {
 #mic-button.recording {
   background-color: #f44336; /* Red (recording) */
 }
+
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px; /* Space between items */
+  margin-left: 0; /* Removed indentation for better alignment */
+}
+.options label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 10px 15px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  transition: background-color 0.3s, border-color 0.3s;
+  background-color: #fafafa; /* Light background for better contrast */
+  color: #555;
+  font-size: 0.95em;
+  user-select: none;
+}
+.options label:hover {
+  background-color: #e6f0ff;
+  border-color: #007BFF;
+  color: #007BFF;
+}
+.options input[type="checkbox"],
+.options input[type="radio"] {
+  margin-right: 8px;
+  transform: scale(1.2);
+  cursor: pointer;
+}
+@media (max-width: 768px) {
+  .options {
+    flex-direction: column;
+  }
+  .options label {
+    width: 100%;
+  }
+}
+@media (min-width: 769px) {
+  .options label {
+    flex: 1 1 calc(20% - 12px);
+  }
+}

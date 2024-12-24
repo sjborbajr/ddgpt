@@ -79,7 +79,6 @@ io.on('connection', async (socket) => {
     });
     socket.on('getName', async () => {
       let returndata = await settingsCollection.aggregate([{$match:{type:'name'}},{$sample:{size:1}}]).toArray();
-      console.log(returndata)
       socket.emit("name",returndata)
     });
     socket.on('getClasses', async () => {
@@ -102,7 +101,19 @@ io.on('connection', async (socket) => {
     });
     socket.on('getAbilities', async () => {
       let returndata = await settingsCollection.find({type:'ability'}).toArray();
-      socket.emit("abilities",returndata)
+      socket.emit("abilities",returndata);
+    });
+    socket.on('generateBackgroundStory', async data => {
+      let messages = await formatMessages("generateBackgroundStory",[{role:'user',content:data}]);
+      let settings = await getFunctionSettings('generateBackgroundStory');
+      let response = await aiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),playerData.api_key,'generateBackgroundStory')
+      socket.emit('backgroundStory',response);
+    });
+    socket.on('generateBackgroundSummary', async data => {
+      let messages = await formatMessages("generateBackgroundSummary",[{role:'user',content:data}]);
+      let settings = await getFunctionSettings('generateBackgroundSummary');
+      let response = await aiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),playerData.api_key,'generateBackgroundSummary')
+      socket.emit('backgroundSummary',response);
     });
     socket.on('saveChar', async data => {
       try{
