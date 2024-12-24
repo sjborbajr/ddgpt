@@ -1349,7 +1349,7 @@ function newCharNext() {
     if (race.ability_bonus_options){
       var abilitySection = document.createElement('div');
       abilitySection.className = 'section';
-      let abilityHeader = document.createElement('h3');
+      let abilityHeader = document.createElement('p');
       abilityHeader.textContent = `Ability Bonuses: Choose ${race.ability_bonus_options.choose}`;
       abilitySection.appendChild(abilityHeader);
       const abilityOptions = document.createElement('div');
@@ -1373,7 +1373,7 @@ function newCharNext() {
     if (race.starting_proficiency_options) {
       const proficiencySection = document.createElement('div');
       proficiencySection.className = 'section';
-      const proficiencyHeader = document.createElement('h3');
+      const proficiencyHeader = document.createElement('p');
       proficiencyHeader.textContent = `Starting Race Proficiencies: Choose ${race.starting_proficiency_options.choose}`;
       proficiencySection.appendChild(proficiencyHeader);
       
@@ -1400,7 +1400,7 @@ function newCharNext() {
       const proficiencySections = char_class.proficiency_choices.map((proficiencyOption, proficiencyIndex) => {
         const proficiencySection = document.createElement('div');
         proficiencySection.className = 'section';
-        const proficiencyHeader = document.createElement('h3');
+        const proficiencyHeader = document.createElement('p');
         proficiencyHeader.textContent = `Starting Class Proficiencies ${proficiencyIndex + 1}: Choose ${proficiencyOption.choose}`;
         proficiencySection.appendChild(proficiencyHeader);
         
@@ -1433,7 +1433,7 @@ function newCharNext() {
     const equipmentSections = char_class.starting_equipment_options.map((equipOption, equipIndex) => {
       const equipSection = document.createElement('div');
       equipSection.className = 'section';
-      const equipHeader = document.createElement('h3');
+      const equipHeader = document.createElement('p');
       equipHeader.textContent = `Starting Equipment Option ${equipIndex + 1}`;
       equipSection.appendChild(equipHeader);
             
