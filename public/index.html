@@ -42,7 +42,7 @@
   </div>
   <div id="Characters" class="tabcontent">
     <div id="new-char-dev" class="sidepanel">
-      <div id="new-char-content-dev1" style="width: 100%; text-align:center;">
+      <div id="new-char-content-dev1" style="width: 100%; text-align:center; display:none;">
         <div>
           <label for="name">Name:</label><input type="text" id="new-char-name" name="name">
         </div>
@@ -93,7 +93,7 @@
         </div>
         
       </div>
-      <div id="new-char-content-dev2" style="width: 100%; text-align: center; display:none;" >
+      <div id="new-char-content-dev2" style="width: 100%; text-align:center; display:none;">
         <div class="display-grid" style="text-align:center;padding: 4px 4px;">
           <label for="new-char-class-hit-die">Hit Die:</label><input type="text" disabled id="new-char-class-hit-die"></input>
           <label for="new-char-ability-bonus">Ability Bonus:</label><input type="text" disabled id="new-char-ability-bonus"></input>
@@ -110,7 +110,7 @@
       </div>
       <div id="new-char-buttons" style="width: 100%; text-align: center; vertical-align: bottom;" >
           <button id="prev-new-char-btn" disabled onclick="newCharPrev()">Previous</button>
-          <button id="next-new-char-btn" onclick="newCharNext()">Next</button>
+          <button id="next-new-char-btn" disabled onclick="newCharNext()">Next</button>
       </div>
     </div>
     <button id="char-tab-btn" class="openbtn refreshButton" onclick="toggleNav('char-tab-btn')">&#9776;</button>

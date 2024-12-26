@@ -1275,8 +1275,22 @@ function newChar() {
   toggleNav('char-tab-btn');
   newCharPrev();
 }
-function newCharNext() {
-  if (document.getElementById('next-new-char-btn').innerText == "Next" && !(document.getElementById('new-char-name').value+document.getElementById('new-char-class').value == '')){
+async function newCharNext() {
+  let race = races.find(p => p.name === document.getElementById('new-char-race').value)
+  let char_class = char_classes.find(p => p.name === document.getElementById('new-char-class').value)
+
+  if (document.getElementById('next-new-char-btn').innerText == "Next"){
+    if(document.getElementById('new-char-name').value == "" || document.getElementById('new-char-class').value == '' || document.getElementById('new-char-race').value == '' ||
+       document.getElementById('new-char-alignment').value == "" || document.getElementById('new-char-trait').value == '' || document.getElementById('new-char-background').value == '' ||
+       document.getElementById('new-char-flaw').value == "" || document.getElementById('new-char-bond').value == '' || document.getElementById('new-char-ideal').value == '' ||
+       document.getElementById('new-char-WIS').value == "" || document.getElementById('new-char-CON').value == '' || document.getElementById('new-char-STR').value == '' ||
+       document.getElementById('new-char-CHA').value == "" || document.getElementById('new-char-INT').value == '' || document.getElementById('new-char-DEX').value == '') {
+      document.getElementById('alertMsg').style.color = 'red';
+      document.getElementById('alertMsg').innerText = `Not all fields complete`;
+      document.getElementById('alertMsg').style.display = 'inline';
+      setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
+      //return
+    }
 
     document.getElementById('new-char-content-dev1').style.display = "none";
     document.getElementById('new-char-content-dev2').style.display = "block";
@@ -1294,12 +1308,10 @@ function newCharNext() {
       info = info+"\n\nAdditional background info:\n"+document.getElementById('new-char-background-additional').value
     }
     if (document.getElementById('new-char-background-info').value != info){
-      socket.emit("generateBackgroundStory",info)
+      //socket.emit("generateBackgroundStory",info)
       document.getElementById('new-char-background-info').value = info;
     }
 
-    let race = races.find(p => p.name === document.getElementById('new-char-race').value)
-    let char_class = char_classes.find(p => p.name === document.getElementById('new-char-class').value)
     document.getElementById('new-char-class-hit-die').value = char_class.hit_die
 
     let element = document.getElementById('new-char-ability-bonus')
@@ -1383,10 +1395,10 @@ function newCharNext() {
         const label = document.createElement('label');
         const input = document.createElement('input');
         input.type = 'checkbox';
-        input.name = 'proficiencies';
+        input.name = 'race_proficiencies';
         input.value = option.item.name;
-        input.id = `proficiency_${index}`;
-        label.setAttribute('for', `proficiency_${index}`);
+        input.id = `race_proficiency_${index}`;
+        label.setAttribute('for', `race_proficiency_${index}`);
         label.appendChild(input);
         label.appendChild(document.createTextNode(` ${option.item.name}`));
         proficiencyOptions.appendChild(label);
@@ -1394,7 +1406,6 @@ function newCharNext() {
       proficiencySection.appendChild(proficiencyOptions);
       form.appendChild(proficiencySection);
     }
-
 
     if (char_class.proficiency_choices){
       const proficiencySections = char_class.proficiency_choices.map((proficiencyOption, proficiencyIndex) => {
@@ -1410,7 +1421,7 @@ function newCharNext() {
           const label = document.createElement('label');
           const input = document.createElement('input');
           input.type = 'checkbox';
-          input.name = 'proficiencies';
+          input.name = `proficiency_${proficiencyIndex}`;
           if(option.item) {
             input.value = option.item.name;
           } else {
@@ -1496,14 +1507,224 @@ function newCharNext() {
 
     equipmentSections.forEach(equipSec => form.appendChild(equipSec));
 
-  } else if (document.getElementById('next-new-char-btn').innerText == "create") {
-    //do something
+  } else if (document.getElementById('next-new-char-btn').innerText == "Create") {
+    let char_doc = {
+      name:document.getElementById('new-char-name').value,
+      details:{
+        AC:10+Math.floor(Number(document.getElementById('new-char-DEX').value)/2)-5,
+        Class:document.getElementById('new-char-class').value,
+        Race:document.getElementById('new-char-race').value,
+        Alignment:document.getElementById('new-char-alignment').value,
+        Trait:document.getElementById('new-char-trait').value,
+        Background:document.getElementById('new-char-background').value,
+        Flaw:document.getElementById('new-char-flaw').value,
+        Bond:document.getElementById('new-char-bond').value,
+        Ideal:document.getElementById('new-char-ideal').value,
+        WIS:document.getElementById('new-char-WIS').value,
+        CON:document.getElementById('new-char-CON').value,
+        STR:document.getElementById('new-char-STR').value,
+        CHA:document.getElementById('new-char-CHA').value,
+        INT:document.getElementById('new-char-INT').value,
+        DEX:document.getElementById('new-char-DEX').value,
+        Backstory:document.getElementById('new-char-background-summary').value,
+        Backstory_Full:document.getElementById('new-char-background-story').value,
+        Lvl:1,
+        HP:char_class.hit_die+Math.floor(Number(document.getElementById('new-char-CON').value)/2)-5,
+        Skills:document.getElementById('new-char-skills').value,
+        Hit_Die:char_class.hit_die,
+        Proficiencies:[],
+        Equipment:[],
+        Armor:[],
+        Weapon:[],
+        Inventory:[],
+        Traits:[]
+      },
+      state:'alive',
+      type:'character'
+    }
+    
+    if (race.ability_bonuses.length){
+      for (let i = 0 ; i < race.ability_bonuses.length; i++){
+        ability_name=race.ability_bonuses[i].ability_score.name
+        let newNumber = Number(char_doc.details[ability_name])+Number(race.ability_bonuses[i].bonus)
+        char_doc.details[ability_name]=""+newNumber
+      }
+    }
+    if (race.ability_bonus_options) {
+      const abilitiesSelected = document.querySelectorAll('input[name="ability_bonuses"]:checked');
+      if (abilitiesSelected.length != race.ability_bonus_options.choose) {
+        document.getElementById('alertMsg').style.color = 'red';
+        document.getElementById('alertMsg').innerText = `Please select exactly ${race.ability_bonus_options.choose} ability bonuses.`;
+        document.getElementById('alertMsg').style.display = 'inline';
+        setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
+        return
+      } else {
+        abilitiesSelected.forEach((ability, index) => {
+          i=ability.id.replace('ability_',"")
+          ability_name=race.ability_bonus_options.from.options[i].ability_score.name
+          let newNumber = Number(char_doc.details[ability_name])+Number(race.ability_bonus_options.from.options[i].bonus)
+          char_doc.details[ability_name]=""+newNumber
+        });
+      }
+    }
+    char_doc.details.HP = char_class.hit_die+Math.floor(Number(char_doc.details.CON)/2)-5
+    char_doc.details.AC = 10+Math.floor(Number(char_doc.details.DEX)/2)-5
+
+    if (race.traits.length){
+      race.traits.forEach((trait) => {
+        char_doc.details.Traits.push(trait)
+        if (char_doc.details.Skills != '') char_doc.details.Skills=char_doc.details.Skills+", "
+        char_doc.details.Skills = char_doc.details.Skills + trait.name
+      })
+    }
+    if (race.starting_proficiency_options){
+      const profSelected = document.querySelectorAll('input[name="race_proficiencies"]:checked');
+      if (profSelected.length !== race.starting_proficiency_options.choose) {
+        document.getElementById('alertMsg').style.color = 'red';
+        document.getElementById('alertMsg').innerText = `Please select exactly ${race.starting_proficiency_options.choose} proficiencies.`;
+        document.getElementById('alertMsg').style.display = 'inline';
+        setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
+        return
+      } else {
+        profSelected.forEach((proficiency, index) => {
+          i=proficiency.id.replace('race_proficiency_',"")
+          if (char_doc.details.Skills != '') char_doc.details.Skills=char_doc.details.Skills+", "
+          char_doc.details.Skills = char_doc.details.Skills+race.starting_proficiency_options.from.options[i].item.name
+          char_doc.details.Proficiencies.push(race.starting_proficiency_options.from.options[i].item)
+        });
+      }
+    }
+
+    if (char_class.proficiency_choices){
+      char_class.proficiency_choices.forEach((_, index) => {
+        const proficiencies = document.querySelectorAll(`input[name="proficiency_${index}"]:checked`);
+        if (proficiencies.length !== char_class.proficiency_choices[index].choose) {
+          document.getElementById('alertMsg').style.color = 'red';
+          document.getElementById('alertMsg').innerText = `Please select exactly ${char_class.proficiency_choices[index].choose} option(s).`;
+          document.getElementById('alertMsg').style.display = 'inline';
+          setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
+          return
+        } else {
+          proficiencies.forEach((proficiency) => {
+            let i = proficiency.id.split("_")[2]
+            if (char_doc.details.Skills != '') char_doc.details.Skills=char_doc.details.Skills+", "
+            if(char_class.proficiency_choices[index].from.options[i].item) {
+              char_doc.details.Skills = char_doc.details.Skills+char_class.proficiency_choices[index].from.options[i].item.name
+              char_doc.details.Proficiencies.push(char_class.proficiency_choices[index].from.options[i].item)
+            } else {
+              char_doc.details.Skills = char_doc.details.Skills+char_class.proficiency_choices[index].from.options[i].desc
+              char_doc.details.Proficiencies.push({name:char_class.proficiency_choices[index].from.options[i].desc})
+            }
+          });
+        }
+      });
+    }
+
+    if (char_class.starting_equipment.length){
+      for (let i = 0 ; i < char_class.starting_equipment.length; i++){
+        char_class.starting_equipment[i].equipment.quantity = char_class.starting_equipment[i].quantity
+        char_doc.details.Equipment.push(char_class.starting_equipment[i].equipment)
+      }
+    }
+    char_class.starting_equipment_options.forEach((_, index) => {
+      const equipSelected = document.querySelectorAll(`input[name="equipment_${index}"]:checked`);
+      if (equipSelected.length !== char_class.starting_equipment_options[index].choose) {
+        document.getElementById('alertMsg').style.color = 'red';
+        document.getElementById('alertMsg').innerText = `Please select exactly ${char_class.starting_equipment_options[index].choose} Equipment option(s).`;
+        document.getElementById('alertMsg').style.display = 'inline';
+        setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
+        return
+      }
+
+      if (char_class.starting_equipment_options[index].from.option_set_type == 'equipment_category') {
+        char_class.starting_equipment_options[index].from.equipment_category.quantity = char_class.starting_equipment_options[index].choose
+        char_doc.details.Equipment.push(char_class.starting_equipment_options[index].from.equipment_category)
+      } else if (char_class.starting_equipment_options[index].from.option_set_type == "options_array") {
+        let i = equipSelected[0].id.split("_")[3]
+        if (char_class.starting_equipment_options[index].from.options[i].option_type == "counted_reference") {
+          char_class.starting_equipment_options[index].from.options[i].of.quantity = char_class.starting_equipment_options[index].from.options[i].count
+          char_doc.details.Equipment.push(char_class.starting_equipment_options[index].from.options[i].of)
+        } else if (char_class.starting_equipment_options[index].from.options[i].option_type == "multiple") {
+          char_class.starting_equipment_options[index].from.options[i].items.forEach((item) => {
+            if (item.option_type == 'choice') {
+              item.choice.from.equipment_category.quantity = item.choice.choose
+              char_doc.details.Equipment.push(item.choice.from.equipment_category)
+            } else {
+              item.of.quantity = item.count
+              char_doc.details.Equipment.push(item.of)
+            }
+          });
+        } else if (char_class.starting_equipment_options[index].from.options[i].option_type == "choice") {
+          char_class.starting_equipment_options[index].from.options[i].choice.from.equipment_category.quantity = char_class.starting_equipment_options[index].from.options[i].choice.choose
+          char_doc.details.Equipment.push(char_class.starting_equipment_options[index].from.options[i].choice.from.equipment_category)
+        }
+      }
+
+
+    });
+
+    //get equipment detail, file and equip
+    let new_equipment = []
+    char_doc.details.Equipment.forEach(async (item) => {
+      let jsonData = await getApiData(item.url)
+      if (jsonData && !item.url.includes('equipment-categories')) {
+        jsonData.quantity = item.quantity
+        new_equipment.push(jsonData)
+        if (jsonData.equipment_category.index == "weapon") {
+          char_doc.details.Weapon.push(jsonData.quantity+"x "+jsonData.name)
+        } else if (jsonData.equipment_category.index == "armor") {
+          if (jsonData.armor_category == "Shield") {
+            if (!char_doc.details.Shield) {
+              char_doc.details.Armor.push(jsonData.name)
+              char_doc.details.Shield = jsonData
+              char_doc.details.AC += char_doc.details.Shield.armor_class.base
+            } else {
+              char_doc.details.Inventory.push(jsonData.quantity+"x "+jsonData.name)
+            }
+          } else {
+            if (!char_doc.details.ArmorEquiped && char_doc.details.STR >= jsonData.str_minimum) {
+              char_doc.details.Armor.push(jsonData.name)
+              char_doc.details.ArmorEquiped = jsonData
+              char_doc.details.AC = jsonData.armor_class.base
+              if (jsonData.armor_class.dex_bonus){
+                char_doc.details.AC += Math.floor(Number(char_doc.details.DEX)/2)-5
+              }
+              if(char_doc.details.Shield){
+                char_doc.details.AC += char_doc.details.Shield.armor_class.base
+              }
+            } else {
+              char_doc.details.Inventory.push(jsonData.quantity+"x "+jsonData.name)
+            }
+          }
+        } else {
+          char_doc.details.Inventory.push(jsonData.quantity+"x "+jsonData.name)
+        }
+      } else {
+        new_equipment.push(item)
+        char_doc.details.Inventory.push(item.quantity+"x "+item.name)
+      }
+
+    })
+    char_doc.details.Equipment = new_equipment
+
+
+    console.log(char_doc);
+
+    
+  }
+}
+async function getApiData(url){
+  let response = await fetch("https://www.dnd5eapi.co"+url,{headers:{Accept:'application/json'}})
+  if (response.ok) {
+    jsonData = await response.json()
+    return jsonData
   }
 }
 function newCharPrev() {
   document.getElementById('new-char-content-dev1').style.display = "block";
   document.getElementById('new-char-content-dev2').style.display = "none";
   document.getElementById('next-new-char-btn').innerText = "Next";
+  document.getElementById('next-new-char-btn').disabled = false;
   document.getElementById('prev-new-char-btn').disabled = true;
 }
 function newRoll(){
