@@ -1289,7 +1289,7 @@ async function newCharNext() {
       document.getElementById('alertMsg').innerText = `Not all fields complete`;
       document.getElementById('alertMsg').style.display = 'inline';
       setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
-      //return
+      return
     }
 
     document.getElementById('new-char-content-dev1').style.display = "none";
@@ -1308,7 +1308,7 @@ async function newCharNext() {
       info = info+"\n\nAdditional background info:\n"+document.getElementById('new-char-background-additional').value
     }
     if (document.getElementById('new-char-background-info').value != info){
-      //socket.emit("generateBackgroundStory",info)
+      socket.emit("generateBackgroundStory",info)
       document.getElementById('new-char-background-info').value = info;
     }
 
