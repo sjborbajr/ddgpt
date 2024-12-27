@@ -267,7 +267,15 @@ socket.on('charList', (data) => {
   }
 });
 socket.on('charData', (data) => {
-  if (document.getElementById('characters_list').value == data._id || data.name == document.getElementById('character_name').value) {
+  if (document.getElementById('characters_list').value == data._id || data.name == document.getElementById('character_name').value || 
+       (data.name == document.getElementById('new-char-name').value && document.getElementById('next-new-char-btn').value == "Create")) {
+    if (data.name == document.getElementById('new-char-name').value && document.getElementById('next-new-char-btn').value == "Create") {
+      //close & hide divs in new char
+      document.getElementById("new-char-dev").style.width = "0"
+      document.getElementById('new-char-content-dev1').style.display = "none";
+      document.getElementById('new-char-content-dev2').style.display = "none";
+    }
+    
     document.getElementById('characters_list').value = data._id;
     if (document.getElementById('characters_list').value != data._id.toString()){
       document.getElementById('characters_list').options[document.getElementById('characters_list').options.length] = new Option(data.name, data._id);
@@ -1709,6 +1717,7 @@ async function newCharNext() {
 
 
     console.log(char_doc);
+    //socket.emit("saveChar",{_id:'',data:char_doc})
 
     
   }

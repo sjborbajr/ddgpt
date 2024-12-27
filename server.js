@@ -79,6 +79,15 @@ io.on('connection', async (socket) => {
     });
     socket.on('getName', async () => {
       let returndata = await settingsCollection.aggregate([{$match:{type:'name'}},{$sample:{size:1}}]).toArray();
+      let uniqueTest = await gameDataCollection.findOne({type:'character',uniquename:returndata[0].trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase()}).toArray();
+
+      while (uniqueTest) {
+        await settingsCollection.updateOne({type:'name',_id:returndata[0]._id},{$set:{used:true}})
+        returndata = await settingsCollection.aggregate([{$match:{type:'name'}},{$sample:{size:1}}]).toArray();
+        uniqueTest = await gameDataCollection.findOne({type:'character',uniquename:returndata[0].trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase()}).toArray();
+
+      }
+      
       socket.emit("name",returndata)
     });
     socket.on('getClasses', async () => {
@@ -116,6 +125,8 @@ io.on('connection', async (socket) => {
       socket.emit('backgroundSummary',response);
     });
     socket.on('saveChar', async data => {
+      console.log(data)
+
       try{
         console.log('['+new Date().toUTCString()+'] Player '+playerName+' saving char '+data.data.name);
         data.data.uniquename = data.data.name.trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase();
@@ -137,6 +148,7 @@ io.on('connection', async (socket) => {
           //new char, create and send back
           data.data.type = 'character'
           data.data.owner_id = playerData._id
+          console.log(data.data)
           await gameDataCollection.insertOne(data.data);
           socket.emit('charData',data.data);
           let message = {message:'Character '+data.data.name+' created.',color:'green',timeout:5000};
