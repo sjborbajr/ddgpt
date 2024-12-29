@@ -1283,7 +1283,7 @@ function newChar() {
   toggleNav('char-tab-btn');
   newCharPrev();
 }
-function newCharNext() {
+async function newCharNext() {
   let race = races.find(p => p.name === document.getElementById('new-char-race').value)
   let char_class = char_classes.find(p => p.name === document.getElementById('new-char-class').value)
 
@@ -1648,37 +1648,31 @@ function newCharNext() {
     });
 
     //get equipment detail, file and equip
-    let new_equipment = [], test
-    equipment.forEach((item) => {
-      let jsonData = getApiData(item.url)
-      console.log(jsonData);
-      if (jsonData && !item.url.includes('equipment-categories')) {
-        jsonData.quantity = item.quantity
-        new_equipment.push(jsonData)
-        if (jsonData.equipment_category.index == "weapon") {
+    equipment = await getEquipmentData(equipment);
+    for (let i = 0 ; i < equipment.length; i++){
+      if (!equipment[i].url.includes('equipment-categories')) {
+        if (equipment[i].equipment_category.index == "weapon") {
           if (weapons != '') weapons=weapons+","
-          weapons+=item.quantity+"x "+item.name;
-        } else if (jsonData.equipment_category.index == "armor") {
-          if (jsonData.armor_category == "Shield") {
-            if (shield = '') {
+          weapons+=equipment[i].quantity+"x "+equipment[i].name;
+        } else if (equipment[i].equipment_category.index == "armor") {
+          if (equipment[i].armor_category == "Shield") {
+            if (shield == '') {
               if (armor != '') armor+=","
-              armor+=item.name
-              shield = item
-              shield.base = jsonData.base
-              char_doc.details['AC'] += shield.base
+              armor+=equipment[i].name
+              shield = equipment[i]
+              char_doc.details['AC'] += shield.armor_class.base
             } else {
               if (inventory != '') inventory+=","
-              inventory+=item.quantity+"x "+item.name
-              console.log('Inventory',inventory)
+              inventory+=equipment[i].quantity+"x "+equipment[i].name
             }
           } else {
             //ToDo check to record the total AC it would be and also use that to see if you equip
-            if (armorEquiped == '' && char_doc.details.STR >= jsonData.str_minimum) {
+            if (armorEquiped == '' && char_doc.details.STR >= equipment[i].str_minimum) {
               if (armor != '') armor+=","
-              armor+=item.name
-              armorEquiped = item
-              char_doc.details['AC'] = jsonData.armor_class.base
-              if (jsonData.armor_class.dex_bonus){
+              armor+=equipment[i].name
+              armorEquiped = equipment[i]
+              char_doc.details['AC'] = equipment[i].armor_class.base
+              if (equipment[i].armor_class.dex_bonus){
                 char_doc.details['AC'] += Math.floor(Number(char_doc.details.DEX)/2)-5
               }
               if(!shield == ''){
@@ -1686,31 +1680,20 @@ function newCharNext() {
               }
             } else {
               if (inventory != '') inventory+=","
-              inventory+=item.quantity+"x "+item.name
-              console.log('Inventory',inventory)
+              inventory+=equipment[i].quantity+"x "+equipment[i].name
             }
           }
         } else {
           if (inventory != '') inventory+=","
-          inventory+=item.quantity+"x "+item.name
-          console.log('Inventory',inventory)
+          inventory+=equipment[i].quantity+"x "+equipment[i].name
         }
       } else {
         //ToDo - let them choose the from the category in the json doc
-        new_equipment.push(item)
         if (inventory != '') inventory+=","
-        inventory+=item.quantity+"x "+item.name
-        console.log('Inventory',inventory)
+        inventory+=equipment[i].quantity+"x "+equipment[i].name
       }
-    })
-    //equipment = new_equipment
+    }
 
-    console.log('Armor')
-    console.log('ShieldEquiped')
-    console.log('ArmorEquiped')
-    console.log('Weapon')
-    console.log('Inventory',inventory)
-    //for some reason the document isn't converting to JSON
     char_doc = {
       name:document.getElementById('new-char-name').value,
       details:{
@@ -1754,20 +1737,30 @@ function newCharNext() {
     
   }
 }
-function getApiData(url){
-  return fetch("https://www.dnd5eapi.co"+url,{headers:{Accept:'application/json'}}).then(response => {
-    if (!response.ok) {
-      throw new Error('Network response was not ok');
+async function getEquipmentData(equipment){
+  for (let i = 0 ; i < equipment.length; i++){
+    if (!equipment[i].url.includes('equipment-categories')) {
+      let apiData = await getApiData(equipment[i].url)
+      apiData.quantity = equipment[i].quantity
+      equipment[i] = apiData
     }
-    return response.json().then(data => {
-      // Process the data
-      return data
+  }
+  return equipment
+}
+async function getApiData(url) {
+  try {
+    const response = await fetch("https://www.dnd5eapi.co" + url, {
+      headers: { Accept: 'application/json' },
     });
-  }).catch(error => {
-      // Handle errors
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return data; // Return the parsed JSON
+  } catch (error) {
     console.error('There was a problem with the fetch operation:', error);
-    throw error; 
-  });
+    return null; // Handle the error gracefully by returning null
+  }
 }
 
 function newCharPrev() {
