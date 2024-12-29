@@ -100,7 +100,7 @@ socket.on('functionList', allFunctions => {
     socket.emit('fetchFunction',curOption);
   }
 });
-socket.on('functionSettings', async functionSettings => {
+socket.on('functionSettings', functionSettings => {
   let optionDoc = document.getElementById('functionList'), table = document.getElementById('functionSettingsTable'), messageTable = document.getElementById('functionSettingsMessages')
   if (optionDoc.value = functionSettings.function){
     while (table.rows.length > 1) table.deleteRow(1);
@@ -1283,7 +1283,7 @@ function newChar() {
   toggleNav('char-tab-btn');
   newCharPrev();
 }
-async function newCharNext() {
+function newCharNext() {
   let race = races.find(p => p.name === document.getElementById('new-char-race').value)
   let char_class = char_classes.find(p => p.name === document.getElementById('new-char-class').value)
 
@@ -1516,39 +1516,15 @@ async function newCharNext() {
     equipmentSections.forEach(equipSec => form.appendChild(equipSec));
 
   } else if (document.getElementById('next-new-char-btn').innerText == "Create") {
-    let char_doc = {
-      name:document.getElementById('new-char-name').value,
+    let equipment = [], armor = '', shield = '', inventory = '', armorEquiped = '', weapons = '', traits = [], skills = '', allProficiencies = [], char_doc = {
       details:{
-        AC:10+Math.floor(Number(document.getElementById('new-char-DEX').value)/2)-5,
-        Class:document.getElementById('new-char-class').value,
-        Race:document.getElementById('new-char-race').value,
-        Alignment:document.getElementById('new-char-alignment').value,
-        Trait:document.getElementById('new-char-trait').value,
-        Background:document.getElementById('new-char-background').value,
-        Flaw:document.getElementById('new-char-flaw').value,
-        Bond:document.getElementById('new-char-bond').value,
-        Ideal:document.getElementById('new-char-ideal').value,
         WIS:document.getElementById('new-char-WIS').value,
         CON:document.getElementById('new-char-CON').value,
         STR:document.getElementById('new-char-STR').value,
         CHA:document.getElementById('new-char-CHA').value,
         INT:document.getElementById('new-char-INT').value,
         DEX:document.getElementById('new-char-DEX').value,
-        Backstory:document.getElementById('new-char-background-summary').value,
-        Backstory_Full:document.getElementById('new-char-background-story').value,
-        Lvl:1,
-        HP:char_class.hit_die+Math.floor(Number(document.getElementById('new-char-CON').value)/2)-5,
-        Skills:document.getElementById('new-char-skills').value,
-        Hit_Die:char_class.hit_die,
-        Proficiencies:[],
-        Equipment:[],
-        Armor:[],
-        Weapon:[],
-        Inventory:[],
-        Traits:[]
-      },
-      state:'alive',
-      type:'character'
+      }
     }
     
     if (race.ability_bonuses.length){
@@ -1575,14 +1551,14 @@ async function newCharNext() {
         });
       }
     }
-    char_doc.details.HP = char_class.hit_die+Math.floor(Number(char_doc.details.CON)/2)-5
-    char_doc.details.AC = 10+Math.floor(Number(char_doc.details.DEX)/2)-5
+    char_doc.details['HP'] = char_class.hit_die+Math.floor(Number(char_doc.details.CON)/2)-5
+    char_doc.details['AC'] = 10+Math.floor(Number(char_doc.details.DEX)/2)-5
 
     if (race.traits.length){
       race.traits.forEach((trait) => {
-        char_doc.details.Traits.push(trait)
-        if (char_doc.details.Skills != '') char_doc.details.Skills=char_doc.details.Skills+", "
-        char_doc.details.Skills = char_doc.details.Skills + trait.name
+        traits.push(trait)
+        if (skills != '') skills=skills+", "
+        skills = char_doc.details.Skills + trait.name
       })
     }
     if (race.starting_proficiency_options){
@@ -1596,9 +1572,9 @@ async function newCharNext() {
       } else {
         profSelected.forEach((proficiency, index) => {
           i=proficiency.id.replace('race_proficiency_',"")
-          if (char_doc.details.Skills != '') char_doc.details.Skills=char_doc.details.Skills+", "
-          char_doc.details.Skills = char_doc.details.Skills+race.starting_proficiency_options.from.options[i].item.name
-          char_doc.details.Proficiencies.push(race.starting_proficiency_options.from.options[i].item)
+          if (skills != '') skills=skills+", "
+          skills = skills+race.starting_proficiency_options.from.options[i].item.name
+          allProficiencies.push(race.starting_proficiency_options.from.options[i].item)
         });
       }
     }
@@ -1615,13 +1591,13 @@ async function newCharNext() {
         } else {
           proficiencies.forEach((proficiency) => {
             let i = proficiency.id.split("_")[2]
-            if (char_doc.details.Skills != '') char_doc.details.Skills=char_doc.details.Skills+", "
+            if (skills != '') skills=skills+", "
             if(char_class.proficiency_choices[index].from.options[i].item) {
-              char_doc.details.Skills = char_doc.details.Skills+char_class.proficiency_choices[index].from.options[i].item.name
-              char_doc.details.Proficiencies.push(char_class.proficiency_choices[index].from.options[i].item)
+              skills = skills+char_class.proficiency_choices[index].from.options[i].item.name
+              allProficiencies.push(char_class.proficiency_choices[index].from.options[i].item)
             } else {
-              char_doc.details.Skills = char_doc.details.Skills+char_class.proficiency_choices[index].from.options[i].desc
-              char_doc.details.Proficiencies.push({name:char_class.proficiency_choices[index].from.options[i].desc})
+              skills = skills+char_class.proficiency_choices[index].from.options[i].desc
+              allProficiencies.push({name:char_class.proficiency_choices[index].from.options[i].desc})
             }
           });
         }
@@ -1631,7 +1607,7 @@ async function newCharNext() {
     if (char_class.starting_equipment.length){
       for (let i = 0 ; i < char_class.starting_equipment.length; i++){
         char_class.starting_equipment[i].equipment.quantity = char_class.starting_equipment[i].quantity
-        char_doc.details.Equipment.push(char_class.starting_equipment[i].equipment)
+        equipment.push(char_class.starting_equipment[i].equipment)
       }
     }
     char_class.starting_equipment_options.forEach((_, index) => {
@@ -1646,25 +1622,25 @@ async function newCharNext() {
 
       if (char_class.starting_equipment_options[index].from.option_set_type == 'equipment_category') {
         char_class.starting_equipment_options[index].from.equipment_category.quantity = char_class.starting_equipment_options[index].choose
-        char_doc.details.Equipment.push(char_class.starting_equipment_options[index].from.equipment_category)
+        equipment.push(char_class.starting_equipment_options[index].from.equipment_category)
       } else if (char_class.starting_equipment_options[index].from.option_set_type == "options_array") {
         let i = equipSelected[0].id.split("_")[3]
         if (char_class.starting_equipment_options[index].from.options[i].option_type == "counted_reference") {
           char_class.starting_equipment_options[index].from.options[i].of.quantity = char_class.starting_equipment_options[index].from.options[i].count
-          char_doc.details.Equipment.push(char_class.starting_equipment_options[index].from.options[i].of)
+          equipment.push(char_class.starting_equipment_options[index].from.options[i].of)
         } else if (char_class.starting_equipment_options[index].from.options[i].option_type == "multiple") {
           char_class.starting_equipment_options[index].from.options[i].items.forEach((item) => {
             if (item.option_type == 'choice') {
               item.choice.from.equipment_category.quantity = item.choice.choose
-              char_doc.details.Equipment.push(item.choice.from.equipment_category)
+              equipment.push(item.choice.from.equipment_category)
             } else {
               item.of.quantity = item.count
-              char_doc.details.Equipment.push(item.of)
+              equipment.push(item.of)
             }
           });
         } else if (char_class.starting_equipment_options[index].from.options[i].option_type == "choice") {
           char_class.starting_equipment_options[index].from.options[i].choice.from.equipment_category.quantity = char_class.starting_equipment_options[index].from.options[i].choice.choose
-          char_doc.details.Equipment.push(char_class.starting_equipment_options[index].from.options[i].choice.from.equipment_category)
+          equipment.push(char_class.starting_equipment_options[index].from.options[i].choice.from.equipment_category)
         }
       }
 
@@ -1672,62 +1648,126 @@ async function newCharNext() {
     });
 
     //get equipment detail, file and equip
-    let new_equipment = []
-    char_doc.details.Equipment.forEach(async (item) => {
-      let jsonData = await getApiData(item.url)
+    let new_equipment = [], test
+    equipment.forEach((item) => {
+      let jsonData = getApiData(item.url)
+      console.log(jsonData)
       if (jsonData && !item.url.includes('equipment-categories')) {
         jsonData.quantity = item.quantity
         new_equipment.push(jsonData)
         if (jsonData.equipment_category.index == "weapon") {
-          char_doc.details.Weapon.push(jsonData.quantity+"x "+jsonData.name)
+          if (weapons != '') weapons=weapons+","
+          weapons+=item.quantity+"x "+item.name;
         } else if (jsonData.equipment_category.index == "armor") {
           if (jsonData.armor_category == "Shield") {
-            if (!char_doc.details.Shield) {
-              char_doc.details.Armor.push(jsonData.name)
-              char_doc.details.Shield = jsonData
-              char_doc.details.AC += char_doc.details.Shield.armor_class.base
+            if (shield = '') {
+              if (armor != '') armor+=","
+              armor+=item.name
+              shield = item
+              shield.base = jsonData.base
+              char_doc.details['AC'] += shield.base
             } else {
-              char_doc.details.Inventory.push(jsonData.quantity+"x "+jsonData.name)
+              if (inventory != '') inventory+=","
+              inventory+=item.quantity+"x "+item.name
+              console.log('Inventory',inventory)
             }
           } else {
-            if (!char_doc.details.ArmorEquiped && char_doc.details.STR >= jsonData.str_minimum) {
-              char_doc.details.Armor.push(jsonData.name)
-              char_doc.details.ArmorEquiped = jsonData
-              char_doc.details.AC = jsonData.armor_class.base
+            //ToDo check to record the total AC it would be and also use that to see if you equip
+            if (armorEquiped == '' && char_doc.details.STR >= jsonData.str_minimum) {
+              if (armor != '') armor+=","
+              armor+=item.name
+              armorEquiped = item
+              char_doc.details['AC'] = jsonData.armor_class.base
               if (jsonData.armor_class.dex_bonus){
-                char_doc.details.AC += Math.floor(Number(char_doc.details.DEX)/2)-5
+                char_doc.details['AC'] += Math.floor(Number(char_doc.details.DEX)/2)-5
               }
-              if(char_doc.details.Shield){
-                char_doc.details.AC += char_doc.details.Shield.armor_class.base
+              if(!shield == ''){
+                char_doc.details['AC'] += shield.armor_class.base
               }
             } else {
-              char_doc.details.Inventory.push(jsonData.quantity+"x "+jsonData.name)
+              if (inventory != '') inventory+=","
+              inventory+=item.quantity+"x "+item.name
+              console.log('Inventory',inventory)
             }
           }
         } else {
-          char_doc.details.Inventory.push(jsonData.quantity+"x "+jsonData.name)
+          if (inventory != '') inventory+=","
+          inventory+=item.quantity+"x "+item.name
+          console.log('Inventory',inventory)
         }
       } else {
+        //ToDo - let them choose the from the category in the json doc
         new_equipment.push(item)
-        char_doc.details.Inventory.push(item.quantity+"x "+item.name)
+        if (inventory != '') inventory+=","
+        inventory+=item.quantity+"x "+item.name
+        console.log('Inventory',inventory)
       }
-
     })
-    char_doc.details.Equipment = new_equipment
+    //equipment = new_equipment
 
-
+    console.log('Armor')
+    console.log('ShieldEquiped')
+    console.log('ArmorEquiped')
+    console.log('Weapon')
+    console.log('Inventory',inventory)
+    //for some reason the document isn't converting to JSON
+    char_doc = {
+      name:document.getElementById('new-char-name').value,
+      details:{
+        AC:char_doc.details['AC'],
+        HP:char_doc.details['HP'],
+        WIS:char_doc.details['WIS'],
+        CON:char_doc.details['CON'],
+        STR:char_doc.details['STR'],
+        CHA:char_doc.details['CHA'],
+        INT:char_doc.details['INT'],
+        DEX:char_doc.details['DEX'],
+        Class:document.getElementById('new-char-class').value,
+        Race:document.getElementById('new-char-race').value,
+        Alignment:document.getElementById('new-char-alignment').value,
+        Trait:document.getElementById('new-char-trait').value,
+        Background:document.getElementById('new-char-background').value,
+        Flaw:document.getElementById('new-char-flaw').value,
+        Bond:document.getElementById('new-char-bond').value,
+        Ideal:document.getElementById('new-char-ideal').value,
+        Backstory:document.getElementById('new-char-background-summary').value,
+        Backstory_Full:document.getElementById('new-char-background-story').value,
+        Lvl:1,
+        Hit_Die:char_class.hit_die,
+        Skills:document.getElementById('new-char-skills').value,
+        Proficiencies:allProficiencies,
+        Equipment:equipment,
+        Armor:armor,
+        ShieldEquiped:shield,
+        ArmorEquiped:armorEquiped,
+        Weapon:weapons,
+        Inventory:inventory,
+        Traits:traits
+      },
+      state:'alive',
+      type:'character'
+    }
     console.log(char_doc);
-    //socket.emit("saveChar",{_id:'',data:char_doc})
+    console.log(JSON.stringify(char_doc));
+    socket.emit("saveChar",{_id:'',data:JSON.stringify(char_doc)})
 
     
   }
 }
-async function getApiData(url){
-  let response = await fetch("https://www.dnd5eapi.co"+url,{headers:{Accept:'application/json'}})
-  if (response.ok) {
-    jsonData = await response.json()
-    return jsonData
-  }
+function getApiData(url){
+  return fetch("https://www.dnd5eapi.co"+url,{headers:{Accept:'application/json'}}).then(response => {
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    return response.json(); 
+  }).then(data => {
+    // Process the data
+    return data; 
+  }).catch(error => {
+    // Handle errors
+    console.error('There was a problem with the fetch operation:', error);
+    throw error; 
+  });
 }
 function newCharPrev() {
   document.getElementById('new-char-content-dev1').style.display = "block";
@@ -1739,7 +1779,7 @@ function newCharPrev() {
 function newRoll(){
   let abilities = ["STR","DEX","CON","INT","WIS","CHA"];
   let rolls = rollAbility();
-  for (let i = 0 ; i < abilities.length; i++){
+  for (let i = 1 ; i < abilities.length; i++){
     rolls = rolls+"\n"+rollAbility();
   };
   document.getElementById('new-char-available-rolls').innerHTML = rolls;
@@ -1872,7 +1912,7 @@ function sortTable(n, tableName, columnType) {
     table.tBodies[0].appendChild(row);
   }
 }
-async function micClick() {
+function micClick() {
   if (document.getElementById('mic-button').classList.contains('recording')) {   //end recording
     document.getElementById('mic-button').classList.remove('recording');
     document.getElementById('player-input-field').value = document.getElementById('player-input-field-mic').value;

@@ -79,12 +79,12 @@ io.on('connection', async (socket) => {
     });
     socket.on('getName', async () => {
       let returndata = await settingsCollection.aggregate([{$match:{type:'name'}},{$sample:{size:1}}]).toArray();
-      let uniqueTest = await gameDataCollection.findOne({type:'character',uniquename:returndata[0].trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase()}).toArray();
+      let uniqueTest = await gameDataCollection.find({type:'character',uniquename:returndata[0].name.trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase()}).toArray();
 
-      while (uniqueTest) {
+      while (uniqueTest.length) {
         await settingsCollection.updateOne({type:'name',_id:returndata[0]._id},{$set:{used:true}})
         returndata = await settingsCollection.aggregate([{$match:{type:'name'}},{$sample:{size:1}}]).toArray();
-        uniqueTest = await gameDataCollection.findOne({type:'character',uniquename:returndata[0].trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase()}).toArray();
+        uniqueTest = await gameDataCollection.find({type:'character',uniquename:returndata[0].name.trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase()}).toArray();
 
       }
       
