@@ -1759,10 +1759,12 @@ function getApiData(url){
     if (!response.ok) {
       throw new Error('Network response was not ok');
     }
-    return response.json(); 
+    return response.json();
   }).then(data => {
     // Process the data
-    return data; 
+    return data.json().then(jsonData => {
+      return jsonData;
+    });
   }).catch(error => {
     // Handle errors
     console.error('There was a problem with the fetch operation:', error);
