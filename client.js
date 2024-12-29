@@ -1651,7 +1651,7 @@ function newCharNext() {
     let new_equipment = [], test
     equipment.forEach((item) => {
       let jsonData = getApiData(item.url)
-      console.log(jsonData)
+      console.log(jsonData);
       if (jsonData && !item.url.includes('equipment-categories')) {
         jsonData.quantity = item.quantity
         new_equipment.push(jsonData)
@@ -1759,18 +1759,17 @@ function getApiData(url){
     if (!response.ok) {
       throw new Error('Network response was not ok');
     }
-    return response.json();
-  }).then(data => {
-    // Process the data
-    return data.json().then(jsonData => {
-      return jsonData;
+    return response.json().then(data => {
+      // Process the data
+      return data
     });
   }).catch(error => {
-    // Handle errors
+      // Handle errors
     console.error('There was a problem with the fetch operation:', error);
     throw error; 
   });
 }
+
 function newCharPrev() {
   document.getElementById('new-char-content-dev1').style.display = "block";
   document.getElementById('new-char-content-dev2').style.display = "none";
