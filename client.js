@@ -943,8 +943,8 @@ function swapRole(item,order) {
     }
   }
 }
-function historyFilterLimit(filterText) {
-  socket.emit('historyFilterLimit',filterText);
+function historyFilterByFunction(filterText) {
+  socket.emit('historyFilterByFunction',filterText);
   socket.emit('tab','History');
 }
 function connectButton() {

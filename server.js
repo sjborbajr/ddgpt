@@ -40,7 +40,7 @@ io.on('connection', async (socket) => {
   // Get the email from the oidc upstream through headers
   let email = socket.handshake.headers['oidc_claim_email'], clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address;
   //console.log(JSON.stringify(socket.handshake.headers));
-  let showCharacters = 'Own', showActiveAdventures = true, historyFilterLimit='all', historyTextSearch='';
+  let showCharacters = 'Own', showActiveAdventures = true, historyFilterByFunction='all', historyTextSearch='';
   console.log('['+new Date().toUTCString()+'] User connected: '+email+' From: '+clientIp);
 
   let playerData = await fetchPlayerData(email)
@@ -203,8 +203,8 @@ io.on('connection', async (socket) => {
         socket.emit('alertMsg',message);      
       }
     });
-    socket.on('historyFilterLimit', async limit => {
-      historyFilterLimit = limit;
+    socket.on('historyFilterByFunction', async limit => {
+      historyFilterByFunction = limit;
     });
     socket.on('historyDelete', async id => {
       if (playerData.admin) try {
@@ -625,10 +625,10 @@ io.on('connection', async (socket) => {
       } else if (tabName == 'History' && playerData.admin) {
         socket.join('Tab-'+tabName);
         let historyFilter = {deleted:{$ne:true}};
-        if (historyFilterLimit != 'all' && historyTextSearch != '') {
-          historyFilter = {$and:[{function:historyFilterLimit,deleted:{$ne:true}},{$or:[{response:{$regex:historyTextSearch,$options:'i'}},{request:{$regex:historyTextSearch,$options:'i'}}]}]}
-        } else if (historyFilterLimit != 'all') {
-          historyFilter = {function:historyFilterLimit,deleted:{$ne:true}}
+        if (historyFilterByFunction != 'all' && historyTextSearch != '') {
+          historyFilter = {$and:[{function:historyFilterByFunction,deleted:{$ne:true}},{$or:[{response:{$regex:historyTextSearch,$options:'i'}},{request:{$regex:historyTextSearch,$options:'i'}}]}]}
+        } else if (historyFilterByFunction != 'all') {
+          historyFilter = {function:historyFilterByFunction,deleted:{$ne:true}}
         } else if (historyTextSearch != '') {
           historyFilter = {$and:[{deleted:{$ne:true}},{$or:[{response:{$regex:historyTextSearch,$options:'i'}},{request:{$regex:historyTextSearch,$options:'i'}}]}]}
         }
