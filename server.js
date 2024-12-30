@@ -82,6 +82,7 @@ io.on('connection', async (socket) => {
       let uniqueTest = await gameDataCollection.find({type:'character',uniquename:returndata[0].name.trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase()}).toArray();
 
       while (uniqueTest.length) {
+        console.log('NameUsed',returndata[0])
         await settingsCollection.updateOne({type:'name',_id:returndata[0]._id},{$set:{used:true}})
         returndata = await settingsCollection.aggregate([{$match:{type:'name'}},{$sample:{size:1}}]).toArray();
         uniqueTest = await gameDataCollection.find({type:'character',uniquename:returndata[0].name.trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase()}).toArray();
@@ -99,7 +100,7 @@ io.on('connection', async (socket) => {
       socket.emit("races",returndata)
     });
     socket.on('getBackgrounds', async () => {
-      let returndata = await settingsCollection.find({type:'background-basic'}).toArray();
+      let returndata = await settingsCollection.find({type:'background-basic'},{projection:{_id:0,type:0}}).toArray();
       socket.emit("background-basic",returndata)
       returndata = await settingsCollection.find({type:'background-basic-choice'}).toArray();
       socket.emit("background-basic-choice",returndata)
@@ -125,10 +126,10 @@ io.on('connection', async (socket) => {
       socket.emit('backgroundSummary',response);
     });
     socket.on('saveChar', async data => {
-      console.log(data)
-
       try{
         console.log('['+new Date().toUTCString()+'] Player '+playerName+' saving char '+data.data.name);
+        console.log(JSON.stringify(data.data))
+        data.data.type = 'character'
         data.data.uniquename = data.data.name.trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase();
         if (data._id.length == 24) {
           //existing Char, updating
@@ -136,6 +137,8 @@ io.on('connection', async (socket) => {
           if (charData) {
             if (playerData.admin || charData.owner_id.toString() == playerData._id.toString()){
               data.data.owner_id = new ObjectId(data.owner_id);
+              data.data.details = {...charData.details,...data.data.details}
+
               await gameDataCollection.updateOne({type:"character",_id:new ObjectId(data._id)},{$set:data.data});
               let message = {message:'Character '+data.data.name+' saved.',color:'green',timeout:1500};
               socket.emit('alertMsg',message);
@@ -146,9 +149,7 @@ io.on('connection', async (socket) => {
           }
         } else if (data._id == '') {
           //new char, create and send back
-          data.data.type = 'character'
           data.data.owner_id = playerData._id
-          console.log(data.data)
           await gameDataCollection.insertOne(data.data);
           socket.emit('charData',data.data);
           let message = {message:'Character '+data.data.name+' created.',color:'green',timeout:5000};

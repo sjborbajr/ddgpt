@@ -268,8 +268,8 @@ socket.on('charList', (data) => {
 });
 socket.on('charData', (data) => {
   if (document.getElementById('characters_list').value == data._id || data.name == document.getElementById('character_name').value || 
-       (data.name == document.getElementById('new-char-name').value && document.getElementById('next-new-char-btn').value == "Create")) {
-    if (data.name == document.getElementById('new-char-name').value && document.getElementById('next-new-char-btn').value == "Create") {
+       (data.name == document.getElementById('new-char-name').value && document.getElementById('next-new-char-btn').innerText == "Create")) {
+    if (data.name == document.getElementById('new-char-name').value && document.getElementById('next-new-char-btn').innerText == "Create") {
       //close & hide divs in new char
       document.getElementById("new-char-dev").style.width = "0"
       document.getElementById('new-char-content-dev1').style.display = "none";
@@ -304,9 +304,13 @@ socket.on('charData', (data) => {
     } else {
       document.getElementById('character_adventures').value = ''
     }
-    let attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory"];
+    let attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory","Backstory_Full","Skills","Alignment","Background"];
     for (let i = 0 ; i < attributes.length; i++){
-      document.getElementById('character_'+attributes[i]).value = data.details[attributes[i]];
+      if (data.details[attributes[i]]) {
+        document.getElementById('character_'+attributes[i]).value = data.details[attributes[i]];
+      } else {
+        document.getElementById('character_'+attributes[i]).value = '';
+      }
     };
   } else {
     console.log("recieved data for "+data._id+" but drop down set to "+document.getElementById('characters_list').value);
@@ -1286,6 +1290,7 @@ function newChar() {
 async function newCharNext() {
   let race = races.find(p => p.name === document.getElementById('new-char-race').value)
   let char_class = char_classes.find(p => p.name === document.getElementById('new-char-class').value)
+  let background_info = backgrounds.find(p => p.name === document.getElementById('new-char-background').value)
 
   if (document.getElementById('next-new-char-btn').innerText == "Next"){
     if(document.getElementById('new-char-name').value == "" || document.getElementById('new-char-class').value == '' || document.getElementById('new-char-race').value == '' ||
@@ -1297,7 +1302,7 @@ async function newCharNext() {
       document.getElementById('alertMsg').innerText = `Not all fields complete`;
       document.getElementById('alertMsg').style.display = 'inline';
       setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
-      return
+      return;
     }
 
     document.getElementById('new-char-content-dev1').style.display = "none";
@@ -1348,7 +1353,7 @@ async function newCharNext() {
     }
     if (char_class.proficiencies.length){
       element.style.display = "block";
-      for (let i = 0 ; i < race.starting_proficiencies.length; i++){
+      for (let i = 0 ; i < char_class.proficiencies.length; i++){
         element.value = element.value+", "+char_class.proficiencies[i].name
       }
     }
@@ -1515,8 +1520,15 @@ async function newCharNext() {
 
     equipmentSections.forEach(equipSec => form.appendChild(equipSec));
 
+    if (!document.getElementById('new-char-skills').value == '') document.getElementById('new-char-skills').value+=", "
+    document.getElementById('new-char-skills').value+=background_info.proficiency
+    if (!document.getElementById('new-char-inventory').value == '') document.getElementById('new-char-inventory').value+=", "
+    document.getElementById('new-char-inventory').value+=background_info.inventory
+
   } else if (document.getElementById('next-new-char-btn').innerText == "Create") {
-    let equipment = [], armor = '', shield = '', inventory = '', armorEquiped = '', weapons = '', traits = [], skills = '', allProficiencies = [], char_doc = {
+    let create = true, char_doc = {
+      name:document.getElementById('new-char-name').value,
+      state:'alive',
       details:{
         WIS:document.getElementById('new-char-WIS').value,
         CON:document.getElementById('new-char-CON').value,
@@ -1524,187 +1536,6 @@ async function newCharNext() {
         CHA:document.getElementById('new-char-CHA').value,
         INT:document.getElementById('new-char-INT').value,
         DEX:document.getElementById('new-char-DEX').value,
-      }
-    }
-    
-    if (race.ability_bonuses.length){
-      for (let i = 0 ; i < race.ability_bonuses.length; i++){
-        ability_name=race.ability_bonuses[i].ability_score.name
-        let newNumber = Number(char_doc.details[ability_name])+Number(race.ability_bonuses[i].bonus)
-        char_doc.details[ability_name]=""+newNumber
-      }
-    }
-    if (race.ability_bonus_options) {
-      const abilitiesSelected = document.querySelectorAll('input[name="ability_bonuses"]:checked');
-      if (abilitiesSelected.length != race.ability_bonus_options.choose) {
-        document.getElementById('alertMsg').style.color = 'red';
-        document.getElementById('alertMsg').innerText = `Please select exactly ${race.ability_bonus_options.choose} ability bonuses.`;
-        document.getElementById('alertMsg').style.display = 'inline';
-        setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
-        return
-      } else {
-        abilitiesSelected.forEach((ability, index) => {
-          i=ability.id.replace('ability_',"")
-          ability_name=race.ability_bonus_options.from.options[i].ability_score.name
-          let newNumber = Number(char_doc.details[ability_name])+Number(race.ability_bonus_options.from.options[i].bonus)
-          char_doc.details[ability_name]=""+newNumber
-        });
-      }
-    }
-    char_doc.details['HP'] = char_class.hit_die+Math.floor(Number(char_doc.details.CON)/2)-5
-    char_doc.details['AC'] = 10+Math.floor(Number(char_doc.details.DEX)/2)-5
-
-    if (race.traits.length){
-      race.traits.forEach((trait) => {
-        traits.push(trait)
-        if (skills != '') skills=skills+", "
-        skills = char_doc.details.Skills + trait.name
-      })
-    }
-    if (race.starting_proficiency_options){
-      const profSelected = document.querySelectorAll('input[name="race_proficiencies"]:checked');
-      if (profSelected.length !== race.starting_proficiency_options.choose) {
-        document.getElementById('alertMsg').style.color = 'red';
-        document.getElementById('alertMsg').innerText = `Please select exactly ${race.starting_proficiency_options.choose} proficiencies.`;
-        document.getElementById('alertMsg').style.display = 'inline';
-        setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
-        return
-      } else {
-        profSelected.forEach((proficiency, index) => {
-          i=proficiency.id.replace('race_proficiency_',"")
-          if (skills != '') skills=skills+", "
-          skills = skills+race.starting_proficiency_options.from.options[i].item.name
-          allProficiencies.push(race.starting_proficiency_options.from.options[i].item)
-        });
-      }
-    }
-
-    if (char_class.proficiency_choices){
-      char_class.proficiency_choices.forEach((_, index) => {
-        const proficiencies = document.querySelectorAll(`input[name="proficiency_${index}"]:checked`);
-        if (proficiencies.length !== char_class.proficiency_choices[index].choose) {
-          document.getElementById('alertMsg').style.color = 'red';
-          document.getElementById('alertMsg').innerText = `Please select exactly ${char_class.proficiency_choices[index].choose} option(s).`;
-          document.getElementById('alertMsg').style.display = 'inline';
-          setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
-          return
-        } else {
-          proficiencies.forEach((proficiency) => {
-            let i = proficiency.id.split("_")[2]
-            if (skills != '') skills=skills+", "
-            if(char_class.proficiency_choices[index].from.options[i].item) {
-              skills = skills+char_class.proficiency_choices[index].from.options[i].item.name
-              allProficiencies.push(char_class.proficiency_choices[index].from.options[i].item)
-            } else {
-              skills = skills+char_class.proficiency_choices[index].from.options[i].desc
-              allProficiencies.push({name:char_class.proficiency_choices[index].from.options[i].desc})
-            }
-          });
-        }
-      });
-    }
-
-    if (char_class.starting_equipment.length){
-      for (let i = 0 ; i < char_class.starting_equipment.length; i++){
-        char_class.starting_equipment[i].equipment.quantity = char_class.starting_equipment[i].quantity
-        equipment.push(char_class.starting_equipment[i].equipment)
-      }
-    }
-    char_class.starting_equipment_options.forEach((_, index) => {
-      const equipSelected = document.querySelectorAll(`input[name="equipment_${index}"]:checked`);
-      if (equipSelected.length !== char_class.starting_equipment_options[index].choose) {
-        document.getElementById('alertMsg').style.color = 'red';
-        document.getElementById('alertMsg').innerText = `Please select exactly ${char_class.starting_equipment_options[index].choose} Equipment option(s).`;
-        document.getElementById('alertMsg').style.display = 'inline';
-        setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
-        return
-      }
-
-      if (char_class.starting_equipment_options[index].from.option_set_type == 'equipment_category') {
-        char_class.starting_equipment_options[index].from.equipment_category.quantity = char_class.starting_equipment_options[index].choose
-        equipment.push(char_class.starting_equipment_options[index].from.equipment_category)
-      } else if (char_class.starting_equipment_options[index].from.option_set_type == "options_array") {
-        let i = equipSelected[0].id.split("_")[3]
-        if (char_class.starting_equipment_options[index].from.options[i].option_type == "counted_reference") {
-          char_class.starting_equipment_options[index].from.options[i].of.quantity = char_class.starting_equipment_options[index].from.options[i].count
-          equipment.push(char_class.starting_equipment_options[index].from.options[i].of)
-        } else if (char_class.starting_equipment_options[index].from.options[i].option_type == "multiple") {
-          char_class.starting_equipment_options[index].from.options[i].items.forEach((item) => {
-            if (item.option_type == 'choice') {
-              item.choice.from.equipment_category.quantity = item.choice.choose
-              equipment.push(item.choice.from.equipment_category)
-            } else {
-              item.of.quantity = item.count
-              equipment.push(item.of)
-            }
-          });
-        } else if (char_class.starting_equipment_options[index].from.options[i].option_type == "choice") {
-          char_class.starting_equipment_options[index].from.options[i].choice.from.equipment_category.quantity = char_class.starting_equipment_options[index].from.options[i].choice.choose
-          equipment.push(char_class.starting_equipment_options[index].from.options[i].choice.from.equipment_category)
-        }
-      }
-
-
-    });
-
-    //get equipment detail, file and equip
-    equipment = await getEquipmentData(equipment);
-    for (let i = 0 ; i < equipment.length; i++){
-      if (!equipment[i].url.includes('equipment-categories')) {
-        if (equipment[i].equipment_category.index == "weapon") {
-          if (weapons != '') weapons=weapons+","
-          weapons+=equipment[i].quantity+"x "+equipment[i].name;
-        } else if (equipment[i].equipment_category.index == "armor") {
-          if (equipment[i].armor_category == "Shield") {
-            if (shield == '') {
-              if (armor != '') armor+=","
-              armor+=equipment[i].name
-              shield = equipment[i]
-              char_doc.details['AC'] += shield.armor_class.base
-            } else {
-              if (inventory != '') inventory+=","
-              inventory+=equipment[i].quantity+"x "+equipment[i].name
-            }
-          } else {
-            //ToDo check to record the total AC it would be and also use that to see if you equip
-            if (armorEquiped == '' && char_doc.details.STR >= equipment[i].str_minimum) {
-              if (armor != '') armor+=","
-              armor+=equipment[i].name
-              armorEquiped = equipment[i]
-              char_doc.details['AC'] = equipment[i].armor_class.base
-              if (equipment[i].armor_class.dex_bonus){
-                char_doc.details['AC'] += Math.floor(Number(char_doc.details.DEX)/2)-5
-              }
-              if(!shield == ''){
-                char_doc.details['AC'] += shield.armor_class.base
-              }
-            } else {
-              if (inventory != '') inventory+=","
-              inventory+=equipment[i].quantity+"x "+equipment[i].name
-            }
-          }
-        } else {
-          if (inventory != '') inventory+=","
-          inventory+=equipment[i].quantity+"x "+equipment[i].name
-        }
-      } else {
-        //ToDo - let them choose the from the category in the json doc
-        if (inventory != '') inventory+=","
-        inventory+=equipment[i].quantity+"x "+equipment[i].name
-      }
-    }
-
-    char_doc = {
-      name:document.getElementById('new-char-name').value,
-      details:{
-        AC:char_doc.details['AC'],
-        HP:char_doc.details['HP'],
-        WIS:char_doc.details['WIS'],
-        CON:char_doc.details['CON'],
-        STR:char_doc.details['STR'],
-        CHA:char_doc.details['CHA'],
-        INT:char_doc.details['INT'],
-        DEX:char_doc.details['DEX'],
         Class:document.getElementById('new-char-class').value,
         Race:document.getElementById('new-char-race').value,
         Alignment:document.getElementById('new-char-alignment').value,
@@ -1717,24 +1548,203 @@ async function newCharNext() {
         Backstory_Full:document.getElementById('new-char-background-story').value,
         Lvl:1,
         Hit_Die:char_class.hit_die,
-        Skills:document.getElementById('new-char-skills').value,
-        Proficiencies:allProficiencies,
-        Equipment:equipment,
-        Armor:armor,
-        ShieldEquiped:shield,
-        ArmorEquiped:armorEquiped,
-        Weapon:weapons,
-        Inventory:inventory,
-        Traits:traits
-      },
-      state:'alive',
-      type:'character'
+        Skills:background_info.proficiency,
+        Inventory:background_info.inventory.split(", "),
+        Proficiencies:[],
+        Equipment:[],
+        Armor:[],
+        Weapon:[],
+        Traits:[]
+      }
     }
-    console.log(char_doc);
-    console.log(JSON.stringify(char_doc));
-    socket.emit("saveChar",{_id:'',data:JSON.stringify(char_doc)})
-
     
+    if (race.ability_bonuses.length){
+      for (let i = 0 ; i < race.ability_bonuses.length; i++){
+        ability_name=race.ability_bonuses[i].ability_score.name;
+        let newNumber = Number(char_doc.details[ability_name])+Number(race.ability_bonuses[i].bonus);
+        char_doc.details[ability_name]=""+newNumber;
+      }
+    }
+    if (race.ability_bonus_options) {
+      const abilitiesSelected = document.querySelectorAll('input[name="ability_bonuses"]:checked');
+      if (abilitiesSelected.length != race.ability_bonus_options.choose) {
+        document.getElementById('alertMsg').style.color = 'red';
+        document.getElementById('alertMsg').innerText = `Please select exactly ${race.ability_bonus_options.choose} ability bonuses.`;
+        document.getElementById('alertMsg').style.display = 'inline';
+        setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
+        create = false
+        //Todo - Set font red
+        //document.getElementById('alertMsg').style.color = 'red';
+        return;
+      } else {
+        abilitiesSelected.forEach((ability, index) => {
+          i=ability.id.replace('ability_',"")
+          ability_name=race.ability_bonus_options.from.options[i].ability_score.name
+          let newNumber = Number(char_doc.details[ability_name])+Number(race.ability_bonus_options.from.options[i].bonus)
+          char_doc.details[ability_name]=""+newNumber
+        });
+      }
+    }
+    char_doc.details['HP'] = char_class.hit_die+Math.floor(Number(char_doc.details.CON)/2)-5
+    char_doc.details['AC'] = 10+Math.floor(Number(char_doc.details.DEX)/2)-5
+
+    //todo - more with background
+
+    if (race.traits.length){
+      for (let i = 0 ; i < race.traits.length; i++){
+        char_doc.details.Traits.push(race.traits[i]);
+        if (char_doc.details.Skills != '') char_doc.details.Skills+=", ";
+        char_doc.details.Skills+=race.traits[i].name;
+      }
+    }
+    if (char_class.proficiencies.length){
+      for (let i = 0 ; i < char_class.proficiencies.length; i++){
+        char_doc.details.Proficiencies.push(char_class.proficiencies[i]);
+        if (char_doc.details.Skills != '') char_doc.details.Skills+=", ";
+        char_doc.details.Skills+=char_class.proficiencies[i].name;
+      }
+    }
+    if (race.starting_proficiency_options){
+      const profSelected = document.querySelectorAll('input[name="race_proficiencies"]:checked');
+      if (profSelected.length !== race.starting_proficiency_options.choose) {
+        document.getElementById('alertMsg').style.color = 'red';
+        document.getElementById('alertMsg').innerText = `Please select exactly ${race.starting_proficiency_options.choose} proficiencies.`;
+        document.getElementById('alertMsg').style.display = 'inline';
+        setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
+        create = false
+        //Todo - Set font red
+        //document.getElementById('alertMsg').style.color = 'red';
+        return
+      } else {
+        for (let i = 0 ; i < profSelected.length; i++) {
+          i2=profSelected[i].id.replace('race_proficiency_',"")
+          if (char_doc.details.Skills != '') char_doc.details.Skills+=", "
+          char_doc.details.Skills+=race.starting_proficiency_options.from.options[i2].item.name
+          char_doc.details.Proficiencies.push(race.starting_proficiency_options.from.options[i2].item)
+        };
+      }
+    }
+
+    if (char_class.proficiency_choices){
+      for (let index = 0 ; index < char_class.proficiency_choices.length; index++) {
+        const proficiencies = document.querySelectorAll(`input[name="proficiency_${index}"]:checked`);
+        if (proficiencies.length !== char_class.proficiency_choices[index].choose) {
+          document.getElementById('alertMsg').style.color = 'red';
+          document.getElementById('alertMsg').innerText = `Please select exactly ${char_class.proficiency_choices[index].choose} option(s).`;
+          document.getElementById('alertMsg').style.display = 'inline';
+          setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
+          //Todo - Set font red
+          //document.getElementById('alertMsg').style.color = 'red';
+          create = false
+          return
+        } else {
+          for (let p = 0 ; p < proficiencies.length; p++) {
+            let i = proficiencies[p].id.split("_")[2]
+            if (char_doc.details.Skills != '') char_doc.details.Skills+=", "
+            if(char_class.proficiency_choices[index].from.options[i].item) {
+              char_doc.details.Skills+=char_class.proficiency_choices[index].from.options[i].item.name
+              char_doc.details.Proficiencies.push(char_class.proficiency_choices[index].from.options[i].item)
+            } else {
+              char_doc.details.Skills+=char_class.proficiency_choices[index].from.options[i].desc
+              char_doc.details.Proficiencies.push({name:char_class.proficiency_choices[index].from.options[i].desc})
+            }
+          };
+        }
+      };
+    }
+
+    if (char_class.starting_equipment.length){
+      for (let i = 0 ; i < char_class.starting_equipment.length; i++){
+        char_class.starting_equipment[i].equipment.quantity = char_class.starting_equipment[i].quantity
+        char_doc.details.Equipment.push(char_class.starting_equipment[i].equipment)
+      }
+    }
+    char_class.starting_equipment_options.forEach((_, index) => {
+      const equipSelected = document.querySelectorAll(`input[name="equipment_${index}"]:checked`);
+      if (equipSelected.length !== char_class.starting_equipment_options[index].choose) {
+        document.getElementById('alertMsg').style.color = 'red';
+        document.getElementById('alertMsg').innerText = `Please select exactly ${char_class.starting_equipment_options[index].choose} Equipment option(s).`;
+        document.getElementById('alertMsg').style.display = 'inline';
+        setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',5000);
+        create = false
+        //Todo - Set font red
+        //document.getElementById('alertMsg').style.color = 'red';
+        return
+      }
+
+      if (char_class.starting_equipment_options[index].from.option_set_type == 'equipment_category') {
+        char_class.starting_equipment_options[index].from.equipment_category.quantity = char_class.starting_equipment_options[index].choose
+        char_doc.details.Equipment.push(char_class.starting_equipment_options[index].from.equipment_category)
+      } else if (char_class.starting_equipment_options[index].from.option_set_type == "options_array") {
+        let i = equipSelected[0].id.split("_")[3]
+        if (char_class.starting_equipment_options[index].from.options[i].option_type == "counted_reference") {
+          char_class.starting_equipment_options[index].from.options[i].of.quantity = char_class.starting_equipment_options[index].from.options[i].count
+          char_doc.details.Equipment.push(char_class.starting_equipment_options[index].from.options[i].of)
+        } else if (char_class.starting_equipment_options[index].from.options[i].option_type == "multiple") {
+          char_class.starting_equipment_options[index].from.options[i].items.forEach((item) => {
+            if (item.option_type == 'choice') {
+              item.choice.from.equipment_category.quantity = item.choice.choose
+              char_doc.details.Equipment.push(item.choice.from.equipment_category)
+            } else {
+              item.of.quantity = item.count
+              char_doc.details.Equipment.push(item.of)
+            }
+          });
+        } else if (char_class.starting_equipment_options[index].from.options[i].option_type == "choice") {
+          char_class.starting_equipment_options[index].from.options[i].choice.from.equipment_category.quantity = char_class.starting_equipment_options[index].from.options[i].choice.choose
+          char_doc.details.Equipment.push(char_class.starting_equipment_options[index].from.options[i].choice.from.equipment_category)
+        }
+      }
+
+
+    });
+
+    //get equipment detail, file and equip
+    char_doc.details.Equipment = await getEquipmentData(char_doc.details.Equipment);
+    for (let i = 0 ; i < char_doc.details.Equipment.length; i++){
+      let equipment = char_doc.details.Equipment[i]
+      if (!equipment.url.includes('equipment-categories')) {
+        if (equipment.equipment_category.index == "weapon") {
+          char_doc.details.Weapon.push(equipment.quantity+"x "+equipment.name);
+        } else if (equipment.equipment_category.index == "armor") {
+          if (equipment.armor_category == "Shield") {
+            if (!char_doc.details.Shield) {
+              char_doc.details.Armor.push(equipment[i].name)
+              char_doc.details.Shield = equipment[i]
+              char_doc.details['AC'] += shield.armor_class.base
+            } else {
+              char_doc.details.Inventory.push(equipment[i].quantity+"x "+equipment[i].name);
+            }
+          } else {
+            //ToDo check to record the total AC it would be and also use that to see if you equip
+            if (!char_doc.details.ArmorEquiped && char_doc.details.STR >= equipment.str_minimum) {
+              char_doc.details.Armor.push(equipment.name)
+              char_doc.details.ArmorEquiped = equipment
+              char_doc.details['AC'] = equipment.armor_class.base
+              if (equipment.armor_class.dex_bonus){
+                char_doc.details['AC'] += Math.floor(Number(char_doc.details.DEX)/2)-5
+              }
+              if(char_doc.details.Shield){
+                char_doc.details['AC'] += shield.armor_class.base
+              }
+            } else {
+              char_doc.details.Inventory.push(equipment.quantity+"x "+equipment.name);
+            }
+          }
+        } else {
+          char_doc.details.Inventory.push(equipment.quantity+"x "+equipment.name);
+        }
+      } else {
+        //ToDo - let them choose the from the category in the json doc
+        char_doc.details.Inventory.push(equipment.quantity+"x "+equipment.name);
+      }
+    }
+    
+    if (create) {
+      socket.emit("saveChar",{_id:'',data:char_doc})
+    } else {
+      console.log(char_doc)
+    }
   }
 }
 async function getEquipmentData(equipment){
