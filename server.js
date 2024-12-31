@@ -174,8 +174,27 @@ io.on('connection', async (socket) => {
       }
     });
     socket.on('listOwners', async () => {
-      //TODO limit list owner for non-admins
-      let owners = await gameDataCollection.find({type:'player'}).project({name:1,_id:1}).toArray();
+      let owners
+      if (playerData.admin) {
+        owners = await gameDataCollection.find({type:'player'}).project({name:1,_id:1}).toArray();
+      } else {
+        //TODO current friends list is based on who you have played with
+        let myAdventures = [], myChars = await gameDataCollection.find({type:'character',owner_id:playerData._id}).project({adventures:1,_id:0}).toArray();
+        for (let i = 0 ; i < myChars.length; i++) {
+          let temp = myAdventures.concat(myChars[i].adventures);
+          myAdventures = temp
+        }
+        myAdventures = [...new Set(myAdventures)];
+        myAdventures = myAdventures.filter(n => n);
+
+        owners = await gameDataCollection.find({type:'character',adventures:{$in:myAdventures}}).project({owner_id:1,_id:0}).toArray();
+        owners = [...new Set(owners)];
+        for (let i = 0 ; i < owners.length; i++) {
+          owners[i] = owners[i].owner_id;
+        }
+        owners.push(playerData._id)
+        owners = await gameDataCollection.find({type:'player',_id:{$in:owners}}).project({name:1,_id:1}).toArray();
+      }
       socket.emit('listedOwners',owners);
     });
     socket.on('disconnect', () => {
