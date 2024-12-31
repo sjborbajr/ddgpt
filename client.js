@@ -1,4 +1,5 @@
-const socket = io({autoConnect: false});
+//const socket = io({autoConnect: false});
+const socket = io();
 
 let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', settingEditCell, allRealms = ["<default>"], modelList = [ 'gpt-4' ];
 
@@ -230,16 +231,18 @@ socket.on('connect', () => {
   document.getElementById('connectButton').innerText = 'Change';
   localStorage.setItem('playerName', playerName);
   socket.emit('tab',currentTab);
-  document.getElementById('alertMsg').style.color = "#4CAF50";
-  document.getElementById('alertMsg').innerText = "Connected to server";
-  document.getElementById('alertMsg').style.display = 'inline';
-  setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',1500);
+  if (document.getElementById('AdventuresBtn').style.display != 'inline') {
+    document.getElementById('alertMsg').style.color = "#4CAF50";
+    document.getElementById('alertMsg').innerText = "Connected to server";
+    document.getElementById('alertMsg').style.display = 'inline';
+    setTimeout(()=> document.getElementById('alertMsg').style.display = 'none',1500);
 
-  document.getElementById('HomeBtn').style.width = '33.3%'
-  document.getElementById('AdventuresBtn').style.width = '33.3%'
-  document.getElementById('CharactersBtn').style.width = '33.3%'
-  document.getElementById('AdventuresBtn').style.display = 'inline';
-  document.getElementById('CharactersBtn').style.display = 'inline';
+    document.getElementById('HomeBtn').style.width = '33.3%'
+    document.getElementById('AdventuresBtn').style.width = '33.3%'
+    document.getElementById('CharactersBtn').style.width = '33.3%'
+    document.getElementById('AdventuresBtn').style.display = 'inline';
+    document.getElementById('CharactersBtn').style.display = 'inline';
+  }
 });
 socket.on('charList', (data) => {
   let optionDoc = document.getElementById('characters_list'), curChar = document.getElementById('characters_list').value;
@@ -304,7 +307,7 @@ socket.on('charData', (data) => {
     } else {
       document.getElementById('character_adventures').value = ''
     }
-    let attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory","Backstory_Full","Skills","Alignment","Background"];
+    let attributes = ["Race","Gender","Lvl","STR","DEX","CON","INT","WIS","CHA","HP","AC","Weapon","Armor","Class","Inventory","Backstory","Backstory_Full","Skills","Alignment","Background","Hit_Die"];
     for (let i = 0 ; i < attributes.length; i++){
       if (data.details[attributes[i]]) {
         document.getElementById('character_'+attributes[i]).value = data.details[attributes[i]];
@@ -526,6 +529,17 @@ socket.on('partyForming', (data) => {
   entry.value = 6;
   list.appendChild(entry);
 });
+socket.on('keys', (data) => {
+  let list = document.getElementById('API_Keys');
+  list.innerHTML = "";
+  for(let i = 0; i < data.length; i++){
+    let entry=document.createElement('li');
+    //entry.onclick=function () {playerClick(this);};
+    entry.innerText=data[i];
+    entry.id = data[i];
+    list.appendChild(entry);
+  }
+});
 socket.on('formingParties', (data) => {
   let list = document.getElementById('starting-parties');
   list.innerHTML = "";
@@ -656,16 +670,16 @@ socket.on('disconnect', () => {
   document.getElementById('connectButton').innerText = 'Connect';
   document.getElementById('disconnectButton').disabled = true;
   document.getElementById('player-name').disabled = false;
-  document.getElementById('alertMsg').style.color = "red";
-  document.getElementById('alertMsg').innerText = "Disconnected from server";
-  document.getElementById('alertMsg').style.display = 'inline';
+  //document.getElementById('alertMsg').style.color = "red";
+  //document.getElementById('alertMsg').innerText = "Disconnected from server";
+  //document.getElementById('alertMsg').style.display = 'inline';
 
-  document.getElementById('HomeBtn').style.width = '100%'
-  document.getElementById('AdventuresBtn').style.display = 'none';
-  document.getElementById('CharactersBtn').style.display = 'none';
-  document.getElementById('SystemBtn').style.display = 'none';
-  document.getElementById('HistoryBtn').style.display = 'none';
-  document.getElementById('ScotGPTBtn').style.display = 'none';
+  //document.getElementById('HomeBtn').style.width = '100%'
+  //document.getElementById('AdventuresBtn').style.display = 'none';
+  //document.getElementById('CharactersBtn').style.display = 'none';
+  //document.getElementById('SystemBtn').style.display = 'none';
+  //document.getElementById('HistoryBtn').style.display = 'none';
+  //document.getElementById('ScotGPTBtn').style.display = 'none';
 });
 
 function restartServer(){
@@ -825,12 +839,17 @@ function saveChar() {
                               INT: document.getElementById('character_INT').value,
                               WIS: document.getElementById('character_WIS').value,
                               CHA: document.getElementById('character_CHA').value,
+                          Hit_Die: Number(document.getElementById('character_Hit_Die').value),
                                HP: document.getElementById('character_HP').value,
                                AC: document.getElementById('character_AC').value,
                            Weapon: document.getElementById('character_Weapon').value.split(","),
                             Armor: document.getElementById('character_Armor').value.split(","),
                         Inventory: document.getElementById('character_Inventory').value.split(","),
-                        Backstory: document.getElementById('character_Backstory').value
+                        Alignment: document.getElementById('character_Alignment').value,
+                       Background: document.getElementById('character_Background').value,
+                           Skills: document.getElementById('character_Skills').value,
+                        Backstory: document.getElementById('character_Backstory').value,
+                   Backstory_Full: document.getElementById('character_Backstory_Full').value
                                  }
                         }}
              )
@@ -1040,6 +1059,13 @@ function ScotRun(){
   localStorage.setItem('maxTokensScot',ScotData.maxTokens);
   localStorage.setItem('modelScot',ScotData.model);
   document.getElementById('response-messageScot').value = "";
+}
+function AddAPIKey() {
+  let AddAPIKey={
+    ["api_keys."+document.getElementById('API_provider').value]:document.getElementById('API_Key').value
+  }
+  socket.emit('API_Key',AddAPIKey)
+  document.getElementById('API_Key').value = ''
 }
 function showTab(elmnt) {
   let pageName = elmnt.id.substring(0,elmnt.id.length-3)
@@ -1483,13 +1509,13 @@ async function newCharNext() {
             input.value = option.choice.desc;
           } else if (option.option_type === 'multiple') {
             const itemsText = option.items.map(item => {
-            if (item.option_type === 'counted_reference') {
-              return `${item.count}x ${item.of.name}`;
-            } else if (item.option_type === 'choice') {
-              return item.choice.desc;
-            } else {
-              return item.of.name;
-            }
+              if (item.option_type === 'counted_reference') {
+                return `${item.count}x ${item.of.name}`;
+              } else if (item.option_type === 'choice') {
+                return item.choice.desc;
+              } else {
+                return item.of.name;
+              }
             }).join(' and ');
             labelText = itemsText; 
             input.value = itemsText;
@@ -1709,11 +1735,11 @@ async function newCharNext() {
         } else if (equipment.equipment_category.index == "armor") {
           if (equipment.armor_category == "Shield") {
             if (!char_doc.details.Shield) {
-              char_doc.details.Armor.push(equipment[i].name)
-              char_doc.details.Shield = equipment[i]
+              char_doc.details.Armor.push(equipment.name)
+              char_doc.details.Shield = equipment
               char_doc.details['AC'] += shield.armor_class.base
             } else {
-              char_doc.details.Inventory.push(equipment[i].quantity+"x "+equipment[i].name);
+              char_doc.details.Inventory.push(equipment.quantity+"x "+equipment.name);
             }
           } else {
             //ToDo check to record the total AC it would be and also use that to see if you equip
@@ -1772,7 +1798,6 @@ async function getApiData(url) {
     return null; // Handle the error gracefully by returning null
   }
 }
-
 function newCharPrev() {
   document.getElementById('new-char-content-dev1').style.display = "block";
   document.getElementById('new-char-content-dev2').style.display = "none";
