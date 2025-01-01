@@ -110,13 +110,13 @@ io.on('connection', async (socket) => {
     });
     socket.on('generateBackgroundStory', async data => {
       let messages = await formatMessages("generateBackgroundStory",[{role:'user',content:data}]);
-      let settings = await getFunctionSettings('generateBackgroundStory');
+      let settings = await settingsCollection.findOne({type:'function',"function":'generateBackgroundStory'});
       let response = await aiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),playerData.api_keys,'generateBackgroundStory')
       socket.emit('backgroundStory',response);
     });
     socket.on('generateBackgroundSummary', async data => {
       let messages = await formatMessages("generateBackgroundSummary",[{role:'user',content:data}]);
-      let settings = await getFunctionSettings('generateBackgroundSummary');
+      let settings = await settingsCollection.findOne({type:'function',"function":'generateBackgroundSummary'});
       //if ()
       let response = await aiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),playerData.api_keys,'generateBackgroundSummary')
       socket.emit('backgroundSummary',response);
@@ -213,7 +213,7 @@ io.on('connection', async (socket) => {
     });
     socket.on('approveAdventureInput',async UserInput =>{
       if (UserInput.content.length > 1) {
-        let settings = await getFunctionSettings('game');
+        let settings = await settingsCollection.findOne({type:'function',"function":'game'});
   
         UserInput.approverName = playerData.name;
         UserInput.adventure_id = new ObjectId(UserInput.adventure_id);
@@ -496,7 +496,7 @@ io.on('connection', async (socket) => {
       socket.on('fetchFunction',async functionName =>{
         try {
           let [ functionSettings , functionMessage ] = await Promise.all([
-            getFunctionSettings(functionName),
+            settingsCollection.findOne({type:'function',"function":functionName}),
             settingsCollection.find({type:'message',"function":functionName}).toArray()
           ]);
           if (functionMessage){
@@ -586,7 +586,6 @@ io.on('connection', async (socket) => {
           socket.emit('ScotRan',response.content);
         }
       });
-  
     }
     socket.on('disconnect', () => {
       console.log('['+new Date().toUTCString()+'] Player disconnected:', playerData.name);
@@ -891,9 +890,6 @@ async function openaiCall(messages, model, temperature, maxTokens, apiKey) {
     throw error;
   }
 }
-async function getFunctionSettings(functionName){
-  return await settingsCollection.findOne({type:'function',"function":functionName});
-}
 async function sendAdventureData(adventure_id,socket){
   let [ adventureMessages , adventureData ] = await Promise.all([
     gameDataCollection.find({type:'message',adventure_id:new ObjectId(adventure_id)}).sort({created:1}).toArray(),
@@ -924,7 +920,7 @@ async function sendAdventurers(adventure_id,socket){
 async function startAdventure(adventure){
   io.sockets.in('Adventure-'+adventure._id).emit('continueAdventure',true); //put the confidence builder dots in chat
 
-  let settings = await getFunctionSettings('adventureStart');
+  let settings = await settingsCollection.findOne({type:'function',"function":'adventureStart'});
   let apiKeys = adventure.api_keys;
   let model = adventure.model || settings.model
 
@@ -951,7 +947,7 @@ async function startAdventure(adventure){
       
       messages = await formatMessages("adventureName",[{role:"user",content:openAiResponse.content}],{party_name:adventure.party_name});
       
-      let cru_settings = await getFunctionSettings('adventureName');
+      let cru_settings = await settingsCollection.findOne({type:'function',"function":'adventureName'});
       let croupierResponse = await aiCall(messages,cru_settings.model,Number(cru_settings.temperature),Number(cru_settings.maxTokens),apiKeys,'adventureName');
       if (croupierResponse.id){
         let responseJson = JSON.parse(croupierResponse.content)
@@ -1033,14 +1029,11 @@ async function continueAdventure(adventure_id){
   io.sockets.in('Adventure-'+adventure_id).emit('continueAdventure',true); //put the confidence builder dots in chat
   let openAiResponse;
   //get all the info from database at the same time
-  let [ adventure , allMessages, characters, settings, cru_settings, dbl_settings, sum_settings] = await Promise.all([
+  let [ adventure , allMessages, characters, settings] = await Promise.all([
     gameDataCollection.findOne({type:'adventure',_id:adventure_id}),
     gameDataCollection.find({type:'message',adventure_id:adventure_id}).sort({created:1}).toArray(),
     gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray(),
-    getFunctionSettings('game'),
-    getFunctionSettings('croupier'),
-    getFunctionSettings('doubleCheck'),
-    getFunctionSettings('summary')
+    await settingsCollection.findOne({type:'function',"function":'game'})
   ]);
   let apiKeys = adventure.api_keys;
   let model = adventure.model || settings.model;
@@ -1049,14 +1042,6 @@ async function continueAdventure(adventure_id){
   if (settings.active == 'true'){
     openAiResponse = await aiCall(messages,model,Number(settings.temperature),Number(settings.maxTokens),apiKeys,'game');
     if (openAiResponse.id) {
-      if(dbl_settings.active == 'true') {
-        let messages = await formatMessages("doubleCheck",[{role:"user",content:openAiResponse.content}],{characters:characters});
-        let tempOpenAiResponse = await aiCall(messages,dbl_settings.model,dbl_settings.temperature,Number(dbl_settings.maxTokens),apiKeys,'doubleCheck');
-        if (tempOpenAiResponse.id){
-          openAiResponse = tempOpenAiResponse;
-        }
-      }
-      
       openAiResponse.type = 'message';
       openAiResponse.adventure_id = adventure_id;
       openAiResponse.owner_id = adventure.owner_id;
@@ -1068,83 +1053,17 @@ async function continueAdventure(adventure_id){
         console.error('Error saving response to MongoDB:', error);
       }
       io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',openAiResponse);
-
-      if (sum_settings.active == 'true') {
-        messages = await formatMessages("summary",[{role:"user",content:openAiResponse.content}],null,adventure.realm);
-        let summaryResponse = aiCall(messages,sum_settings.model,Number(sum_settings.temperature),Number(sum_settings.maxTokens),apiKeys,'summary');
-        //using then(response) to allow asymetric processing
-        summaryResponse.then((response) => {
-          if (response.id){
-            if (response.content.substring(0,8) == "Summary:") {
-              response.content = response.content.substring(8,response.content.length-8).trim();
-              response.tokens = response.tokens - 1;
-            }
-            let savings = openAiResponse.tokens - response.tokens
-            try {
-              gameDataCollection.updateOne({type:'message',id:openAiResponse.id},{$set:{summary:response.content,summary_tokens:response.tokens,tokens_savings:savings}});
-            } catch (error) {
-              console.error('Error saving summary response to MongoDB:', error);
-            }
-          } else {
-            //something went wrong with summary
-          }
-        })
-      }
-
-      //get system data and enhance the experiance
-      if (cru_settings.active == 'true'){
-        let characters = await gameDataCollection.find({type:'character','activeAdventure._id':adventure_id}).toArray();
-        messages = await formatMessages("croupier",[{role:"user",content:openAiResponse.content}],{characters:characters},adventure.realm)
-        let croupierResponse = await aiCall(messages,cru_settings.model,Number(cru_settings.temperature),Number(cru_settings.maxTokens),apiKeys,'croupier');
-        if (croupierResponse.id){
-          //we got data back, is it json?
-          try {
-            gameDataCollection.updateOne({type:'message',id:openAiResponse.id},{$set:{croupier:croupierResponse.content}});
-          } catch (error) {
-            console.error('Error saving summary response to MongoDB:', error);
-          }
-          
-          let json = JSON.parse(croupierResponse.content)
-          if (json.adventure_completed) {
-            if (json.adventure_completed.toLowerCase() == "yes"){
-              io.sockets.in('Adventure-'+adventure_id).emit('adventureEndFound',true); //we found it, but lets have the players decide if it is right
-            }
-          }
-          //other stuff?
-        } else {
-          //something went wrong getting croupier data
-        }
-      }
-    } else {
-      //something went wrong getting adventure message
     }
   } else {
     console.log(messages,model,Number(settings.temperature),Number(settings.maxTokens));
     setTimeout(()=> {io.sockets.in('Adventure-'+adventure_id).emit('adventureEvent',{role:'assistent',content:'fake'})}, 3000);
-    if (sum_settings.active == 'true') {
-      messages = await formatMessages("summary",[{role:"user",content:"Fake response from Previous fake"},null,adventure.realm])
-      console.log(messages,sum_settings.model,Number(sum_settings.temperature),Number(sum_settings.maxTokens));
-    }
   }
 }
-async function formatMessages(functionName,userMessages,additionData,realm){
-  if (!userMessages) {
-    userMessages=[];
-  }
-  if (!additionData) {
-    additionData={};
-  }
-  if (!additionData.characters) {
-    additionData.characters={};
-  }
+async function formatMessages(functionName,userMessages = [],additionData = {},realm){
+  if (!additionData.characters) additionData.characters={}
 
   let allOrders = await settingsCollection.distinct("order",{"function":functionName,$or:[{realm:"<default>"},{realm:realm}]});
-  let messages=[], userMessagesIx=1000, jsonData;
-
-  let use_summary = {}, always_summary = 10 * 2, minimumSaving = 5;
-  if (functionName == 'game'){
-    use_summary = await getFunctionSettings('use_summary');
-  }
+  let messages=[], userMessagesIx=1000;
 
   let userMessagesRemain = 0
   //for game message, need to put the last user message after the last assistant
@@ -1155,13 +1074,7 @@ async function formatMessages(functionName,userMessages,additionData,realm){
     //game messages start at 1000, blend messages in the middle if there are messages > 1000
     while (allOrders[i] > userMessagesIx && userMessages.length > userMessagesRemain) {
       let message = userMessages.shift()
-      if (use_summary.active == 'true' && message.tokens_savings > 5 && userMessages.length > always_summary) {
-        messages.push({role:message.role,content:message.summary});
-      } else if (use_summary.active == 'true' & message.tokens_savings > 5) {
-        messages.push({role:message.role,content:message.content,summary:message.summary,tokens_savings:message.tokens_savings});
-      } else {
-        messages.push({role:message.role,content:message.content});
-      }
+      messages.push({role:message.role,content:message.content});
       userMessagesIx = userMessagesIx + 10;
     }
     let message = await settingsCollection.findOne({order:allOrders[i],"function":functionName,"realm":realm});
@@ -1169,22 +1082,13 @@ async function formatMessages(functionName,userMessages,additionData,realm){
       message = await settingsCollection.findOne({order:allOrders[i],"function":functionName,"realm":"<default>"});
     }
     
-    if (!jsonData && message.json){
-      jsonData = message.json;
-    }
     messages.push({role:message.role,content:message.content});
   }
 
   //Append the rest of the game messages
   while (userMessages.length > 0) {
     let message = userMessages.shift()
-    if (use_summary.active == 'true' && message.tokens_savings > 5 && userMessages.length > always_summary) {
-      messages.push({role:message.role,content:message.summary});
-    } else if (use_summary.active == 'true' & message.tokens_savings > minimumSaving) {
-      messages.push({role:message.role,content:message.content,summary:message.summary,tokens_savings:message.tokens_savings});
-    } else {
-      messages.push({role:message.role,content:message.content});
-    }
+    messages.push({role:message.role,content:message.content});
     userMessagesIx = userMessagesIx + 10;
   }
 
@@ -1194,9 +1098,7 @@ async function formatMessages(functionName,userMessages,additionData,realm){
   let match = messages.match(regex);
   if (match){
     for (let i = 0 ; i < match.length; i++) {
-      if (match[i] == 'json' && jsonData){
-        messages = messages.replaceAll('${json}',JSON.stringify(jsonData).replaceAll('"','\\\"').replaceAll("'","\\\'"));
-      } else if (match[i] == 'Party_Name') {
+      if (match[i] == 'Party_Name') {
         messages = messages.replaceAll('${Party_Name}',additionData.party_name);
         jsonData = JSON.parse(JSON.stringify(jsonData).replaceAll('${Party_Name}',additionData.party_name));
       } else if (match[i] == 'char_count' && additionData.characters) {
@@ -1220,32 +1122,7 @@ async function formatMessages(functionName,userMessages,additionData,realm){
   }
   messages = JSON.parse(messages);
 
-  if(use_summary.active == 'true'){
-    let maxTokens = await getMaxTokens(additionData.model)-Number(additionData.maxTokens);
-    let currentTokens = 1 //TODO - needs to be fixed
-    let sent = false;
-    for (let i = 0 ; i < messages.length; i++) {
-      if (currentTokens > maxTokens && messages[i].tokens_savings > minimumSaving) {
-        messages[i].content = messages[i].summary;
-        currentTokens = currentTokens - messages[i].tokens_savings;
-        if (!sent){
-          io.sockets.in('Adventure-'+additionData.adventure_id).emit('alertMsg',{message:'Summary had to trim extra!',color:'red',timeout:10000});
-          sent=true;
-        } 
-      }
-      //need to clean up before sending to openai
-      if (messages[i].summary) delete messages[i].summary
-      if (messages[i].tokens_savings) delete messages[i].tokens_savings
-    }
-  }
-
   return messages
-}
-async function getMaxTokens(model){
-  let modeData = await settingsCollection.findOne({type:'model',model:model});
-  try {
-    return modeData.tokens;
-  } catch (error){}
 }
 async function sendLogs(socket,logfile) {
   var maxlen = 10000
