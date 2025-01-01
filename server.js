@@ -10,21 +10,19 @@ import fs from 'fs';
 import tail from 'tail';
 const Tail = tail.Tail;
 
-const mongoUri = process.env.MONGODB || "mongodb://localhost/?retryWrites=true";
+const mongoUri = process.env.MONGODB || "mongodb://localhost/ddgpt?retryWrites=true";
 const client = new MongoClient(mongoUri);
 try {
   await client.connect();
 } catch (error) {
   console.error('Error connecting to MongoDB:', error);
 }
-const database = client.db('ddgpt');
+const database = client.db();
 const settingsCollection = database.collection('settings'), gameDataCollection = database.collection('gameData'), responseCollection = database.collection('allResponses');
 
 // Set up the app/web/io server
 const app = express(), server = http.createServer(app), io = new SocketIO(server);
 const __filename = fileURLToPath(import.meta.url), __dirname = dirname(__filename);
-
-// Start the web server
 server.listen(process.env.PORT || 9000);
 
 //configure the web server, serv from the public folder
@@ -34,49 +32,46 @@ app.get('/client.js', (req, res) => { res.set('Content-Type', 'text/javascript')
 //send public/index.html if no specific file is requested
 app.get('/', (req, res) => res.sendFile(join(__dirname, 'index.html')));
 
-gameDataCollection.updateMany({type:'player'},{$set:{connected:false}});
-
 io.on('connection', async (socket) => {
   // Get the email from the oidc upstream through headers
   let email = socket.handshake.headers['oidc_claim_email'], clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address;
-  //console.log(JSON.stringify(socket.handshake.headers));
-  let showCharacters = 'Own', showActiveAdventures = true, historyFilterByFunction='all', historyTextSearch='';
   console.log('['+new Date().toUTCString()+'] User connected: '+email+' From: '+clientIp);
 
-  let playerData = await fetchPlayerData(email)
-  if ( playerData ) {
-    let playerName = playerData.name;
-    socket.emit('playerName',playerName)
+  let showCharacters = 'Own', showActiveAdventures = true, historyFilterByFunction='all', historyTextSearch='', playerData = await gameDataCollection.findOne({email:email,type:'player'});
 
-    gameDataCollection.updateOne({type:'player',name:playerName},{$set:{connected:true}});
-    if (playerData.admin){
-      socket.emit('serverRole','admin')
-    }
-  
-    let allrealms = settingsCollection.distinct("realm");
-    allrealms.then((response) => {
-      socket.emit('realmList',response);
-    })
-  
-    let modelList = await settingsCollection.find({type:'model'},{projection:{apiKey:0}}).toArray();
-    socket.emit('modelList',modelList);
+  if ( playerData ) {
+    socket.emit('playerName',playerData.name);
+    socket.emit('realmList',(await settingsCollection.distinct("realm")));
+    socket.emit('modelList',(await settingsCollection.find({type:'model'},{projection:{apiKey:0}}).toArray()));
+
+    gameDataCollection.updateOne({type:'player',name:playerData.name},{$set:{connected:true}});
   
     socket.onAny((event, ...args) => {
-      // Log all recieved events/data except settings save
+      // Log all recieved events/data except a few
       if (event != 'save' && event != 'listOwners' && event != 'saveChar' && event != 'API_Key'){
-        console.log('['+new Date().toUTCString()+'] playerName('+playerName+'), socket('+event+')', args);
+        console.log('['+new Date().toUTCString()+'] playerName('+playerData.name+'), socket('+event+')', args);
       }
     });
-    socket.on('saveSettings', data => {
-      if (playerData.admin){
-        console.log('['+new Date().toUTCString()+'] Player '+playerName+' saved');
-        saveSettings(data,socket);
+
+    socket.on('API_Key', async data => {
+      await gameDataCollection.updateOne({type:"player",_id:playerData._id},{$set:data});
+    });
+    socket.on('changeName', async newName => {
+      if (newName == newName.trim().replace(/[^a-zA-Z0-9]/g,'')){
+        console.log('Player changing name from '+playerData.name+' to '+newName);
+        let test = await gameDataCollection.findOne({name:newName,type:'player'});
+        if (test) {
+          socket.emit("error","player name already taken");
+        } else {
+          await gameDataCollection.updateOne({type:'player',name:playerData.name},{$set:{name:newName}});
+          socket.emit("nameChanged",newName);
+          playerData.name = newName;
+        }
       } else {
-        console.log('['+new Date().toUTCString()+'] Player '+playerName+' tried to save');
-        socket.emit("error","user not admin");
-        socket.disconnect();
+        socket.emit('alertMsg',{message:'New name appeared to have invalid chars, not changing!',color:'red',timeout:5000});      
       }
     });
+
     socket.on('getName', async () => {
       let returndata = await settingsCollection.aggregate([{$match:{type:'name'}},{$sample:{size:1}}]).toArray();
       let uniqueTest = await gameDataCollection.find({type:'character',uniquename:returndata[0].name.trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase()}).toArray();
@@ -126,12 +121,9 @@ io.on('connection', async (socket) => {
       let response = await aiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),playerData.api_keys,'generateBackgroundSummary')
       socket.emit('backgroundSummary',response);
     });
-    socket.on('API_Key', async data => {
-      await gameDataCollection.updateOne({type:"player",_id:playerData._id},{$set:data});
-    });
     socket.on('saveChar', async data => {
       try{
-        console.log('['+new Date().toUTCString()+'] Player '+playerName+' saving char '+data.data.name);
+        console.log('['+new Date().toUTCString()+'] Player '+playerData.name+' saving char '+data.data.name);
         data.data.type = 'character'
         data.data.uniquename = data.data.name.trim().replace(/[^a-zA-Z0-9]/g,'').toLowerCase();
         if (data._id.length == 24) {
@@ -143,11 +135,9 @@ io.on('connection', async (socket) => {
               data.data.details = {...charData.details,...data.data.details}
 
               await gameDataCollection.updateOne({type:"character",_id:new ObjectId(data._id)},{$set:data.data});
-              let message = {message:'Character '+data.data.name+' saved.',color:'green',timeout:1500};
-              socket.emit('alertMsg',message);
+              socket.emit('alertMsg',{message:'Character '+data.data.name+' saved.',color:'green',timeout:1500});
             } else {
-              let message = {message:'no access - Character '+data.data.name+' not saved!',color:'red',timeout:5000}
-              socket.emit('alertMsg',message);
+              socket.emit('alertMsg',{message:'no access - Character '+data.data.name+' not saved!',color:'red',timeout:5000});
             }
           }
         } else if (data._id == '') {
@@ -155,13 +145,11 @@ io.on('connection', async (socket) => {
           data.data.owner_id = playerData._id
           await gameDataCollection.insertOne(data.data);
           socket.emit('charData',data.data);
-          let message = {message:'Character '+data.data.name+' created.',color:'green',timeout:5000};
-          socket.emit('alertMsg',message);
+          socket.emit('alertMsg',{message:'Character '+data.data.name+' created.',color:'green',timeout:5000});
       }
       } catch(error) {
-        let message = {message:'Character '+data.data.name+' not saved!',color:'red',timeout:5000};
         console.error('error saving',error);
-        socket.emit('alertMsg',message);
+        socket.emit('alertMsg',{message:'Character '+data.data.name+' not saved!',color:'red',timeout:5000});
       }
     });
     socket.on('showCharOption', data =>{
@@ -169,8 +157,7 @@ io.on('connection', async (socket) => {
       if (data == 'All' || data == 'Own') {
         showCharacters = data;
       } else {
-        let message = {message:'Invalid option!',color:'red',timeout:5000}
-        socket.emit('alertMsg',message);
+        socket.emit('alertMsg',{message:'Invalid option!',color:'red',timeout:5000});
       }
     });
     socket.on('listOwners', async () => {
@@ -197,60 +184,6 @@ io.on('connection', async (socket) => {
       }
       socket.emit('listedOwners',owners);
     });
-    socket.on('disconnect', () => {
-      console.log('['+new Date().toUTCString()+'] Player disconnected:', playerName);
-      gameDataCollection.updateOne({type:'player',name:playerName},{$set:{connected:false}});
-    });
-    socket.on('changeName', async newName => {
-      if (newName == newName.trim().replace(/[^a-zA-Z0-9]/g,'')){
-        console.log('Player changing name from '+playerName+' to '+newName);
-        //fix here, test for existing username, before oidc, we fetched data based on player name, need to test.
-        //alternatly, it is possible that the database restriction for unique player name might handle.
-        let test = await fetchPlayerData(email)
-        //console.log(test)
-        if (test) {
-          socket.emit("error","player name already taken");
-        } else {
-          let rc = await updatePlayer(playerName,{$set:{name:newName}})
-          if (rc == 'success') {
-            socket.emit("nameChanged",newName);
-            playerName = newName;
-            playerData.name = playerName;
-          } else {
-            socket.emit("error","error changing name");
-          }
-        }
-      } else {
-        let message = {message:'New name appeared to have invalid chars, not changing!',color:'red',timeout:5000}
-        socket.emit('alertMsg',message);      
-      }
-    });
-    socket.on('historyFilterByFunction', async limit => {
-      historyFilterByFunction = limit;
-    });
-    socket.on('historyDelete', async id => {
-      if (playerData.admin) try {
-        await responseCollection.updateOne({_id:new ObjectId(id)},{$set:{deleted:true},$unset:{request:'',response:'',responseRaw:''}});
-      } catch (error){
-        console.log(error);
-      }
-    });
-    socket.on('fetchHistory', async id => {
-      if (playerData.admin){
-        try {
-          let query = ''
-          query = {_id:new ObjectId(id)};
-          let history = await responseCollection.findOne(query);
-          if (history){
-            socket.emit('historyData',history);
-          } else {
-            socket.emit('error','could not find history with ID: '+id);
-          }    
-        } catch (error){
-          console.log('error',error);
-        }
-      }
-    });
     socket.on('fetchCharData', async id => {
       let query = ''
       if (playerData.admin) {
@@ -265,44 +198,7 @@ io.on('connection', async (socket) => {
         socket.emit('error','could not find character with ID: '+id)
       }
     });
-    socket.on('scotRun',async data =>{
-      if (playerData.admin) {
-        let message = {message:'Message recieved, running!',color:'green',timeout:10000}
-        console.log(data.messages)
-        socket.emit('alertMsg',message);
-        let response = await aiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_keys,'ScotGPT')
-        console.log(response);
-        if (response.role) {
-          socket.emit('ScotRan',response.content);
-        } else {
-          let message = {message:'Scot run failed!',color:'red',timeout:10000}
-          socket.emit('alertMsg',message);
-          socket.emit('ScotRan',response.content);
-        }
-      }
-    });
-    socket.on('replay',async data =>{
-      if (playerData.admin) {
-        let message = {message:'replay recieved, running!',color:'green',timeout:10000}
-        socket.emit('alertMsg',message);
-        let response = await aiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_keys,'Replay')
-        socket.emit('replayRan',{date:response.date,_id:response.allResponse_id});
-      }
-    });
-    socket.on('fetchFunction',async functionName =>{
-      if (playerData.admin) try {
-        let [ functionSettings , functionMessage ] = await Promise.all([
-          getFunctionSettings(functionName),
-          settingsCollection.find({type:'message',"function":functionName}).toArray()
-        ]);
-        if (functionMessage){
-          functionSettings.messages = functionMessage;
-        }
-        socket.emit('functionSettings',functionSettings)
-      } catch (error) {
-        console.log(error);
-      }
-    });
+
     socket.on('fetchAllAdventureHistory',async adventure_id =>{
       try {
         if (adventure_id.length == 24){
@@ -319,7 +215,7 @@ io.on('connection', async (socket) => {
       if (UserInput.content.length > 1) {
         let settings = await getFunctionSettings('game');
   
-        UserInput.approverName = playerName;
+        UserInput.approverName = playerData.name;
         UserInput.adventure_id = new ObjectId(UserInput.adventure_id);
         UserInput.date = new Date().toUTCString();
         UserInput.created = Math.round(new Date(UserInput.date).getTime()/1000);
@@ -372,12 +268,12 @@ io.on('connection', async (socket) => {
     socket.on('suggestAdventureInput',async UserInput =>{
       UserInput.content = UserInput.content.trim();
       if (UserInput.content.length > 1) {
-        UserInput.playerName = playerName;
+        UserInput.playerName = playerData.name;
         io.sockets.in('Adventure-'+UserInput.adventure_id).emit('adventureEventSuggest',UserInput);
       }
     });
     socket.on('setAdventureModel',async data =>{
-      console.log('['+new Date().toUTCString()+'] Player '+playerName+' requested to set model to '+data.model)
+      console.log('['+new Date().toUTCString()+'] Player '+playerData.name+' requested to set model to '+data.model)
       try {
         data.adventure_id = new ObjectId(data.adventure_id);
         if (data.model == 'unset'){
@@ -385,14 +281,13 @@ io.on('connection', async (socket) => {
         } else {
           await gameDataCollection.updateOne({type:'adventure',_id:data.adventure_id},{$set:{model:data.model}});
         }
-        let message = {message:'model updated',color:'green',timeout:3000}
-        socket.emit('alertMsg',message);
+        socket.emit('alertMsg',{message:'model updated',color:'green',timeout:3000});
       } catch (error) {
         console.log(error)
       }
     });
     socket.on('setAdventureRealm',async data =>{
-      console.log('['+new Date().toUTCString()+'] Player '+playerName+' requested to set realm to '+data.realm)
+      console.log('['+new Date().toUTCString()+'] Player '+playerData.name+' requested to set realm to '+data.realm)
       try {
         data.adventure_id = new ObjectId(data.adventure_id);
         if (data.model == 'unset' || data.model == '<default>'){
@@ -400,8 +295,7 @@ io.on('connection', async (socket) => {
         } else {
           await gameDataCollection.updateOne({type:'adventure',_id:data.adventure_id},{$set:{realm:data.realm}});
         }
-        let message = {message:'realm updated',color:'green',timeout:3000}
-        socket.emit('alertMsg',message);
+        socket.emit('alertMsg',{message:'realm updated',color:'green',timeout:3000});
       } catch (error) {
         console.log(error)
       }
@@ -438,14 +332,10 @@ io.on('connection', async (socket) => {
         ])
         io.sockets.in('Adventure-'+adventure._id).emit('AddAdventurer',myCharactersData);
         socket.emit('partyJoined',{_id:adventure._id,name:adventure.name});
-        let message = {message:'Party Joined',color:'green',timeout:3000}
-        socket.emit('alertMsg',message);
+        socket.emit('alertMsg',{message:'Party Joined',color:'green',timeout:3000});
       } catch (error) {
         console.log(error);
       }
-    });
-    socket.on('historyTextSearch',async data =>{
-      historyTextSearch = data;
     });
     socket.on('createParty',async NewName =>{
       try {
@@ -470,131 +360,31 @@ io.on('connection', async (socket) => {
                 //TODO Let player select characters
                 await gameDataCollection.updateMany({owner_id:playerData._id,type:'character',activeAdventure:{$exists:false}},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$push:{adventures:{name:adventure.name,_id:adventure._id}}});
                 socket.emit('partyJoined',{_id:adventure._id,name:adventure.name});
-                let message = {message:'Party Forming',color:'green',timeout:3000}
-                socket.emit('alertMsg',message);
+                socket.emit('alertMsg',{message:'Party Forming',color:'green',timeout:3000});
                 io.sockets.in("Tab-Home").emit("partyForming",{party_name:adventure.party_name, _id:adventure._id})
               } else {
-                let message = {message:"Not creating, you already have a forming party!",color:'red',timeout:5000}
-                socket.emit('alertMsg',message);
+                socket.emit('alertMsg',{message:"Not creating, you already have a forming party!",color:'red',timeout:5000});
               }
             } else {
-              let message = {message:"You don't have any available characters!",color:'red',timeout:5000}
-              socket.emit('alertMsg',message);
+              socket.emit('alertMsg',{message:"You don't have any available characters!",color:'red',timeout:5000});
             }
           } else {
-            let message = {message:"must have a name!",color:'red',timeout:5000}
-            socket.emit('alertMsg',message);        
+            socket.emit('alertMsg',{message:"must have a name!",color:'red',timeout:5000});
           }
         } else {
-          let message = {message:"You don't have an api key!",color:'red',timeout:5000}
-          socket.emit('alertMsg',message);
+          socket.emit('alertMsg',{message:"You don't have an api key!",color:'red',timeout:5000});
         }
       } catch (error){
         console.log(error);
-      }
-    });
-    socket.on('restartServer',async data =>{
-      if (playerData.admin) {
-        process.exit(0)
-      }
-    });
-    socket.on('changeProvider',async data =>{
-      if (playerData.admin) {
-        try {
-          await settingsCollection.updateOne({type:'model',_id:new ObjectId(data.id)},{$set:{provider:data.provider}})
-          let message = {message:'Changed Provider',color:'green',timeout:1000}
-          socket.emit('alertMsg',message);
-        } catch (error) {
-          console.log(error);
-        }
-      }
-    });
-    socket.on('deleteModel',async data =>{
-      if (playerData.admin) {
-        try {
-          await settingsCollection.deleteOne({type:'model',_id:new ObjectId(data)})
-          let message = {message:'Deleted Model',color:'green',timeout:1000}
-          socket.emit('alertMsg',message);
-        } catch (error) {
-          console.log(error);
-        }
-      }
-    });
-    socket.on('enableModel',async data =>{
-      if (playerData.admin) {
-        try {
-          await settingsCollection.updateOne({type:'model',_id:new ObjectId(data)},{$set:{enable:true}})
-          let message = {message:'Enabled Model',color:'green',timeout:1000}
-          socket.emit('alertMsg',message);
-        } catch (error) {
-          console.log(error);
-        }
-      }
-    });
-    socket.on('disableModel',async data =>{
-      if (playerData.admin) {
-        try {
-          await settingsCollection.updateOne({type:'model',_id:new ObjectId(data)},{$set:{enable:false}})
-          let message = {message:'Disabled Provider',color:'green',timeout:1000}
-          socket.emit('alertMsg',message);
-        } catch (error) {
-          console.log(error);
-        }
-      }
-    });
-    socket.on('renameModel',async data =>{
-      if (playerData.admin) {
-        try {
-          await settingsCollection.updateOne({type:'model',_id:new ObjectId(data.id)},{$set:{model:data.newName}})
-          let message = {message:'Rename Model',color:'green',timeout:1000}
-          socket.emit('alertMsg',message);
-        } catch (error) {
-          console.log(error);
-        }
-      }
-    });
-    socket.on('newModel',async data =>{
-      if (playerData.admin) {
-        try {
-          await settingsCollection.updateOne({type:'model',model:data.model},{$set:{provider:data.provider}},{upsert:true})
-          let message = {message:'Changed Provider',color:'green',timeout:1000}
-          socket.emit('alertMsg',message);
-        } catch (error) {
-          console.log(error);
-        }
       }
     });
     socket.on('listModels',async data =>{
       let modelList = await settingsCollection.find({type:'model'},{projection:{apiKey:0}}).toArray();
       socket.emit('modelList',modelList);
     });
-    socket.on('functionList',async data =>{
-      if (playerData.admin) {
-        let allFunctions = await settingsCollection.distinct("function",{type:"function"});
-        socket.emit('functionList',allFunctions);
-      }
-    });
-    socket.on('listLogs',async data =>{
-      if (playerData.admin){
-        fs.readdir(__dirname+'/logs/', (err, files) => {
-          if (err) {
-            console.error(err);
-            return;
-          }
-        
-          files.sort((a, b) => b.localeCompare(a)); // Reverse sort
 
-          socket.emit('logList',files)
-        });
-      }
-    });
-    socket.on('tailLog',async logfile =>{
-      if (playerData.admin){
-        sendLogs(socket,__dirname+'/logs/'+logfile)
-      }
-    });
     socket.on('tab',async tabName =>{
-      updatePlayer(playerName,{$set:{tabName:tabName}});
+      await gameDataCollection.updateOne({type:'player',name:playerData.name},{$set:{tabName:tabName}});
       socket.tab = tabName
       //remove player from old tab channels?  - Todo
       if (tabName == 'Home'){
@@ -663,6 +453,145 @@ io.on('connection', async (socket) => {
         socket.emit('error','unknown tab')
       }
     });
+
+
+    if (playerData.admin){
+      socket.emit('serverRole','admin')
+      socket.on('historyFilterByFunction', async limit => {
+        historyFilterByFunction = limit;
+      });
+      socket.on('historyDelete', async id => {
+        try {
+          await responseCollection.updateOne({_id:new ObjectId(id)},{$set:{deleted:true},$unset:{request:'',response:'',responseRaw:''}});
+        } catch (error){
+          console.log(error);
+        }
+      });
+      socket.on('fetchHistory', async id => {
+        try {
+          let query = {_id:new ObjectId(id)};
+          let history = await responseCollection.findOne(query);
+          if (history){
+            socket.emit('historyData',history);
+          } else {
+            socket.emit('error','could not find history with ID: '+id);
+          }    
+        } catch (error){
+          console.log('error',error);
+        }
+      });
+      socket.on('historyTextSearch',async data =>{
+        historyTextSearch = data;
+      });
+      socket.on('replay',async data =>{
+        socket.emit('alertMsg',{message:'replay recieved, running!',color:'green',timeout:10000});
+        let response = await aiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_keys,'Replay')
+        socket.emit('replayRan',{date:response.date,_id:response.allResponse_id});
+      });
+
+      socket.on('functionList',async data =>{
+        let allFunctions = await settingsCollection.distinct("function",{type:"function"});
+        socket.emit('functionList',allFunctions);
+      });
+      socket.on('fetchFunction',async functionName =>{
+        try {
+          let [ functionSettings , functionMessage ] = await Promise.all([
+            getFunctionSettings(functionName),
+            settingsCollection.find({type:'message',"function":functionName}).toArray()
+          ]);
+          if (functionMessage){
+            functionSettings.messages = functionMessage;
+          }
+          socket.emit('functionSettings',functionSettings)
+        } catch (error) {
+          console.log(error);
+        }
+      });
+      socket.on('listLogs',async data =>{
+        fs.readdir(__dirname+'/logs/', (err, files) => {
+          if (err) {
+            console.error(err);
+            return;
+          }
+          files.sort((a, b) => b.localeCompare(a)); // Reverse sort
+          socket.emit('logList',files)
+        });
+      });
+      socket.on('tailLog',async logfile =>{
+        sendLogs(socket,__dirname+'/logs/'+logfile)
+      });
+      socket.on('restartServer',async data =>{
+        process.exit(0)
+      });
+      socket.on('changeProvider',async data =>{
+        try {
+          await settingsCollection.updateOne({type:'model',_id:new ObjectId(data.id)},{$set:{provider:data.provider}})
+          socket.emit('alertMsg',{message:'Changed Provider',color:'green',timeout:1000});
+        } catch (error) {
+          console.log(error);
+        }
+      });
+      socket.on('deleteModel',async data =>{
+        try {
+          await settingsCollection.deleteOne({type:'model',_id:new ObjectId(data)})
+          socket.emit('alertMsg',{message:'Deleted Model',color:'green',timeout:1000});
+        } catch (error) {
+          console.log(error);
+        }
+      });
+      socket.on('enableModel',async data =>{
+        try {
+          await settingsCollection.updateOne({type:'model',_id:new ObjectId(data)},{$set:{enable:true}})
+          socket.emit('alertMsg',{message:'Enabled Model',color:'green',timeout:1000});
+        } catch (error) {
+          console.log(error);
+        }
+      });
+      socket.on('disableModel',async data =>{
+        try {
+          await settingsCollection.updateOne({type:'model',_id:new ObjectId(data)},{$set:{enable:false}})
+          socket.emit('alertMsg',{message:'Disabled Provider',color:'green',timeout:1000});
+        } catch (error) {
+          console.log(error);
+        }
+      });
+      socket.on('renameModel',async data =>{
+        try {
+          await settingsCollection.updateOne({type:'model',_id:new ObjectId(data.id)},{$set:{model:data.newName}})
+          socket.emit('alertMsg',{message:'Rename Model',color:'green',timeout:1000});
+        } catch (error) {
+          console.log(error);
+        }
+      });
+      socket.on('newModel',async data =>{
+        try {
+          await settingsCollection.updateOne({type:'model',model:data.model},{$set:{provider:data.provider}},{upsert:true})
+          socket.emit('alertMsg',{message:'Changed Provider',color:'green',timeout:1000});
+        } catch (error) {
+          console.log(error);
+        }
+      });
+      socket.on('saveSettings', data => {
+        console.log('['+new Date().toUTCString()+'] Player '+playerData.name+' saved');
+        saveSettings(data,socket);
+      });
+
+      socket.on('scotRun',async data =>{
+        socket.emit('alertMsg',{message:'Message recieved, running!',color:'green',timeout:10000});
+        let response = await aiCall(data.messages,data.model,Number(data.temperature),Number(data.maxTokens),playerData.api_keys,'ScotGPT')
+        if (response.role) {
+          socket.emit('ScotRan',response.content);
+        } else {
+          socket.emit('alertMsg',{message:'Scot run failed!',color:'red',timeout:10000});
+          socket.emit('ScotRan',response.content);
+        }
+      });
+  
+    }
+    socket.on('disconnect', () => {
+      console.log('['+new Date().toUTCString()+'] Player disconnected:', playerData.name);
+      gameDataCollection.updateOne({type:'player',name:playerData.name},{$set:{connected:false}});
+    });
   } else {
     if (socket.handshake.auth.playerName) {
       playerData = await addPlayer(email,socket,clientIp);
@@ -680,16 +609,6 @@ io.on('connection', async (socket) => {
     }
   }
 });
-async function fetchPlayerData(email) {
-  let findFilter = {email:email,type:'player'}, playerData = ''
-  try {
-    playerData = await gameDataCollection.findOne(findFilter);
-    return playerData;
-  } catch (error) {
-    console.error(error);
-    throw error;
-  }
-}
 async function saveSettings(data,socket){
   try {
     //clear previous saved messages
@@ -710,8 +629,7 @@ async function saveSettings(data,socket){
     settingsCollection.updateMany({type:'message','function':data.function,updated:'no'},{$set:{type:'message-delete'}})
     settingsCollection.updateMany({type:'message','function':data.function,updated:'yes'},{$unset:{updated:''}})
 
-    let message = {message:'Settings saved.',color:'green',timeout:3000}
-    socket.emit('alertMsg',message);
+    socket.emit('alertMsg',{message:'Settings saved.',color:'green',timeout:3000});
   } catch (error) {
     console.error('Error updating settings:', error);
     socket.emit('error',error)
@@ -721,8 +639,7 @@ async function addPlayer(email,socket,clientIp) {
   let playerName = socket.handshake.auth.playerName.trim().replace(/[^a-zA-Z0-9]/g,'');
   let test = await gameDataCollection.findOne({type:'player',name:{$regex: new RegExp("^"+playerName+'$',"i")}});
   if (test) {
-    let message = {message:'Name already taken',color:'red',timeout:3000}
-    socket.emit('alertMsg',message);
+    socket.emit('alertMsg',{message:'Name already taken',color:'red',timeout:3000});
     socket.disconnect();
   } else {
     if (playerName.length > 0 && !test){
@@ -740,14 +657,6 @@ async function addPlayer(email,socket,clientIp) {
         console.error('Error saving response to MongoDB:', error);
       }
     }
-  }
-}
-async function updatePlayer(playerName,update) {
-  try {
-    await gameDataCollection.updateOne({type:'player',name:playerName},update);
-    return 'success'
-  } catch (error){
-    console.error('Error saving response to MongoDB:', error);
   }
 }
 async function aiCall(messages, model, temperature, maxTokens, apiKeys,call_function) {
@@ -1114,8 +1023,7 @@ async function bootAdventurer(data,socket){
       ])
       io.sockets.in('Adventure-'+adventure._id).emit('RemoveAdventurer',data.character_id);
     } else {
-      let message = {message:"Adventure is no longer forming, can't boot.",color:'red',timeout:3000}
-      socket.emit('alertMsg',message);
+      socket.emit('alertMsg',{message:"Adventure is no longer forming, can't boot.",color:'red',timeout:3000});
     }
   } catch (error) {
     console.error('Error booting adventurer:', error);
@@ -1321,8 +1229,7 @@ async function formatMessages(functionName,userMessages,additionData,realm){
         messages[i].content = messages[i].summary;
         currentTokens = currentTokens - messages[i].tokens_savings;
         if (!sent){
-          let message = {message:'Summary had to trim extra!',color:'red',timeout:10000};
-          io.sockets.in('Adventure-'+additionData.adventure_id).emit('alertMsg',message);
+          io.sockets.in('Adventure-'+additionData.adventure_id).emit('alertMsg',{message:'Summary had to trim extra!',color:'red',timeout:10000});
           sent=true;
         } 
       }

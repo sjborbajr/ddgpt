@@ -1546,10 +1546,14 @@ async function newCharNext() {
 
     equipmentSections.forEach(equipSec => form.appendChild(equipSec));
 
+    //Todo Better Background
     if (!document.getElementById('new-char-skills').value == '') document.getElementById('new-char-skills').value+=", "
     document.getElementById('new-char-skills').value+=background_info.proficiency
     if (!document.getElementById('new-char-inventory').value == '') document.getElementById('new-char-inventory').value+=", "
     document.getElementById('new-char-inventory').value+=background_info.inventory
+
+    //Todo Spells
+    //look in levels to find number/level  (contips are level 0)
 
   } else if (document.getElementById('next-new-char-btn').innerText == "Create") {
     let create = true, char_doc = {
@@ -1761,10 +1765,13 @@ async function newCharNext() {
           char_doc.details.Inventory.push(equipment.quantity+"x "+equipment.name);
         }
       } else {
-        //ToDo - let them choose the from the category in the json doc
+        //ToDo - let them choose from the category in the json doc
         char_doc.details.Inventory.push(equipment.quantity+"x "+equipment.name);
       }
     }
+
+    //Todo Spells
+    //look in levels to find number/level  (contips are level 0)
     
     if (create) {
       socket.emit("saveChar",{_id:'',data:char_doc})
