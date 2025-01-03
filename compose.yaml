@@ -1,0 +1,13 @@
+services:
+  ddgpt:
+    image: ddgpt
+    restart: unless-stopped
+    container_name: ddgpt
+    environment:
+      - TZ=America/Los_Angeles
+      - MONGODB=mongodb://192.168.79.34/ddgpt?retryWrites=true
+      - PORT=9000
+    volumes:
+      - ./:/app
+    ports:
+      - 9000:9000

@@ -1,5 +1,6 @@
 <html>
   <body>
+    <button id="char-tab-btn" class="openbtn refreshButton" onclick="toggleNav('char-tab-btn')">&#9776;</button>
     <div id="new-char-dev" class="sidepanel">
       <div id="new-char-content-dev1" style="width: 100%; text-align:center; display:none;">
         <div>
@@ -72,31 +73,19 @@
           <button id="next-new-char-btn" disabled onclick="newCharNext()">Next</button>
       </div>
     </div>
-    <button id="char-tab-btn" class="openbtn refreshButton" onclick="toggleNav('char-tab-btn')">&#9776;</button>
-    <div>
+    <div id="char-tab-top">
+      <button id="newChar" onclick="newChar()">New</button>
       <label for="characters_list">Characters:</label><select id="characters_list" onChange="showChar(this.value)"></select>
       <input type="checkbox" id="all_characters" onclick="showCharsOption()">Show All</input>
       <button id="saveChar"  onclick="saveChar()">Save</button>
-      <button id="newChar" onclick="newChar()">New</button>
+      <label for="character_owner"><span>Owner:</span><select id="character_owner" disabled><option value="unowned">unowned</option></select></label>
+      <input type="hidden" id="character_id" disabled>
     </div>
     <br>
-    <input type="hidden" id="character_id" disabled>
-    <div id="character1">
+    <div id="car-tab-v1">
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px , 1fr));">
-        <label for="character_owner">
-          <span>Owner:</span>
-          <select id="character_owner" disabled><option value="unowned">unowned</option></select>
-        </label>
-        <label for="character_Gender">
-          <span>Gender:</span>
-          <select id="character_Gender"><option value="not specified">not specified</option><option value="Male">Male</option><option value="Female">Female</option></select>
-        </label>
-        <label for="character_state">
-          <span>State:</span>
-          <select id="character_state"><option value="alive">alive</option><option value="dead">dead</option><option value="missing">missing</option></select>
-        </label>
       </div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px , 1fr)); padding-top: 10px">
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px , 1fr)); padding-top: 10px">
         <label for="character_name">
           <span>Name:</span>
           <input type="text" id="character_name">
@@ -122,18 +111,22 @@
           <input type="text" id="character_activeAdventure" disabled>
         </label>
       </div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px , 1fr)); padding-top: 10px;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px , 1fr)); padding-top: 10px;">
+        <label for="character_state">
+          <span>State:</span>
+          <select id="character_state"><option value="alive">alive</option><option value="dead">dead</option><option value="missing">missing</option></select>
+        </label>
         <label for="character_Lvl" class="charstat-label">
           <span>Level:</span>
           <input type="text" id="character_Lvl" class="charstat">
         </label>
-        <label for="character_HP" class="charstat-label">
-          <span>HP:</span>
-          <input  type="text" id="character_HP"  class="charstat">
-        </label>
         <label for="character_Hit_Die" class="charstat-label">
           <span>HitDie:</span>
           <input  type="text" id="character_Hit_Die"  class="charstat">
+        </label>
+        <label for="character_HP" class="charstat-label">
+          <span>HP:</span>
+          <input  type="text" id="character_HP"  class="charstat">
         </label>
         <label for="character_AC" class="charstat-label">
           <span>AC:</span>
@@ -164,15 +157,15 @@
           <input type="text" id="character_CHA" class="charstat">
         </label>
       </div>
+      <table>
+        <tr><th>Weapon:</th><td width="94%"><textarea id="character_Weapon"></textarea></td></tr>
+        <tr><th>Armor:</th><td><textarea id="character_Armor"></textarea></td></tr>
+        <tr><th>Inventory:</th><td><textarea id="character_Inventory"></textarea></td></tr>
+        <tr><th>Skills:</th><td><textarea id="character_Skills"></textarea></td></tr>
+        <tr><th>Backstory:</th><td><textarea id="character_Backstory"></textarea></td></tr>
+        <tr><th>Full Backstory:</th><td><textarea id="character_Backstory_Full"></textarea></td></tr>
+        <tr><th>Adventures:</th><td><textarea id="character_adventures" disabled></textarea></td></tr>
+      </table>
     </div>
-    <table id="character2" >
-      <tr><th>Weapon:</th><td width="94%"><textarea id="character_Weapon"></textarea></td></tr>
-      <tr><th>Armor:</th><td><textarea id="character_Armor"></textarea></td></tr>
-      <tr><th>Inventory:</th><td><textarea id="character_Inventory"></textarea></td></tr>
-      <tr><th>Skills:</th><td><textarea id="character_Skills"></textarea></td></tr>
-      <tr><th>Backstory:</th><td><textarea id="character_Backstory"></textarea></td></tr>
-      <tr><th>Full Backstory:</th><td><textarea id="character_Backstory_Full"></textarea></td></tr>
-      <tr><th>Adventures:</th><td><textarea id="character_adventures" disabled></textarea></td></tr>
-    </table><br>
   </body>
 </html>

@@ -1,0 +1,13 @@
+#/bin/bash
+cd /app
+while true; do
+  logfile=logs/ddgpt-$(date '+%Y%m%d').log
+  start=$(date '+%m/%d/%Y %H:%M:%S')
+  #npm install
+  #npm upgrade
+  node server.js > >(tee -a $logfile) 2>&1
+  duration=$(($(date +%s) - $(date --date "$start" +%s)))
+  if [ "$duration" -lt 10 ]; then
+    sleep 10
+  fi
+done
