@@ -5,13 +5,9 @@ let playerName = '', currentTab = localStorage.getItem('currentTab') || 'Home', 
 
 //Global variable for resize - shared between to functions
 var startX, initialLeftWidth, resizeTarget;
-document.getElementById('gpt-history-resize-bar').addEventListener('mousedown', initDrag);
-document.getElementById('system-div-resize-bar').addEventListener('mousedown', initDrag);
 
 //global variables for data from server
-let char_classes, abilities, alignments, races, backgrounds
-
-document.getElementById('mic-button').addEventListener('click', micClick);
+let char_classes, abilities, alignments, races, backgrounds, basecut = .65, testers = ["Steve","Evan","Ronin"];
 const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
 recognition.continuous = true;
 recognition.interimResults = true;
@@ -22,20 +18,6 @@ recognition.onresult = (event) => {
   const transcript = Array.from(event.results).map(result => result[0].transcript).join(' ');
   document.getElementById('player-input-field-mic').value = (document.getElementById('player-input-field').value.trim()+" ").trim()+transcript.replaceAll("  "," ").replaceAll(" carriage return","\n").replaceAll(" period",".").replaceAll("\n ","\n");;
 };
-
-document.getElementById('scotRun').addEventListener('click', ScotRun);
-document.getElementById('replay').addEventListener('click', replay);
-document.getElementById('saveChar').addEventListener('click', saveChar);
-document.getElementById('connectButton').addEventListener('click', connectButton);
-document.getElementById('disconnectButton').addEventListener('click', disconnectButton);
-document.getElementById('adventureAction').addEventListener('click', adventureAction);
-document.getElementById('player-input-edit').addEventListener('click', editAdventureInput);
-document.getElementById('player-input-roll').addEventListener('click', AdventureInputRoll);
-document.getElementById('player-input-end').addEventListener('click', endAdventure);
-document.getElementById('create-party').addEventListener('click', createParty);
-document.getElementById('join-party').addEventListener('click', joinParty);
-document.getElementById('history_search').addEventListener('keyup',historySearch);
-let basecut = .65, testers = ["Steve","Evan","Ronin"];
 
 window.onload = function() {
   let playerNameRead = localStorage.getItem('playerName');
@@ -174,7 +156,6 @@ socket.on('functionSettings', functionSettings => {
       sortTable(0,'functionSettingsMessages');
     }
   }
-
 });
 socket.on('realmList', data => {
   allRealms = data;

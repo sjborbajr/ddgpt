@@ -9,6 +9,7 @@ import axios from 'axios';
 import fs from 'fs';
 import tail from 'tail';
 const Tail = tail.Tail;
+import SSI from 'node-ssi';
 
 const mongoUri = process.env.MONGODB || "mongodb://localhost/ddgpt?retryWrites=true";
 const client = new MongoClient(mongoUri);
@@ -23,14 +24,19 @@ const settingsCollection = database.collection('settings'), gameDataCollection =
 // Set up the app/web/io server
 const app = express(), server = http.createServer(app), io = new SocketIO(server);
 const __filename = fileURLToPath(import.meta.url), __dirname = dirname(__filename);
+const ssi = new SSI({baseDir: join(__dirname, 'public'),encoding: 'utf-8'});
 server.listen(process.env.PORT || 9000);
 
+//send public/index.html if no specific file is requested
+app.get('/', (req, res) => {
+  ssi.compileFile(join(__dirname, 'public/index.html'), (err, content) => {
+    res.send(content);
+  });
+});
 //configure the web server, serv from the public folder
 app.use(express.static(join(__dirname, 'public')));
 //client.js is in root dir with server.js
 app.get('/client.js', (req, res) => { res.set('Content-Type', 'text/javascript'); res.sendFile(join(__dirname, 'client.js')); });
-//send public/index.html if no specific file is requested
-app.get('/', (req, res) => res.sendFile(join(__dirname, 'index.html')));
 
 io.on('connection', async (socket) => {
   // Get the email from the oidc upstream through headers
@@ -975,11 +981,7 @@ async function startAdventure(adventure){
             }
           }
         }
-      } else {
-        //something went wrong getting croupier data
       }
-    } else {
-      //something went wrong getting creating adventure
     }
   } else {
     console.log(messages,model,Number(settings.temperature),Number(settings.maxTokens));

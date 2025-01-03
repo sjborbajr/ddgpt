@@ -1,0 +1,178 @@
+<html>
+  <body>
+    <div id="new-char-dev" class="sidepanel">
+      <div id="new-char-content-dev1" style="width: 100%; text-align:center; display:none;">
+        <div>
+          <label for="name">Name:</label><input type="text" id="new-char-name" name="name">
+        </div>
+        <div>
+          <label for="race">Race:</label><select id="new-char-race" name="race"></select>
+        </div>
+        <div>
+          <label for="class">Class:</label><select id="new-char-class" name="class"></select>
+        </div>
+        <div>
+          <label for="alignment">Alignment:</label><select id="new-char-alignment" name="alignment"></select>
+        </div>
+    
+        <div class="display-grid" style="width:50%;margin-left:auto;margin-right:auto;">
+          <div class="display-grid">
+            <label for="new-char-str">STR:</label><select id="new-char-STR" name="new-char-str" onChange="abilitySelect(this)"></select>
+            <label for="new-char-dex">DEX:</label><select id="new-char-DEX" name="new-char-dex" onChange="abilitySelect(this)"></select>
+            <label for="new-char-con">CON:</label><select id="new-char-CON" name="new-char-con" onChange="abilitySelect(this)"></select>
+            <label for="new-char-int">INT:</label><select id="new-char-INT" name="new-char-int" onChange="abilitySelect(this)"></select>
+            <label for="new-char-wis">WIS:</label><select id="new-char-WIS" name="new-char-wis" onChange="abilitySelect(this)"></select>
+            <label for="new-char-cha">CHA:</label><select id="new-char-CHA" name="new-char-cha" onChange="abilitySelect(this)"></select>
+          </div>
+          <div class="reroll-section">
+            <button class="reroll-button" onclick="newRoll()">reroll</button>
+            <textarea id='new-char-available-rolls' disabled="true"></textarea>
+          </div>
+        </div>
+    
+        <div class="traits-section">
+          <div>
+            <label for="background">Background:</label><select id="new-char-background" name="background"></select>
+          </div>
+          <div>
+            <label for="trait">Trait:</label><select id="new-char-trait" name="trait"></select>
+          </div>
+          <div>
+            <label for="ideal">Ideal:</label><select id="new-char-ideal" name="ideal"></select>
+          </div>
+          <div>
+            <label for="bond">Bond:</label><select id="new-char-bond" name="bond"></select>
+          </div>
+          <div>
+            <label for="flaw">Flaw:</label><select id="new-char-flaw" name="flaw"></select>
+          </div>
+          <div>
+            <label for="new-char-background-additional">Additional Background:</label><textarea id="new-char-background-additional" name="new-char-background-additional" style="width:30%;"></textarea>
+          </div>
+        </div>
+        
+      </div>
+      <div id="new-char-content-dev2" style="width: 100%; text-align:center; display:none;">
+        <div class="display-grid" style="text-align:center;padding: 4px 4px;">
+          <label for="new-char-class-hit-die">Hit Die:</label><input type="text" disabled id="new-char-class-hit-die"></input>
+          <label for="new-char-ability-bonus">Ability Bonus:</label><input type="text" disabled id="new-char-ability-bonus"></input>
+          <label for="new-char-skills">Skills/Traits:</label><input type="text" id="new-char-skills" disabled></input>
+          <label for="new-char-inventory">inventory:</label><input type="text" id="new-char-inventory" disabled></input>
+        </div>
+        <div id="new-char-choices" style="text-align: center;">
+        </div>
+        <div style="text-align:center; padding: 10px 15px;">
+          <textarea id="new-char-background-info" style="display:none"></textarea>
+          <label for="new-char-background-story">Background Story:</label><textarea id="new-char-background-story" name="new-char-background-story" oninput="autoResize(this)"  style="width:75%;"></textarea><br>
+          <label for="new-char-background-summary">Background Summary:</label><textarea id="new-char-background-summary" name="new-char-background-summary" oninput="autoResize(this)"  style="width:30%;"></textarea>
+        </div>
+      </div>
+      <div id="new-char-buttons" style="width: 100%; text-align: center; vertical-align: bottom;" >
+          <button id="prev-new-char-btn" disabled onclick="newCharPrev()">Previous</button>
+          <button id="next-new-char-btn" disabled onclick="newCharNext()">Next</button>
+      </div>
+    </div>
+    <button id="char-tab-btn" class="openbtn refreshButton" onclick="toggleNav('char-tab-btn')">&#9776;</button>
+    <div>
+      <label for="characters_list">Characters:</label><select id="characters_list" onChange="showChar(this.value)"></select>
+      <input type="checkbox" id="all_characters" onclick="showCharsOption()">Show All</input>
+      <button id="saveChar"  onclick="saveChar()">Save</button>
+      <button id="newChar" onclick="newChar()">New</button>
+    </div>
+    <br>
+    <input type="hidden" id="character_id" disabled>
+    <div id="character1">
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px , 1fr));">
+        <label for="character_owner">
+          <span>Owner:</span>
+          <select id="character_owner" disabled><option value="unowned">unowned</option></select>
+        </label>
+        <label for="character_Gender">
+          <span>Gender:</span>
+          <select id="character_Gender"><option value="not specified">not specified</option><option value="Male">Male</option><option value="Female">Female</option></select>
+        </label>
+        <label for="character_state">
+          <span>State:</span>
+          <select id="character_state"><option value="alive">alive</option><option value="dead">dead</option><option value="missing">missing</option></select>
+        </label>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px , 1fr)); padding-top: 10px">
+        <label for="character_name">
+          <span>Name:</span>
+          <input type="text" id="character_name">
+        </label>
+        <label for="character_Race">
+          <span>Race:</span>
+          <input type="text" id="character_Race">
+        </label>
+        <label for="character_Class">
+          <span>Class:</span>
+          <input type="text" id="character_Class">
+        </label>
+        <label for="character_Background">
+          <span>Background:</span>
+          <input type="text" id="character_Background">
+        </label>
+        <label for="character_Alignment">
+          <span>Alignment:</span>
+          <input type="text" id="character_Alignment">
+        </label>
+        <label for="character_activeAdventure">
+          <span>Adventure:</span>
+          <input type="text" id="character_activeAdventure" disabled>
+        </label>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px , 1fr)); padding-top: 10px;">
+        <label for="character_Lvl" class="charstat-label">
+          <span>Level:</span>
+          <input type="text" id="character_Lvl" class="charstat">
+        </label>
+        <label for="character_HP" class="charstat-label">
+          <span>HP:</span>
+          <input  type="text" id="character_HP"  class="charstat">
+        </label>
+        <label for="character_Hit_Die" class="charstat-label">
+          <span>HitDie:</span>
+          <input  type="text" id="character_Hit_Die"  class="charstat">
+        </label>
+        <label for="character_AC" class="charstat-label">
+          <span>AC:</span>
+          <input type="text" id="character_AC" class="charstat">
+        </label>
+        <label for="character_STR" class="charstat-label">
+          <span>STR:</span>
+          <input type="text" id="character_STR" class="charstat">
+        </label>
+        <label for="character_DEX" class="charstat-label">
+          <span>DEX:</span>
+          <input type="text" id="character_DEX" class="charstat">
+        </label>
+        <label for="character_CON" class="charstat-label">
+          <span>CON:</span>
+          <input type="text" id="character_CON" class="charstat">
+        </label>
+        <label for="character_INT" class="charstat-label">
+          <span>INT:</span>
+          <input type="text" id="character_INT" class="charstat">
+        </label>
+        <label for="character_INT" class="charstat-label">
+          <span>WIS:</span>
+          <input type="text" id="character_WIS" class="charstat">
+        </label>
+        <label for="character_CHA" class="charstat-label">
+          <span>CHA:</span>
+          <input type="text" id="character_CHA" class="charstat">
+        </label>
+      </div>
+    </div>
+    <table id="character2" >
+      <tr><th>Weapon:</th><td width="94%"><textarea id="character_Weapon"></textarea></td></tr>
+      <tr><th>Armor:</th><td><textarea id="character_Armor"></textarea></td></tr>
+      <tr><th>Inventory:</th><td><textarea id="character_Inventory"></textarea></td></tr>
+      <tr><th>Skills:</th><td><textarea id="character_Skills"></textarea></td></tr>
+      <tr><th>Backstory:</th><td><textarea id="character_Backstory"></textarea></td></tr>
+      <tr><th>Full Backstory:</th><td><textarea id="character_Backstory_Full"></textarea></td></tr>
+      <tr><th>Adventures:</th><td><textarea id="character_adventures" disabled></textarea></td></tr>
+    </table><br>
+  </body>
+</html>

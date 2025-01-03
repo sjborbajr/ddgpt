@@ -1,0 +1,83 @@
+<html>
+  <body>
+    <div id="gpt-history">
+      <div id="gpt-history-left-column">
+        <ul id="gpt-history-list">
+        </ul>
+        <button class="refreshButton" onclick="socket.emit('tab','History');" ><img src="/refresh.gif" alt="Refresh" style="width:10px;height:10px;"></button>
+      </div>
+      <div id="gpt-history-resize-bar" onmousedown="initDrag(this)"></div>
+      <div id="gpt-history-right-column">
+        <div id="gpt-history-settings">
+          <label for="history_limit">
+            <span>Display:</span>
+            <select id="history_limit" onChange="historyFilterByFunction(this.value)">
+              <option value="all">all</option>
+              <option value="game">game</option>
+              <option value="adventureStart">adventureStart</option>
+              <option value="adventureName">adventureName</option>
+              <option value="croupier">croupier</option>
+              <option value="doubleCheck">doubleCheck</option>
+              <option value="summary">summary</option>
+              <option value="ScotGPT">ScotGPT</option>
+              <option value="Replay">Replay</option>
+            </select>
+          </label>
+          <label for="history_search">
+            <span>Search:</span>
+            <input type="text" id="history_search" onkeyup="historySearch()"></input>
+          </label>
+          <input type="text" id="history_search_sent" hidden></input>
+          <label for="history_temperature">
+            <span>Temperature:</span>
+            <input type="number" id="history_temperature" min=1 max="100"></input>
+          </label>
+          <label for="history_max_tokens">
+            <span>Max Tokens:</span>
+            <input type="number" id="history_max_tokens" min=1 max="100"></input>
+          </label>
+          <label for="history_function">
+            <span>function:</span>
+            <input type="text" id="history_function" disabled></input>
+          </label>
+          <label for="history_model">
+            <span>Model:</span>
+            <select id="history_model" class="modelList"></select>
+          </label>
+          <label for="history_completion_tokens">
+            <span>completion_tokens:</span>
+            <input type="text" id="history_completion_tokens" disabled></input>
+          </label>
+          <label for="history_duration">
+            <span>duration:</span>
+            <input type="text" id="history_duration" disabled></input>
+          </label>
+          <label for="history_finish_reason">
+            <span>finish_reason:</span>
+            <input type="text" id="history_finish_reason" disabled></input>
+          </label>
+          <label for="history_prompt_tokens">
+            <span>prompt_tokens:</span>
+            <input type="text" id="history_prompt_tokens" disabled></input>
+          </label>
+          <label for="history_status">
+            <span>status:</span>
+            <input type="text" id="history_status" disabled></input>
+          </label>
+          <label for="history_url">
+            <span>url:</span>
+            <input type="text" id="history_url" disabled></input>
+          </label>
+          <button id="replay" onclick="replay()">Replay</button>
+          <button id="replayAdd" onclick="replayAdd()" >More</button>
+          <button id="replayRemove" onclick="replayRemove()" >Less</button>
+          <button id="historyDelete" onclick="historyDelete()" >Delete</button>
+        </div>
+        <div id="gpt-history-messages">
+          <table id="history_table">
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

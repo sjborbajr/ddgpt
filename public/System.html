@@ -1,0 +1,94 @@
+<html>
+  <body>
+    <div id="system-div">
+      <div id="system-div-left-column">
+        <ul id="system-div-list">
+          <li onclick="systemList(this)">Functions</li>
+          <li onclick="systemList(this)">Logs</li>
+          <li onclick="systemList(this)">Models</li>
+          <li onclick="systemList(this)">Actions</li>
+        </ul>
+      </div>
+      <div id="system-div-resize-bar" onmousedown="initDrag(this)"></div>
+      <div id="system-div-right-column">
+        <div id="system-div-Functions" hidden="true">
+          <label for="functionList">
+            <span>Functions:</span>
+            <select id="functionList" onChange="socket.emit('fetchFunction',this.value)"></select>
+          </label>
+          <button onclick="addFunction()">Add</button>
+          <button onclick="saveSettings()">Save</button>
+          <br><br>Settings:<br>
+          <div id="functionSettings">
+            <table id="functionSettingsTable" class="systemTable">
+              <thead>
+                <tr>
+                  <th onclick="sortTable(0,'functionSettingsTable')">Name</th>
+                  <th onclick="sortTable(1,'functionSettingsTable')">Value</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <button onclick="addFunctionSettings()">Add</button>
+            <br>Prompts:&nbsp;&nbsp;&nbsp;&nbsp;<span id="question-mark-macro" class="question-mark" onclick="showHide(this)">Macros?</span>
+            <div id="question-mark-macro-box" class="popup-box">
+                <p>Current Macros:</p>
+                <table>
+                  <tr><td>Party_Name</td><td>Party Names pulled from Adventure</td></tr>
+                  <tr><td>char_count</td><td>Number or characters in the party</td></tr>
+                  <tr><td>next_level</td><td>One level higher than the lowest level character</td></tr>
+                  <tr><td>CharTable</td><td>A table of characters with D&D style stats</td></tr>
+                  <tr><td>char_list</td><td>A list of characters and their class</td></tr>
+                </table>
+            </div><br>
+            <table id="functionSettingsMessages" class="systemTable">
+              <thead>
+                <tr>
+                  <th onclick="sortTable(0,'functionSettingsMessages')">Order</th>
+                  <th onclick="sortTable(1,'functionSettingsMessages')">Role</th>
+                  <th onclick="sortTable(2,'functionSettingsMessages')">Content</th>
+                  <th onclick="sortTable(3,'functionSettingsMessages')">Name</th>
+                  <th onclick="sortTable(4,'functionSettingsMessages')">Realm</th>
+                  <th onclick="sortTable(5,'functionSettingsMessages')">Notes</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <button onclick="addFunctionSettingsMessages()">Add</button>
+            <div id="editBox" style="display: none;">
+              <textarea id="editField"></textarea>
+              <br>
+              <button onclick="saveEdit()">OK</button>
+              <button onclick="cancelEdit()">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <div id="system-div-Logs" hidden="true">
+          <label for="logList">
+            <span>Logs:</span>
+            <select id="logList" onChange="socket.emit('tailLog',this.value)"></select>
+          </label>
+          <div id="logTail" style="height: 500px; overflow-y: scroll; resize: vertical; border: 1px solid #ddd;"></div>
+        </div>
+        <div id="system-div-Models" hidden="true">
+          <table id="system-Models-table" class="systemTable">
+            <thead>
+              <tr>
+                <th onclick="sortTable(0,'system-Models-table','checkbox')">Enabled</th>
+                <th onclick="sortTable(1,'system-Models-table')">Model</th>
+                <th onclick="sortTable(2,'system-Models-table')">Provider</th>
+                <th onclick="sortTable(3,'system-Models-table')">Last Used</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <button onclick="addModel()">Add</button>
+        </div>
+        <div id="system-div-Actions" hidden="true">
+          <button onclick="restartServer()">Restart</button>
+          <button onclick="fetchModels('OpenAI')">Get OpenAI Models</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

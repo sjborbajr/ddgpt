@@ -5,6 +5,7 @@
     "fs": "^0.0.1-security",
     "http": "^0.0.1-security",
     "mongodb": "^5.5.0",
+    "node-ssi": "^0.3.2",
     "path": "^0.12.7",
     "socket.io": "^4.6.1",
     "tail": "^2.2.6"

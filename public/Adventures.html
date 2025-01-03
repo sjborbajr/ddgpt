@@ -1,0 +1,46 @@
+<html>
+  <body>
+    <div id="mySidepanel" class="sidepanel">
+      <div style="width: 100%; text-align: center;">
+        <label for="adventure-model">
+          <span>Model:</span>
+          <select id="adventure-model" onChange="adventureModel(this.value)" class="modelList">
+            <option value="unset">default</option>
+          </select>
+        </label>
+        <label for="adventure-realm">
+          <span>Realm:</span>
+          <select id="adventure-realm" onChange="adventureRealm(this.value)" class="realmList">
+            <option value="unset">default</option>
+            <option value="generic">generic</option>
+            <option value="RnU">RnU</option>
+          </select>
+        </label>
+      </div>
+      <div id="adventurers"></div>
+    </div>
+    <div>
+      <button id="player-input-end" onclick="endAdventure()">End</button>
+      <label for="adventure_list">
+        <span>Adventures:</span>
+        <select id="adventure_list" onChange="fetchAdventure()"></select>
+      </label>
+      <input type="checkbox" id="active_only" onclick="listAdventureOption()" checked>Show Active</input>
+    </div>
+    <div id="adventure-history-container">
+      <h2>Adventure History</h2>
+      <button id="mySidepanel-btn" class="openbtn refreshButton" onclick="toggleNav('mySidepanel-btn')">&#9776;</button>
+      <div id="adventure-history" style="height: 500px; overflow-y: scroll; resize: vertical; border: 1px solid #ddd;"></div>
+    </div>
+    <div id="player-input-container">
+      <h2 id="player-input-header">Player Input</h2>
+      <textarea id="player-input-field" placeholder="Enter your action"></textarea>
+      <textarea id="player-input-field-temp" hidden></textarea>
+      <button id="adventureAction" onclick="adventureAction()">Suggest</button>
+      <button id="player-input-edit" onclick="editAdventureInput()" hidden="true">Edit</button>
+      <button id="player-input-roll" onclick="AdventureInputRoll()">Roll</button>
+      <input type="number" id="player-input-roll-diceCount" value=1 style="width: 32px;">d<input type="number" id="player-input-roll-diceSides" value=20 style="width: 45px;">
+      <button id="mic-button" title="Start/Stop" onclick="micClick()">🎤</button>
+    </div>
+  </body>
+</html>
