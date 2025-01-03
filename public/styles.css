@@ -136,23 +136,23 @@ textarea {
   vertical-align: bottom;
   -webkit-animation: ellipsis steps(4,end) 900ms infinite;      
   animation: ellipsis steps(4,end) 900ms infinite;
-  content: "\2026"; /* ascii code for the ellipsis character */
+  content: "\2026"; /* ellipsis character */
   width: 0px;
 }
 .textExpand {
   resize: auto;
 }
 .sidepanel {
-  height: 80%; /* Specify a height */
-  width: 0px; /* 0 width - change this with JavaScript */
-  position: fixed; /* Stay in place */
-  z-index: 1; /* Stay on top */
+  height: 100%;
+  width: 0px;
+  position: fixed;
+  z-index: 1;
   top: 1;
   right: 0;
   background-color: #cce5ff;
-  overflow-x: hidden; /* Disable horizontal scroll */
-  padding-top: 20px; /* Place content 60px from the top */
-  transition: 0.5s; /* 0.5 second transition effect to slide in the sidepanel */
+  overflow-x: hidden;
+  padding-top: 20px;
+  transition: 0.4s;
   border: 1px;
   border-color: black;
 }
@@ -402,15 +402,15 @@ textarea {
   transition: background-color 0.3s;
 }
 #mic-button.recording {
-  background-color: #f44336; /* Red (recording) */
+  background-color: #f44336;
 }
 
 
 .options {
   display: flex;
   flex-wrap: wrap;
-  gap: 15px; /* Space between items */
-  margin-left: 0; /* Removed indentation for better alignment */
+  gap: 15px;
+  margin-left: 0;
 }
 .options label {
   display: flex;
@@ -420,7 +420,7 @@ textarea {
   border: 1px solid #ddd;
   border-radius: 4px;
   transition: background-color 0.3s, border-color 0.3s;
-  background-color: #fafafa; /* Light background for better contrast */
+  background-color: #fafafa;
   color: #555;
   font-size: 0.95em;
   user-select: none;
