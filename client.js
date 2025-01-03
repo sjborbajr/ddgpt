@@ -179,7 +179,7 @@ socket.on('modelList', data => {
     systemModels.appendChild(tr);
   }
 
-  //find out all lists with class codel list and update
+  //find out all lists with class model list and update
   let modelLists = document.querySelectorAll(".modelList");
   modelList = data.filter(item => item.enable !== false);
   for(let i = 0; i < modelLists.length; i++) {
@@ -1722,7 +1722,7 @@ async function newCharNext() {
             if (!char_doc.details.Shield) {
               char_doc.details.Armor.push(equipment.name)
               char_doc.details.Shield = equipment
-              char_doc.details['AC'] += shield.armor_class.base
+              char_doc.details['AC'] += char_doc.details.Shield.armor_class.base
             } else {
               char_doc.details.Inventory.push(equipment.quantity+"x "+equipment.name);
             }

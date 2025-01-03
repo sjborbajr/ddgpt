@@ -21,6 +21,8 @@ try {
 const database = client.db();
 const settingsCollection = database.collection('settings'), gameDataCollection = database.collection('gameData'), responseCollection = database.collection('allResponses');
 
+gameDataCollection.updateMany({type:'player'},{$set:{connected:false,sockets:[]}});
+
 // Set up the app/web/io server
 const app = express(), server = http.createServer(app), io = new SocketIO(server);
 const __filename = fileURLToPath(import.meta.url), __dirname = dirname(__filename);
@@ -48,9 +50,9 @@ io.on('connection', async (socket) => {
   if ( playerData ) {
     socket.emit('playerName',playerData.name);
     socket.emit('realmList',(await settingsCollection.distinct("realm")));
-    socket.emit('modelList',(await settingsCollection.find({type:'model'},{projection:{apiKey:0}}).toArray()));
+    socket.emit('modelList',(await settingsCollection.find({type:'model'},{projection:{enable:1,model:1,provider:1,lastused:1}}).toArray()));
 
-    gameDataCollection.updateOne({type:'player',name:playerData.name},{$set:{connected:true}});
+    gameDataCollection.updateOne({type:'player',_id:playerData._id},{$set:{connected:true},$push:{sockets:socket.id}});
   
     socket.onAny((event, ...args) => {
       // Log all recieved events/data except a few
@@ -60,7 +62,9 @@ io.on('connection', async (socket) => {
     });
 
     socket.on('API_Key', async data => {
-      await gameDataCollection.updateOne({type:"player",_id:playerData._id},{$set:data});
+      await gameDataCollection.updateOne({type:"player",_id:playerData._id},{$set:data}); //TODO validate data is a single key
+      playerData = await gameDataCollection.findOne({email:email,type:'player'});
+      socket.emit('keys',Object.keys(playerData.api_keys));
     });
     socket.on('changeName', async newName => {
       if (newName == newName.trim().replace(/[^a-zA-Z0-9]/g,'')){
@@ -210,7 +214,6 @@ io.on('connection', async (socket) => {
         if (adventure_id.length == 24){
           socket.join('Adventure-'+adventure_id);
           sendAdventureData(adventure_id,socket);
-          //need more data than what is in the adventure data
           sendAdventurers(adventure_id,socket);
         }
       } catch (error) {
@@ -247,8 +250,12 @@ io.on('connection', async (socket) => {
           gameDataCollection.findOne({type:'adventure',_id:new ObjectId(data.adventure_id)}),
           gameDataCollection.findOne({type:'character',_id:new ObjectId(data.character_id),owner_id:playerData._id})
         ]);
-        if (adventure.state == "forming" && (adventure.owner_id.toString() == playerData._id.toString() || character || playerData.admin)){
-          bootAdventurer(data,socket);
+        if ((adventure.state == "forming" && adventure.owner_id.toString() == playerData._id.toString()) || character || playerData.admin){
+          await Promise.all([
+            gameDataCollection.updateOne({type:'adventure',_id:new ObjectId(data.adventure_id)},{$pull:{characters:{_id:new ObjectId(data.character_id)}}}),
+            gameDataCollection.updateOne({type:'character',_id:new ObjectId(data.character_id)},{$unset:{activeAdventure:1},$pull:{adventures:{_id:new ObjectId(data.adventure_id)}}})
+          ])
+          io.sockets.in('Adventure-'+adventure._id).emit('RemoveAdventurer',data.character_id);
         }
       } catch (error) {
         console.log(error);
@@ -367,7 +374,7 @@ io.on('connection', async (socket) => {
                 await gameDataCollection.updateMany({owner_id:playerData._id,type:'character',activeAdventure:{$exists:false}},{$set:{activeAdventure:{name:adventure.name,_id:adventure._id}},$push:{adventures:{name:adventure.name,_id:adventure._id}}});
                 socket.emit('partyJoined',{_id:adventure._id,name:adventure.name});
                 socket.emit('alertMsg',{message:'Party Forming',color:'green',timeout:3000});
-                io.sockets.in("Tab-Home").emit("partyForming",{party_name:adventure.party_name, _id:adventure._id})
+                io.sockets.emit("partyForming",{party_name:adventure.party_name, _id:adventure._id})
               } else {
                 socket.emit('alertMsg',{message:"Not creating, you already have a forming party!",color:'red',timeout:5000});
               }
@@ -390,11 +397,7 @@ io.on('connection', async (socket) => {
     });
 
     socket.on('tab',async tabName =>{
-      await gameDataCollection.updateOne({type:'player',name:playerData.name},{$set:{tabName:tabName}});
-      socket.tab = tabName
-      //remove player from old tab channels?  - Todo
       if (tabName == 'Home'){
-        socket.join('Tab-'+tabName);
         //send friends or if admin send all if selected - Todo
         if (playerData.admin){
           let connectedPlayers = await gameDataCollection.find({type:'player',connected:true}).project({name:1,_id:-1}).toArray();
@@ -409,7 +412,6 @@ io.on('connection', async (socket) => {
         socket.emit('keys',Object.keys(playerData.api_keys));
   
       } else if (tabName == 'Characters'){
-        socket.join('Tab-'+tabName);
         let characterNames = ''
         if (showCharacters == 'All'){
           if (playerData.admin) {
@@ -424,7 +426,6 @@ io.on('connection', async (socket) => {
           socket.emit('charList',characterNames);
         }
       } else if (tabName == 'Adventures'){
-        socket.join('Tab-'+tabName);
         let advetureNames = ''
         if (showActiveAdventures){
           advetureNames = await gameDataCollection.distinct('activeAdventure',{type:'character',owner_id: new ObjectId(playerData._id)})
@@ -438,12 +439,7 @@ io.on('connection', async (socket) => {
         if (advetureNames != ''){
           socket.emit('adventureList',advetureNames);
         }
-      } else if (tabName == 'System' && playerData.admin) {
-        socket.join('Tab-'+tabName);
-      } else if (tabName == 'ScotGPT' && playerData.admin) {
-        socket.join('Tab-'+tabName);
       } else if (tabName == 'History' && playerData.admin) {
-        socket.join('Tab-'+tabName);
         let historyFilter = {deleted:{$ne:true}};
         if (historyFilterByFunction != 'all' && historyTextSearch != '') {
           historyFilter = {$and:[{function:historyFilterByFunction,deleted:{$ne:true}},{$or:[{response:{$regex:historyTextSearch,$options:'i'}},{request:{$regex:historyTextSearch,$options:'i'}}]}]}
@@ -454,9 +450,6 @@ io.on('connection', async (socket) => {
         }
         let history = await responseCollection.find(historyFilter).project({date:1,_id:1,created:1}).sort({created:-1}).toArray()
         socket.emit('historyList',history)
-      } else {
-        console.log('unknown tabName',tabName);
-        socket.emit('error','unknown tab')
       }
     });
 
@@ -593,9 +586,13 @@ io.on('connection', async (socket) => {
         }
       });
     }
-    socket.on('disconnect', () => {
-      console.log('['+new Date().toUTCString()+'] Player disconnected:', playerData.name);
-      gameDataCollection.updateOne({type:'player',name:playerData.name},{$set:{connected:false}});
+    socket.on('disconnect', async () => {
+      await gameDataCollection.updateOne({type:'player',_id:playerData._id},{$pull:{sockets:socket.id}});
+      let test = await gameDataCollection.findOne({type:'player',_id:playerData._id});
+      if (test.sockets.length == 0) {
+        gameDataCollection.updateOne({type:'player',_id:playerData._id},{$set:{connected:false}});
+        console.log('['+new Date().toUTCString()+'] Player disconnected:', playerData.name);
+      }
     });
   } else {
     if (socket.handshake.auth.playerName) {
@@ -1009,22 +1006,6 @@ async function completeAdventure(adventure_id){
     }
   } catch (error) {
     console.error('Error ending adventure:', error);
-  }
-}
-async function bootAdventurer(data,socket){
-  try {
-    let adventure = await gameDataCollection.findOne({type:'adventure',_id:new ObjectId(data.adventure_id),state:'forming'});
-    if (adventure) {
-      await Promise.all([
-        gameDataCollection.updateOne({type:'adventure',_id:new ObjectId(data.adventure_id)},{$pull:{characters:{_id:new ObjectId(data.character_id)}}}),
-        gameDataCollection.updateOne({type:'character',_id:new ObjectId(data.character_id)},{$unset:{activeAdventure:1},$pull:{adventures:{_id:new ObjectId(data.adventure_id)}}})
-      ])
-      io.sockets.in('Adventure-'+adventure._id).emit('RemoveAdventurer',data.character_id);
-    } else {
-      socket.emit('alertMsg',{message:"Adventure is no longer forming, can't boot.",color:'red',timeout:3000});
-    }
-  } catch (error) {
-    console.error('Error booting adventurer:', error);
   }
 }
 async function continueAdventure(adventure_id){

@@ -7,18 +7,12 @@
     <div class="display-grid">
       <div style="width:80%;margin-left: auto;margin-right: auto;">
         <h3>Connected Users</h3>
-        <div id="connected-users" style="position: relative; border: 1px solid black; height: 100px;">
-          <ul id="home-users-connected">
-          </ul>
-          <button class="refreshButton" onclick="socket.emit('tab','Home');" ><img src="/refresh.gif" alt="Refresh" style="width:10px;height:10px;"></button>
+        <div id="home-users-connected" style="position: relative; border: 1px solid black; height: 100px;">
         </div>
       </div>
       <div style="width:80%;margin-left: auto;margin-right: auto;">
         <h3>Starting Parties</h3>
         <div id="starting-parties" style="position: relative; border: 1px solid black; height: 100px;">
-          <ul id="starting-parties">
-          </ul>
-          <button class="refreshButton" onclick="socket.emit('tab','Home');" ><img src="/refresh.gif" alt="Refresh" style="width:10px;height:10px;"></button>
         </div>
         <input type="text" id="party_name">
         <button id="create-party" onclick="createParty()" style="margin-top: 5px;">Create</button>
@@ -27,15 +21,13 @@
       <div style="width:80%;margin-left: auto;margin-right: auto;">
         <h3>API Keys</h3>
         <div id="API_Keys" style="position: relative; border: 1px solid black; height: 100px;">
-          <ul id="API_Keys">
-          </ul>
         </div>
         <input type="text" id="API_Key">
         <label for="API_provider">Provider:</label><select id="API_provider" name="API_provider"><option value="gemini">gemini</option><option value="openai">openai</option><option value="anthropic">anthropic</option></select>
         <button id="API_add" style="margin-top: 5px;" onclick="AddAPIKey()">Add</button><br>
-        <a href="https://aistudio.google.com/app/apikey">Get Gemini Key</a> (free)<br>
-        <a href="https://console.anthropic.com/settings/keys">Get Anthropic Key</a> (free?)<br>
-        <a href="https://platform.openai.com/api-keys">Get OpenAI Key</a>
+        <a href="https://aistudio.google.com/app/apikey" target="_blank">Get Gemini Key</a> (free)<br>
+        <a href="https://console.anthropic.com/settings/keys" target="_blank">Get Anthropic Key</a> (free?)<br>
+        <a href="https://platform.openai.com/api-keys" target="_blank">Get OpenAI Key</a>
       </div>
     </div>
   </body>
