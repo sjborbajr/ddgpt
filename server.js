@@ -680,6 +680,7 @@ async function aiCall(messages, model, temperature, maxTokens, apiKeys,call_func
   let generatedResponse = ''
   try {
     if (modelInfo.provider == 'openai'){
+      temperature = 1.7 * Number(temperature)
       response = await openaiCall(messages, model, temperature, maxTokens, apiKeys.openai );
     } else if (modelInfo.provider == 'gemini'){
       response = await geminiCall(messages, model, temperature, maxTokens, apiKeys.gemini );
