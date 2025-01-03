@@ -121,6 +121,12 @@ io.on('connection', async (socket) => {
     socket.on('generateBackgroundStory', async data => {
       let messages = await formatMessages("generateBackgroundStory",[{role:'user',content:data}]);
       let settings = await settingsCollection.findOne({type:'function',"function":'generateBackgroundStory'});
+      let api_keys = playerData.api_keys;
+      if (!api_keys) api_keys = {}
+      if (!api_keys.gemini) {
+        let model = await settingsCollection.findOne({type:'model',"provider":'gemini'});
+        api_keys.gemini = model.apiKey
+      }
       let response = await aiCall(messages,settings.model,Number(settings.temperature),Number(settings.maxTokens),playerData.api_keys,'generateBackgroundStory')
       socket.emit('backgroundStory',response);
     });
